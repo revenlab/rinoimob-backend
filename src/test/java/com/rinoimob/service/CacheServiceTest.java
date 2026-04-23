@@ -2,89 +2,99 @@ package com.rinoimob.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.cache.CacheManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
 class CacheServiceTest {
 
-    @Mock
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @Mock
-    private CacheManager cacheManager;
-
-    @Mock
-    private ValueOperations<String, Object> valueOperations;
-
+    @Autowired
     private CacheService cacheService;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     @BeforeEach
     void setUp() {
-        cacheService = new CacheService(redisTemplate, cacheManager);
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        redisTemplate.getConnectionFactory().getConnection().flushAll();
     }
 
     @Test
-    void testSet() {
-        String key = "test-key";
-        String value = "test-value";
+    void testSetAndGet() {
+        String key = "testKey";
+        Object value = "testValue";
 
         cacheService.set(key, value);
+        Object retrieved = cacheService.get(key);
 
-        verify(valueOperations, times(1)).set(key, value);
+        assertThat(retrieved).isEqualTo(value);
     }
 
     @Test
     void testSetWithTimeout() {
-        String key = "test-key";
-        String value = "test-value";
-        long timeout = 300;
-        TimeUnit unit = TimeUnit.SECONDS;
+        String key = "timeoutKey";
+        Object value = "timeoutValue";
 
-        cacheService.set(key, value, timeout, unit);
+        cacheService.set(key, value, 1, TimeUnit.SECONDS);
+        Object retrieved = cacheService.get(key);
 
-        verify(valueOperations, times(1)).set(key, value, timeout, unit);
-    }
+        assertThat(retrieved).isEqualTo(value);
 
-    @Test
-    void testGet() {
-        String key = "test-key";
-        when(valueOperations.get(key)).thenReturn("test-value");
-
-        Object result = cacheService.get(key);
-
-        assertThat(result).isEqualTo("test-value");
-        verify(valueOperations, times(1)).get(key);
+        long expire = cacheService.getExpire(key);
+        assertThat(expire).isGreaterThan(0);
     }
 
     @Test
     void testDelete() {
-        String key = "test-key";
+        String key = "deleteKey";
+        cacheService.set(key, "deleteValue");
 
         cacheService.delete(key);
+        Object retrieved = cacheService.get(key);
 
-        verify(redisTemplate, times(1)).delete(key);
+        assertThat(retrieved).isNull();
     }
 
     @Test
-    void testHasKey() {
-        String key = "test-key";
-        when(redisTemplate.hasKey(key)).thenReturn(true);
+    void testExists() {
+        String key = "existsKey";
+        cacheService.set(key, "existsValue");
 
-        Boolean result = cacheService.hasKey(key);
+        boolean exists = cacheService.exists(key);
+        assertThat(exists).isTrue();
 
-        assertThat(result).isTrue();
-        verify(redisTemplate, times(1)).hasKey(key);
+        cacheService.delete(key);
+        exists = cacheService.exists(key);
+        assertThat(exists).isFalse();
     }
 
+    @Test
+    void testInvalidate() {
+        cacheService.set("prefix:key1", "value1");
+        cacheService.set("prefix:key2", "value2");
+        cacheService.set("other:key", "value3");
+
+        cacheService.invalidate("prefix:*");
+
+        assertThat(cacheService.get("prefix:key1")).isNull();
+        assertThat(cacheService.get("prefix:key2")).isNull();
+        assertThat(cacheService.get("other:key")).isNotNull();
+    }
+
+    @Test
+    void testGetNonExistentKey() {
+        Object retrieved = cacheService.get("nonExistentKey");
+        assertThat(retrieved).isNull();
+    }
+
+    @Test
+    void testGetExpireForNonExistentKey() {
+        long expire = cacheService.getExpire("nonExistentKey");
+        assertThat(expire).isEqualTo(-1);
+    }
 }
