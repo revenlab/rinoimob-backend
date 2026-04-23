@@ -7,11 +7,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 @Service
-@Slf4j
 public class CacheService {
 
+    private static final Logger logger = Logger.getLogger(CacheService.class.getName());
     private final RedisTemplate<String, Object> redisTemplate;
 
     public CacheService(RedisTemplate<String, Object> redisTemplate) {
@@ -22,9 +23,9 @@ public class CacheService {
     public void set(String key, Object value, long timeout, TimeUnit unit) {
         try {
             redisTemplate.opsForValue().set(key, value, timeout, unit);
-            log.debug("Cache set for key: {}", key);
+            logger.fine("Cache set for key: " + key);
         } catch (Exception e) {
-            log.warn("Failed to set cache for key: {}", key, e);
+            logger.warning("Failed to set cache for key: " + key);
         }
     }
 
@@ -32,9 +33,9 @@ public class CacheService {
     public void set(String key, Object value) {
         try {
             redisTemplate.opsForValue().set(key, value);
-            log.debug("Cache set for key: {}", key);
+            logger.fine("Cache set for key: " + key);
         } catch (Exception e) {
-            log.warn("Failed to set cache for key: {}", key, e);
+            logger.warning("Failed to set cache for key: " + key);
         }
     }
 
@@ -42,13 +43,13 @@ public class CacheService {
         try {
             Object value = redisTemplate.opsForValue().get(key);
             if (Objects.nonNull(value)) {
-                log.debug("Cache hit for key: {}", key);
+                logger.fine("Cache hit for key: " + key);
                 return value;
             }
-            log.debug("Cache miss for key: {}", key);
+            logger.fine("Cache miss for key: " + key);
             return null;
         } catch (Exception e) {
-            log.warn("Failed to get cache for key: {}", key, e);
+            logger.warning("Failed to get cache for key: " + key);
             return null;
         }
     }
@@ -58,10 +59,10 @@ public class CacheService {
         try {
             Boolean deleted = redisTemplate.delete(key);
             if (Boolean.TRUE.equals(deleted)) {
-                log.debug("Cache deleted for key: {}", key);
+                logger.fine("Cache deleted for key: " + key);
             }
         } catch (Exception e) {
-            log.warn("Failed to delete cache for key: {}", key, e);
+            logger.warning("Failed to delete cache for key: " + key);
         }
     }
 
@@ -71,10 +72,10 @@ public class CacheService {
             var keys = redisTemplate.keys(pattern);
             if (keys != null && !keys.isEmpty()) {
                 Long deleted = redisTemplate.delete(keys);
-                log.debug("Invalidated {} cache entries for pattern: {}", deleted, pattern);
+                logger.fine("Invalidated " + deleted + " cache entries for pattern: " + pattern);
             }
         } catch (Exception e) {
-            log.warn("Failed to invalidate cache for pattern: {}", pattern, e);
+            logger.warning("Failed to invalidate cache for pattern: " + pattern);
         }
     }
 
@@ -83,7 +84,7 @@ public class CacheService {
             Boolean exists = redisTemplate.hasKey(key);
             return Boolean.TRUE.equals(exists);
         } catch (Exception e) {
-            log.warn("Failed to check cache existence for key: {}", key, e);
+            logger.warning("Failed to check cache existence for key: " + key);
             return false;
         }
     }
@@ -93,7 +94,7 @@ public class CacheService {
             Long expire = redisTemplate.getExpire(key, TimeUnit.SECONDS);
             return Objects.nonNull(expire) ? expire : -1;
         } catch (Exception e) {
-            log.warn("Failed to get cache expiry for key: {}", key, e);
+            logger.warning("Failed to get cache expiry for key: " + key);
             return -1;
         }
     }
