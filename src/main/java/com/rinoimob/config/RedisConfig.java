@@ -51,6 +51,9 @@ public class RedisConfig {
                 );
 
         log.debug("Cache manager configured with 30 minute TTL");
-        return RedisCacheManager.create(connectionFactory);
+        return org.springframework.data.redis.cache.RedisCacheManager
+                .builder(connectionFactory)
+                .cacheDefaults(config)
+                .build();
     }
 }
