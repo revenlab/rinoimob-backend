@@ -1,5 +1,7 @@
 package com.rinoimob.domain.entity;
 
+import com.rinoimob.domain.enums.Role;
+import com.rinoimob.domain.enums.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -22,7 +24,7 @@ public class User {
     @Column(nullable = false)
     private UUID tenantId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(name = "password_hash")
@@ -36,6 +38,17 @@ public class User {
 
     @Column(nullable = false)
     private Boolean active = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role = Role.USER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_status")
+    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
 
     @Column(name = "last_login")
     private LocalDateTime lastLogin;

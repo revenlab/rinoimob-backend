@@ -16,6 +16,17 @@ spring:
     username: ${DB_USER:user}
     password: ${DB_PASSWORD:pass}
     driver-class-name: org.postgresql.Driver
+  mail:
+    host: ${MAIL_HOST:smtp.mailtrap.io}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 springdoc:
   swagger-ui:
@@ -32,3 +43,14 @@ logging:
     
 server:
   port: ${SERVER_PORT:39000}
+
+jwt:
+  secret: ${JWT_SECRET:rinoimob-secret-key-change-in-production-minimum-256-bits}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
+
+app:
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:5173}
+  verification-token-expiration: ${VERIFICATION_TOKEN_EXPIRATION:86400}
+  reset-token-expiration: ${RESET_TOKEN_EXPIRATION:3600}
