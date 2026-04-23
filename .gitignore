@@ -1,0 +1,22 @@
+# Maven
+target/
+.m2/
+*.jar
+*.war
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.DS_Store
+
+# Build
+build/
+dist/
+node_modules/
