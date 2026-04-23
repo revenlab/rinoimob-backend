@@ -17,7 +17,16 @@ spring:
     password: ${DB_PASSWORD:postgres_dev}
     driver-class-name: org.postgresql.Driver
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
 logging:
   level:
     root: INFO
     com.rinoimob: DEBUG
+
