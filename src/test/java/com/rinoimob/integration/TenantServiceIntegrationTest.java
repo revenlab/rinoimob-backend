@@ -1,8 +1,12 @@
 package com.rinoimob.integration;
 
+import com.rinoimob.controller.TenantController;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,7 +14,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @DisplayName("Tenant Service Integration Tests")
-class TenantServiceIntegrationTest extends IntegrationTestBase {
+class TenantServiceIntegrationTest {
+
+    private MockMvc mockMvc;
+
+    private final String baseUrl = "/api/v1";
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(new TenantController()).build();
+    }
 
     @Test
     @DisplayName("Should retrieve all tenants")

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "leads")
@@ -16,13 +17,13 @@ public class Lead {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    private UUID id;
 
     @Column(nullable = false)
-    private String tenantId;
+    private UUID tenantId;
 
     @Column(name = "property_id")
-    private String propertyId;
+    private UUID propertyId;
 
     @Column(nullable = false, name = "first_name")
     private String firstName;
@@ -40,7 +41,7 @@ public class Lead {
     private String source;
 
     @Column(name = "assigned_to")
-    private String assignedTo;
+    private UUID assignedTo;
 
     private String notes;
 

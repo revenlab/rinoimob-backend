@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "properties")
@@ -17,10 +18,10 @@ public class Property {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    private UUID id;
 
     @Column(nullable = false)
-    private String tenantId;
+    private UUID tenantId;
 
     @Column(nullable = false)
     private String address;
@@ -52,7 +53,7 @@ public class Property {
     private BigDecimal annualRent;
 
     @Column(name = "owner_id")
-    private String ownerId;
+    private UUID ownerId;
 
     @Column(nullable = false)
     private Boolean active = true;

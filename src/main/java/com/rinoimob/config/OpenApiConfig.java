@@ -26,7 +26,7 @@ public class OpenApiConfig {
                                 .name("Apache 2.0")
                                 .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
                 .addServersItem(new Server()
-                        .url("http://localhost:8080")
+                        .url("http://localhost:39000")
                         .description("Development Server"))
                 .addServersItem(new Server()
                         .url("https://api.rinoimob.com")

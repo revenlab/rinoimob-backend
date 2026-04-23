@@ -6,14 +6,15 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, String> {
+public interface UserRepository extends JpaRepository<User, UUID> {
 
-    Optional<User> findByTenantIdAndEmail(String tenantId, String email);
+    Optional<User> findByTenantIdAndEmail(UUID tenantId, String email);
 
-    List<User> findByTenantId(String tenantId);
+    List<User> findByTenantId(UUID tenantId);
 
-    List<User> findByTenantIdAndActive(String tenantId, Boolean active);
+    List<User> findByTenantIdAndActive(UUID tenantId, Boolean active);
 
 }

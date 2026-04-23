@@ -21,7 +21,7 @@ Spring Boot 3.x backend service for the Rinoimob property management platform.
 mvn spring-boot:run
 ```
 
-The application will start on `http://localhost:8080`
+The application will start on `http://localhost:39000`
 
 ## Building
 

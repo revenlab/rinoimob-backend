@@ -3,22 +3,27 @@ package com.rinoimob.messaging;
 import com.rinoimob.messaging.publisher.EventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-@SpringBootTest
+@ExtendWith(MockitoExtension.class)
 class EventPublisherTest {
 
-    @Autowired
+    @Mock
+    private RabbitTemplate rabbitTemplate;
+
     private EventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() {
+        eventPublisher = new EventPublisher(rabbitTemplate);
     }
 
     @Test
@@ -42,10 +47,11 @@ class EventPublisherTest {
     @Test
     void testPublishMultipleEvents() {
         for (int i = 0; i < 5; i++) {
+            int eventIndex = i;
             Map<String, Object> payload = new HashMap<>();
-            payload.put("index", i);
+            payload.put("index", eventIndex);
 
-            assertThatCode(() -> eventPublisher.publishEvent("TEST_EVENT_" + i, payload))
+            assertThatCode(() -> eventPublisher.publishEvent("TEST_EVENT_" + eventIndex, payload))
                     .doesNotThrowAnyException();
         }
     }

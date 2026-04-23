@@ -6,6 +6,7 @@ import com.rinoimob.domain.repository.TenantRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class TenantService {
@@ -24,7 +25,14 @@ public class TenantService {
     }
 
     public Optional<Tenant> getTenantById(String id) {
-        return tenantRepository.findById(id);
+        if (id == null || id.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return tenantRepository.findById(UUID.fromString(id));
+        } catch (IllegalArgumentException ex) {
+            return Optional.empty();
+        }
     }
 
     public Optional<Tenant> getTenantBySubdomain(String subdomain) {
@@ -44,7 +52,7 @@ public class TenantService {
     }
 
     public Tenant updateTenant(String id, String name, String subdomain) {
-        Tenant tenant = tenantRepository.findById(id).orElseThrow(() ->
+        Tenant tenant = tenantRepository.findById(UUID.fromString(id)).orElseThrow(() ->
                 new IllegalArgumentException("Tenant not found: " + id)
         );
         tenant.setName(name);
@@ -53,7 +61,7 @@ public class TenantService {
     }
 
     public void deactivateTenant(String id) {
-        Tenant tenant = tenantRepository.findById(id).orElseThrow(() ->
+        Tenant tenant = tenantRepository.findById(UUID.fromString(id)).orElseThrow(() ->
                 new IllegalArgumentException("Tenant not found: " + id)
         );
         tenant.setActive(false);

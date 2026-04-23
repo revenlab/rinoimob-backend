@@ -9,12 +9,12 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQL10Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/rinoimob}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:postgres_dev}
+    username: ${DB_USER:user}
+    password: ${DB_PASSWORD:pass}
     driver-class-name: org.postgresql.Driver
 
 springdoc:
@@ -29,4 +29,6 @@ logging:
   level:
     root: INFO
     com.rinoimob: DEBUG
-
+    
+server:
+  port: ${SERVER_PORT:39000}

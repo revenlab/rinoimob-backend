@@ -16,11 +16,6 @@ public class RateLimitConfig {
 
     private static final Map<String, Bucket> cache = new HashMap<>();
 
-    @Bean
-    public RateLimitConfig rateLimitConfig() {
-        return this;
-    }
-
     public Bucket resolveBucket(String clientId) {
         return cache.computeIfAbsent(clientId, k -> createNewBucket());
     }

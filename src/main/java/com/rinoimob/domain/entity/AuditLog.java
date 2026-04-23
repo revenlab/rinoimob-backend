@@ -1,20 +1,46 @@
 package com.rinoimob.domain.entity;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+@Entity
+@Table(name = "audit_logs")
 public class AuditLog implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "tenant_id", nullable = false)
     private String tenantId;
+
+    @Column(name = "user_id")
     private String userId;
+
+    @Column(nullable = false)
     private String action;
+
+    @Column(nullable = false)
     private String resource;
+
+    @Column(name = "resource_id")
     private String resourceId;
+
+    @Column(columnDefinition = "TEXT")
     private String details;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     public AuditLog() {
@@ -92,6 +118,13 @@ public class AuditLog implements Serializable {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    @PrePersist
+    public void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 
     @Override

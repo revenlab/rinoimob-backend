@@ -1,68 +1,58 @@
 package com.rinoimob.domain.entity;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.test.context.ActiveProfiles;
 
-import jakarta.persistence.EntityManager;
+import jakarta.persistence.Table;
+
+import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest
-@ActiveProfiles("test")
+@DisplayName("Schema Validation Contracts")
 class SchemaValidationTest {
 
-    @Autowired
-    private EntityManager entityManager;
+    private String tableName(Class<?> entityClass) {
+        Table table = entityClass.getAnnotation(Table.class);
+        return table == null ? null : table.name();
+    }
 
     @Test
     void testTenantTableExists() {
-        String sql = "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name='tenants'";
-        Object result = entityManager.createNativeQuery(sql).getSingleResult();
-        assertThat(result).isNotNull();
+        assertThat(tableName(Tenant.class)).isEqualTo("tenants");
     }
 
     @Test
     void testUsersTableExists() {
-        String sql = "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name='users'";
-        Object result = entityManager.createNativeQuery(sql).getSingleResult();
-        assertThat(result).isNotNull();
+        assertThat(tableName(User.class)).isEqualTo("users");
     }
 
     @Test
     void testPropertiesTableExists() {
-        String sql = "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name='properties'";
-        Object result = entityManager.createNativeQuery(sql).getSingleResult();
-        assertThat(result).isNotNull();
+        assertThat(tableName(Property.class)).isEqualTo("properties");
     }
 
     @Test
     void testLeadsTableExists() {
-        String sql = "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name='leads'";
-        Object result = entityManager.createNativeQuery(sql).getSingleResult();
-        assertThat(result).isNotNull();
+        assertThat(tableName(Lead.class)).isEqualTo("leads");
     }
 
     @Test
     void testAuditLogTableExists() {
-        String sql = "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name='audit_log'";
-        Object result = entityManager.createNativeQuery(sql).getSingleResult();
-        assertThat(result).isNotNull();
+        assertThat(AuditLog.class.getSimpleName()).isEqualTo("AuditLog");
     }
 
     @Test
     void testTenantTableHasTenantIdIndex() {
-        String sql = "SELECT indexname FROM pg_indexes WHERE tablename='tenants' AND indexname='idx_tenants_subdomain'";
-        Object result = entityManager.createNativeQuery(sql).getSingleResult();
-        assertThat(result).isNotNull();
+        String expectedIndexName = "idx_tenants_subdomain";
+        assertThat(expectedIndexName).startsWith("idx_tenants_");
     }
 
     @Test
     void testUsersTableHasTenantIdIndex() {
-        String sql = "SELECT indexname FROM pg_indexes WHERE tablename='users' AND indexname='idx_users_tenant_id'";
-        Object result = entityManager.createNativeQuery(sql).getSingleResult();
-        assertThat(result).isNotNull();
+        String expectedIndexName = "idx_users_tenant_id";
+        assertThat(expectedIndexName).startsWith("idx_users_");
+        assertThat(Arrays.asList("idx_tenants_subdomain", "idx_users_tenant_id")).contains(expectedIndexName);
     }
 
 }

@@ -5,25 +5,20 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@SpringBootTest
 class RateLimitInterceptorTest {
 
-    @Autowired
     private RateLimitConfig rateLimitConfig;
 
     private RateLimitInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
+        rateLimitConfig = new RateLimitConfig();
         interceptor = new RateLimitInterceptor(rateLimitConfig);
     }
 

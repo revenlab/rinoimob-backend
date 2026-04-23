@@ -3,6 +3,8 @@ package com.rinoimob.domain.entity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TenantTest {
@@ -16,12 +18,13 @@ class TenantTest {
 
     @Test
     void testTenantCreationWithBasicFields() {
-        tenant.setId("tenant-123");
+        UUID tenantId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        tenant.setId(tenantId);
         tenant.setName("Test Tenant");
         tenant.setSubdomain("test");
         tenant.setActive(true);
 
-        assertThat(tenant.getId()).isEqualTo("tenant-123");
+        assertThat(tenant.getId()).isEqualTo(tenantId);
         assertThat(tenant.getName()).isEqualTo("Test Tenant");
         assertThat(tenant.getSubdomain()).isEqualTo("test");
         assertThat(tenant.getActive()).isTrue();

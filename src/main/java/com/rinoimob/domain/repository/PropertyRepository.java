@@ -5,14 +5,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Repository
-public interface PropertyRepository extends JpaRepository<Property, String> {
+public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
-    List<Property> findByTenantId(String tenantId);
+    List<Property> findByTenantId(UUID tenantId);
 
-    List<Property> findByTenantIdAndActive(String tenantId, Boolean active);
+    List<Property> findByTenantIdAndActive(UUID tenantId, Boolean active);
 
-    List<Property> findByOwnerId(String ownerId);
+    List<Property> findByOwnerId(UUID ownerId);
 
 }

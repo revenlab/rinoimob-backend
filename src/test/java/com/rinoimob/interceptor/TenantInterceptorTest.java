@@ -52,7 +52,7 @@ class TenantInterceptorTest {
     @Test
     void testPreHandleWithLocalhost() throws Exception {
         when(request.getHeader("X-Tenant-ID")).thenReturn(null);
-        when(request.getServerName()).thenReturn("localhost:8080");
+        when(request.getServerName()).thenReturn("localhost:39000");
 
         boolean result = interceptor.preHandle(request, response, new Object());
 

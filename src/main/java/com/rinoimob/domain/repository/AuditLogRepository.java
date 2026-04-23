@@ -15,8 +15,6 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findByTenantIdAndUserId(String tenantId, String userId);
 
     List<AuditLog> findByTenantIdAndAction(String tenantId, String action);
-    
-    List<AuditLog> findByTenantIdAndActorId(String tenantId, String actorId);
 
     List<AuditLog> findByTenantIdAndResource(String tenantId, String resource);
 

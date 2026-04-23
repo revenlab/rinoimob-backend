@@ -1,73 +1,79 @@
 package com.rinoimob.integration;
 
+import com.rinoimob.service.CacheService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 @DisplayName("Cache Service Integration Tests")
-class CacheServiceIntegrationTest extends IntegrationTestBase {
+class CacheServiceIntegrationTest {
 
-    @Autowired(required = false)
+    @Mock
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Mock
+    private ValueOperations<String, Object> valueOperations;
+
+    private CacheService cacheService;
+
+    @BeforeEach
+    void setUp() {
+        cacheService = new CacheService(redisTemplate);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    }
 
     @Test
     @DisplayName("Should set and get value from cache")
     void testCacheSetAndGet() {
-        if (redisTemplate == null) {
-            return;
-        }
-
         String key = "test:key";
         String value = "test:value";
+        when(valueOperations.get(key)).thenReturn(value);
 
-        redisTemplate.opsForValue().set(key, value);
-        Object retrieved = redisTemplate.opsForValue().get(key);
+        cacheService.set(key, value);
+        Object retrieved = cacheService.get(key);
 
         assertThat(retrieved).isEqualTo(value);
-
-        redisTemplate.delete(key);
     }
 
     @Test
     @DisplayName("Should set value with expiration")
     void testCacheWithExpiration() {
-        if (redisTemplate == null) {
-            return;
-        }
-
         String key = "expiring:key";
         String value = "expiring:value";
+        when(valueOperations.get(key)).thenReturn(value);
+        when(redisTemplate.getExpire(key, TimeUnit.SECONDS)).thenReturn(10L);
 
-        redisTemplate.opsForValue().set(key, value, 10, TimeUnit.SECONDS);
-        Object retrieved = redisTemplate.opsForValue().get(key);
+        cacheService.set(key, value, 10, TimeUnit.SECONDS);
+        Object retrieved = cacheService.get(key);
 
         assertThat(retrieved).isEqualTo(value);
 
-        Long expire = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+        long expire = cacheService.getExpire(key);
         assertThat(expire).isGreaterThan(0);
-
-        redisTemplate.delete(key);
     }
 
     @Test
     @DisplayName("Should delete key from cache")
     void testCacheDelete() {
-        if (redisTemplate == null) {
-            return;
-        }
-
         String key = "delete:key";
         String value = "delete:value";
+        when(valueOperations.get(key)).thenReturn(null);
 
-        redisTemplate.opsForValue().set(key, value);
-        redisTemplate.delete(key);
+        cacheService.set(key, value);
+        cacheService.delete(key);
 
-        Object retrieved = redisTemplate.opsForValue().get(key);
+        Object retrieved = cacheService.get(key);
         assertThat(retrieved).isNull();
     }
 }
