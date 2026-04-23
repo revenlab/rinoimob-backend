@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -97,7 +99,7 @@ public class AuthService {
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
-        String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().toString());
+        String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().toString(), user.getTenantId());
         String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail());
 
         log.info("User logged in: {}", user.getEmail());
@@ -133,8 +135,15 @@ public class AuthService {
 
     @Transactional
     public void requestPasswordReset(String email, UUID tenantId) {
-        User user = userRepository.findByEmailAndTenantId(email, tenantId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Optional<User> userOpt = userRepository.findByEmailAndTenantId(email, tenantId);
+        if (userOpt.isEmpty()) {
+            log.info("Password reset requested for non-existent email: {}", email);
+            return;
+        }
+        User user = userOpt.get();
+
+        List<VerificationToken> existingTokens = tokenRepository.findByUserIdAndTokenType(user.getId(), "PASSWORD_RESET");
+        tokenRepository.deleteAll(existingTokens);
 
         String resetToken = UUID.randomUUID().toString();
         VerificationToken token = new VerificationToken();

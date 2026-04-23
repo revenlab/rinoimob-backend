@@ -27,20 +27,23 @@ public class JwtTokenProvider {
     @Value("${jwt.refresh-token-expiration:604800000}")
     private long refreshTokenExpiration;
 
-    public String generateAccessToken(UUID userId, String email, String role) {
-        return generateToken(userId, email, role, accessTokenExpiration, "access");
+    public String generateAccessToken(UUID userId, String email, String role, UUID tenantId) {
+        return generateToken(userId, email, role, tenantId, accessTokenExpiration, "access");
     }
 
     public String generateRefreshToken(UUID userId, String email) {
-        return generateToken(userId, email, null, refreshTokenExpiration, "refresh");
+        return generateToken(userId, email, null, null, refreshTokenExpiration, "refresh");
     }
 
-    private String generateToken(UUID userId, String email, String role, long expiration, String type) {
+    private String generateToken(UUID userId, String email, String role, UUID tenantId, long expiration, String type) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", email);
         claims.put("type", type);
         if (role != null) {
             claims.put("role", role);
+        }
+        if (tenantId != null) {
+            claims.put("tenantId", tenantId.toString());
         }
 
         return Jwts.builder()
@@ -65,6 +68,16 @@ public class JwtTokenProvider {
     public String getRoleFromToken(String token) {
         Claims claims = getAllClaimsFromToken(token);
         return claims.get("role", String.class);
+    }
+
+    public UUID getTenantIdFromToken(String token) {
+        try {
+            Claims claims = getAllClaimsFromToken(token);
+            String tenantId = claims.get("tenantId", String.class);
+            return tenantId != null ? UUID.fromString(tenantId) : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public boolean isTokenValid(String token) {

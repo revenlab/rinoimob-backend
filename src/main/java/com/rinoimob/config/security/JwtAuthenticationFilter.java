@@ -1,18 +1,20 @@
 package com.rinoimob.config.security;
 
+import com.rinoimob.context.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -33,15 +35,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 var userId = tokenProvider.getUserIdFromToken(jwt);
                 var email = tokenProvider.getEmailFromToken(jwt);
                 var role = tokenProvider.getRoleFromToken(jwt);
+                var tenantId = tokenProvider.getTenantIdFromToken(jwt);
+
+                var authorities = (role != null)
+                        ? List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                        : List.<SimpleGrantedAuthority>of();
 
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(email, null, new ArrayList<>());
+                        new UsernamePasswordAuthenticationToken(email, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
                 request.setAttribute("userId", userId);
                 request.setAttribute("email", email);
                 request.setAttribute("role", role);
+
+                if (tenantId != null) {
+                    TenantContext.setTenantId(tenantId.toString());
+                }
             }
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);

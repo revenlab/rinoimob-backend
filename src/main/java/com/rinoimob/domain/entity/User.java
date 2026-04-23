@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"tenant_id", "email"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,7 +26,7 @@ public class User {
     @Column(nullable = false)
     private UUID tenantId;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String email;
 
     @Column(name = "password_hash")

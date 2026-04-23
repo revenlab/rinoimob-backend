@@ -113,10 +113,11 @@ class AuthServiceTest {
         user.setPasswordHash("hashed_password");
         user.setActive(true);
         user.setRole(Role.USER);
+        user.setTenantId(tenantId);
 
         when(userRepository.findByEmailAndTenantId(request.email(), tenantId)).thenReturn(Optional.of(user));
         when(passwordEncoderService.verifyPassword(request.password(), user.getPasswordHash())).thenReturn(true);
-        when(tokenProvider.generateAccessToken(userId, request.email(), Role.USER.toString()))
+        when(tokenProvider.generateAccessToken(userId, request.email(), Role.USER.toString(), tenantId))
                 .thenReturn("access_token");
         when(tokenProvider.generateRefreshToken(userId, request.email())).thenReturn("refresh_token");
 
@@ -184,11 +185,24 @@ class AuthServiceTest {
         user.setEmail(email);
 
         when(userRepository.findByEmailAndTenantId(email, tenantId)).thenReturn(Optional.of(user));
+        when(tokenRepository.findByUserIdAndTokenType(userId, "PASSWORD_RESET")).thenReturn(java.util.Collections.emptyList());
 
         authService.requestPasswordReset(email, tenantId);
 
         verify(tokenRepository, times(1)).save(any(VerificationToken.class));
         verify(emailService, times(1)).sendPasswordResetEmail(eq(email), anyString());
+    }
+
+    @Test
+    @DisplayName("Should silently return when email not found in password reset")
+    void testRequestPasswordResetEmailNotFound() {
+        String email = "nonexistent@test.com";
+        when(userRepository.findByEmailAndTenantId(email, tenantId)).thenReturn(Optional.empty());
+
+        authService.requestPasswordReset(email, tenantId);
+
+        verify(tokenRepository, never()).save(any(VerificationToken.class));
+        verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
     }
 
     @Test
