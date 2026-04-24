@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -32,7 +33,7 @@ public class UserController {
     public ResponseEntity<UserDto> getProfile(HttpServletRequest request) {
         UUID userId = (UUID) request.getAttribute("userId");
         if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            throw unauthorized();
         }
         UserDto profile = authService.getUserProfile(userId);
         return ResponseEntity.ok(profile);
@@ -45,7 +46,7 @@ public class UserController {
             HttpServletRequest request) {
         UUID userId = (UUID) request.getAttribute("userId");
         if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            throw unauthorized();
         }
         UserDto updated = authService.updateUserProfile(userId, body.firstName(), body.lastName());
         return ResponseEntity.ok(updated);
@@ -58,9 +59,13 @@ public class UserController {
             HttpServletRequest request) {
         UUID userId = (UUID) request.getAttribute("userId");
         if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            throw unauthorized();
         }
         authService.changePassword(userId, body.currentPassword(), body.newPassword(), body.confirmPassword());
         return ResponseEntity.ok().build();
+    }
+
+    private ResponseStatusException unauthorized() {
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
     }
 }

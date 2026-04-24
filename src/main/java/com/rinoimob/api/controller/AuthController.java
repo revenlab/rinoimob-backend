@@ -4,6 +4,7 @@ import com.rinoimob.domain.dto.LoginRequest;
 import com.rinoimob.domain.dto.LoginResponse;
 import com.rinoimob.domain.dto.PasswordResetRequest;
 import com.rinoimob.domain.dto.RegisterRequest;
+import com.rinoimob.domain.dto.TenantRegistrationRequest;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.service.TenantService;
 import com.rinoimob.service.auth.AuthService;
@@ -13,10 +14,10 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -32,12 +33,19 @@ public class AuthController {
         this.tenantService = tenantService;
     }
 
+    @PostMapping("/signup")
+    @Operation(summary = "Sign up as a new tenant owner")
+    public ResponseEntity<?> signup(@Valid @RequestBody TenantRegistrationRequest request) {
+        authService.signup(request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
     @PostMapping("/register")
     @Operation(summary = "Register a new user")
-    public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         Optional<Tenant> tenantOpt = tenantService.getCurrentTenant();
         if (tenantOpt.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            throw tenantNotResolvedBadRequest();
         }
         authService.register(request, tenantOpt.get().getId());
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -45,10 +53,10 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Login user")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         Optional<Tenant> tenantOpt = tenantService.getCurrentTenant();
         if (tenantOpt.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            throw tenantNotResolvedBadRequest();
         }
         LoginResponse response = authService.login(request, tenantOpt.get().getId());
         return ResponseEntity.ok(response);
@@ -63,13 +71,17 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     @Operation(summary = "Request password reset")
-    public ResponseEntity<Void> forgotPassword(@RequestParam String email) {
+    public ResponseEntity<?> forgotPassword(@RequestParam String email) {
         Optional<Tenant> tenantOpt = tenantService.getCurrentTenant();
         if (tenantOpt.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            throw tenantNotResolvedBadRequest();
         }
         authService.requestPasswordReset(email, tenantOpt.get().getId());
         return ResponseEntity.ok().build();
+    }
+
+    private ResponseStatusException tenantNotResolvedBadRequest() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tenant context not found");
     }
 
     @PostMapping("/reset-password")

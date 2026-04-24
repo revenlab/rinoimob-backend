@@ -6,7 +6,18 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_status VARCHAR(50) DEFAU
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP;
 
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
-ALTER TABLE users ADD CONSTRAINT IF NOT EXISTS users_tenant_email_unique UNIQUE (tenant_id, email);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'users_tenant_email_unique'
+          AND conrelid = 'users'::regclass
+    ) THEN
+        ALTER TABLE users
+            ADD CONSTRAINT users_tenant_email_unique UNIQUE (tenant_id, email);
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS verification_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -4,10 +4,14 @@ import com.rinoimob.config.security.JwtTokenProvider;
 import com.rinoimob.domain.dto.LoginRequest;
 import com.rinoimob.domain.dto.LoginResponse;
 import com.rinoimob.domain.dto.RegisterRequest;
+import com.rinoimob.domain.dto.TenantRegistrationRequest;
 import com.rinoimob.domain.dto.UserDto;
+import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
+import com.rinoimob.domain.enums.Role;
 import com.rinoimob.domain.enums.VerificationStatus;
+import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
 import com.rinoimob.service.email.EmailService;
@@ -26,6 +30,7 @@ import java.util.UUID;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final TenantRepository tenantRepository;
     private final VerificationTokenRepository tokenRepository;
     private final JwtTokenProvider tokenProvider;
     private final PasswordEncoderService passwordEncoderService;
@@ -38,15 +43,63 @@ public class AuthService {
     private long resetTokenExpiration;
 
     public AuthService(UserRepository userRepository,
+                       TenantRepository tenantRepository,
                        VerificationTokenRepository tokenRepository,
                        JwtTokenProvider tokenProvider,
                        PasswordEncoderService passwordEncoderService,
                        EmailService emailService) {
         this.userRepository = userRepository;
+        this.tenantRepository = tenantRepository;
         this.tokenRepository = tokenRepository;
         this.tokenProvider = tokenProvider;
         this.passwordEncoderService = passwordEncoderService;
         this.emailService = emailService;
+    }
+
+    @Transactional
+    public void signup(TenantRegistrationRequest request) {
+        if (!request.password().equals(request.confirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
+        }
+
+        String normalizedSubdomain = request.subdomain().toLowerCase();
+
+        if (tenantRepository.findBySubdomain(normalizedSubdomain).isPresent()) {
+            throw new IllegalArgumentException("Subdomain is already taken");
+        }
+
+        if (tenantRepository.findByName(request.tenantName()).isPresent()) {
+            throw new IllegalArgumentException("Tenant name is already taken");
+        }
+
+        Tenant tenant = new Tenant();
+        tenant.setName(request.tenantName());
+        tenant.setSubdomain(normalizedSubdomain);
+        Tenant savedTenant = tenantRepository.save(tenant);
+
+        User user = new User();
+        user.setTenantId(savedTenant.getId());
+        user.setEmail(request.email());
+        user.setFirstName(request.firstName());
+        user.setLastName(request.lastName());
+        user.setPasswordHash(passwordEncoderService.encodePassword(request.password()));
+        user.setRole(Role.TENANT_OWNER);
+        user.setVerificationStatus(VerificationStatus.PENDING);
+        user.setActive(true);
+
+        User savedUser = userRepository.save(user);
+
+        String verificationToken = UUID.randomUUID().toString();
+        VerificationToken token = new VerificationToken();
+        token.setToken(verificationToken);
+        token.setUserId(savedUser.getId());
+        token.setTokenType("VERIFICATION");
+        token.setExpiresAt(LocalDateTime.now().plusSeconds(verificationTokenExpiration));
+
+        tokenRepository.save(token);
+        emailService.sendVerificationEmail(savedUser.getEmail(), verificationToken);
+
+        log.info("New tenant '{}' created with owner: {}", savedTenant.getSubdomain(), savedUser.getEmail());
     }
 
     @Transactional
