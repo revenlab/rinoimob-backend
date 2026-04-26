@@ -9,16 +9,19 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret:rinoimob-secret-key-change-in-production-minimum-256-bits}")
+    @Value("${jwt.secret:rinoimob-dev-secret-key-change-in-production-must-be-at-least-512-bits-long!!}")
     private String jwtSecret;
 
     @Value("${jwt.access-token-expiration:900000}")
@@ -94,6 +97,46 @@ public class JwtTokenProvider {
         try {
             Claims claims = getAllClaimsFromToken(token);
             return "access".equals(claims.get("type", String.class));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public String generatePreAuthToken(String email, List<UUID> allowedTenantIds) {
+        String tenants = allowedTenantIds.stream()
+                .map(UUID::toString)
+                .collect(Collectors.joining(","));
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", email);
+        claims.put("type", "pre_auth");
+        claims.put("allowedTenants", tenants);
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(email)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 300_000L))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    public String getEmailFromPreAuthToken(String token) {
+        return getAllClaimsFromToken(token).getSubject();
+    }
+
+    public List<UUID> getAllowedTenantsFromPreAuthToken(String token) {
+        String tenants = getAllClaimsFromToken(token).get("allowedTenants", String.class);
+        if (tenants == null || tenants.isBlank()) return List.of();
+        return Arrays.stream(tenants.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(UUID::fromString)
+                .collect(Collectors.toList());
+    }
+
+    public boolean isPreAuthToken(String token) {
+        try {
+            Claims claims = getAllClaimsFromToken(token);
+            return "pre_auth".equals(claims.get("type", String.class));
         } catch (Exception e) {
             return false;
         }

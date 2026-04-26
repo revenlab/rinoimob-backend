@@ -38,6 +38,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/identify").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/select-tenant").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/verify-email").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/forgot-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/reset-password").permitAll()

@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,7 +13,7 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.from:noreply@rinoimob.com}")
+    @Value("${spring.mail.from:noreply@dev.krgma.com.br}")
     private String fromEmail;
 
     @Value("${app.frontend.url:http://localhost:5173}")
@@ -22,6 +23,7 @@ public class EmailService {
         this.mailSender = mailSender;
     }
 
+    @Async
     public void sendVerificationEmail(String email, String token) {
         try {
             String verificationUrl = frontendUrl + "/verify-email?token=" + token;
@@ -41,10 +43,10 @@ public class EmailService {
             log.info("Verification email sent to {}", email);
         } catch (Exception e) {
             log.error("Failed to send verification email to {}", email, e);
-            throw new RuntimeException("Failed to send verification email", e);
         }
     }
 
+    @Async
     public void sendPasswordResetEmail(String email, String token) {
         try {
             String resetUrl = frontendUrl + "/reset-password?token=" + token;
@@ -67,7 +69,6 @@ public class EmailService {
             log.info("Password reset email sent to {}", email);
         } catch (Exception e) {
             log.error("Failed to send password reset email to {}", email, e);
-            throw new RuntimeException("Failed to send password reset email", e);
         }
     }
 }

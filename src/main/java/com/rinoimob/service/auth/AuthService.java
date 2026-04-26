@@ -1,16 +1,22 @@
 package com.rinoimob.service.auth;
 
 import com.rinoimob.config.security.JwtTokenProvider;
+import com.rinoimob.domain.dto.IdentifyRequest;
+import com.rinoimob.domain.dto.IdentifyResponse;
 import com.rinoimob.domain.dto.LoginRequest;
 import com.rinoimob.domain.dto.LoginResponse;
 import com.rinoimob.domain.dto.RegisterRequest;
+import com.rinoimob.domain.dto.SelectTenantRequest;
 import com.rinoimob.domain.dto.TenantRegistrationRequest;
+import com.rinoimob.domain.dto.TenantSummary;
 import com.rinoimob.domain.dto.UserDto;
+import com.rinoimob.domain.entity.GlobalCredential;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
 import com.rinoimob.domain.enums.Role;
 import com.rinoimob.domain.enums.VerificationStatus;
+import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
@@ -31,6 +37,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final TenantRepository tenantRepository;
+    private final GlobalCredentialRepository globalCredentialRepository;
     private final VerificationTokenRepository tokenRepository;
     private final JwtTokenProvider tokenProvider;
     private final PasswordEncoderService passwordEncoderService;
@@ -44,12 +51,14 @@ public class AuthService {
 
     public AuthService(UserRepository userRepository,
                        TenantRepository tenantRepository,
+                       GlobalCredentialRepository globalCredentialRepository,
                        VerificationTokenRepository tokenRepository,
                        JwtTokenProvider tokenProvider,
                        PasswordEncoderService passwordEncoderService,
                        EmailService emailService) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
+        this.globalCredentialRepository = globalCredentialRepository;
         this.tokenRepository = tokenRepository;
         this.tokenProvider = tokenProvider;
         this.passwordEncoderService = passwordEncoderService;
@@ -63,6 +72,7 @@ public class AuthService {
         }
 
         String normalizedSubdomain = request.subdomain().toLowerCase();
+        String normalizedEmail = request.email().toLowerCase();
 
         if (tenantRepository.findBySubdomain(normalizedSubdomain).isPresent()) {
             throw new IllegalArgumentException("Subdomain is already taken");
@@ -77,12 +87,19 @@ public class AuthService {
         tenant.setSubdomain(normalizedSubdomain);
         Tenant savedTenant = tenantRepository.save(tenant);
 
+        // Create global credential only if this email is new to the platform.
+        if (globalCredentialRepository.findByEmail(normalizedEmail).isEmpty()) {
+            GlobalCredential credential = new GlobalCredential();
+            credential.setEmail(normalizedEmail);
+            credential.setPasswordHash(passwordEncoderService.encodePassword(request.password()));
+            globalCredentialRepository.save(credential);
+        }
+
         User user = new User();
         user.setTenantId(savedTenant.getId());
-        user.setEmail(request.email());
+        user.setEmail(normalizedEmail);
         user.setFirstName(request.firstName());
         user.setLastName(request.lastName());
-        user.setPasswordHash(passwordEncoderService.encodePassword(request.password()));
         user.setRole(Role.TENANT_OWNER);
         user.setVerificationStatus(VerificationStatus.PENDING);
         user.setActive(true);
@@ -108,16 +125,25 @@ public class AuthService {
             throw new IllegalArgumentException("Passwords do not match");
         }
 
-        if (userRepository.existsByEmailAndTenantId(request.email(), tenantId)) {
+        String normalizedEmail = request.email().toLowerCase();
+
+        if (userRepository.existsByEmailAndTenantId(normalizedEmail, tenantId)) {
             throw new IllegalArgumentException("Email already registered");
+        }
+
+        // Create global credential only if this email is new to the platform.
+        if (globalCredentialRepository.findByEmail(normalizedEmail).isEmpty()) {
+            GlobalCredential credential = new GlobalCredential();
+            credential.setEmail(normalizedEmail);
+            credential.setPasswordHash(passwordEncoderService.encodePassword(request.password()));
+            globalCredentialRepository.save(credential);
         }
 
         User user = new User();
         user.setTenantId(tenantId);
-        user.setEmail(request.email());
+        user.setEmail(normalizedEmail);
         user.setFirstName(request.firstName());
         user.setLastName(request.lastName());
-        user.setPasswordHash(passwordEncoderService.encodePassword(request.password()));
         user.setVerificationStatus(VerificationStatus.PENDING);
         user.setActive(true);
 
@@ -136,17 +162,60 @@ public class AuthService {
         log.info("User registered: {} in tenant {}", savedUser.getEmail(), tenantId);
     }
 
-    @Transactional
-    public LoginResponse login(LoginRequest request, UUID tenantId) {
-        User user = userRepository.findByEmailAndTenantId(request.email(), tenantId)
+    /**
+     * Step 1 of the workspace-selector login flow.
+     * Validates global credentials and returns the list of active workspaces for this identity.
+     */
+    @Transactional(readOnly = true)
+    public IdentifyResponse identify(String email, String password) {
+        String normalizedEmail = email.toLowerCase();
+
+        GlobalCredential credential = globalCredentialRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+
+        if (!passwordEncoderService.verifyPassword(password, credential.getPasswordHash())) {
+            throw new IllegalArgumentException("Invalid credentials");
+        }
+
+        List<TenantSummary> tenants = userRepository.findAllByEmail(normalizedEmail).stream()
+                .filter(User::getActive)
+                .map(user -> tenantRepository.findById(user.getTenantId()).orElse(null))
+                .filter(t -> t != null && t.getActive())
+                .map(t -> new TenantSummary(t.getId(), t.getName(), t.getSubdomain()))
+                .toList();
+
+        if (tenants.isEmpty()) {
+            throw new IllegalArgumentException("No active workspace found for this account");
+        }
+
+        List<UUID> tenantIds = tenants.stream().map(TenantSummary::id).toList();
+        String preAuthToken = tokenProvider.generatePreAuthToken(normalizedEmail, tenantIds);
+
+        return new IdentifyResponse(preAuthToken, tenants);
+    }
+
+    /**
+     * Step 2 of the workspace-selector login flow.
+     * Validates the pre-auth token, checks workspace membership, and issues a full JWT.
+     */
+    @Transactional
+    public LoginResponse selectTenant(String preAuthToken, UUID tenantId) {
+        if (!tokenProvider.isPreAuthToken(preAuthToken) || !tokenProvider.isTokenValid(preAuthToken)) {
+            throw new IllegalArgumentException("Session expired. Please log in again.");
+        }
+
+        String email = tokenProvider.getEmailFromPreAuthToken(preAuthToken);
+        List<UUID> allowedTenants = tokenProvider.getAllowedTenantsFromPreAuthToken(preAuthToken);
+
+        if (!allowedTenants.contains(tenantId)) {
+            throw new IllegalArgumentException("Workspace not allowed for this session");
+        }
+
+        User user = userRepository.findByEmailAndTenantId(email, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found in workspace"));
 
         if (!user.getActive()) {
             throw new IllegalArgumentException("Account is disabled");
-        }
-
-        if (!passwordEncoderService.verifyPassword(request.password(), user.getPasswordHash())) {
-            throw new IllegalArgumentException("Invalid credentials");
         }
 
         user.setLastLogin(LocalDateTime.now());
@@ -155,14 +224,41 @@ public class AuthService {
         String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().toString(), user.getTenantId());
         String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail());
 
-        log.info("User logged in: {}", user.getEmail());
+        log.info("User logged in: {} in tenant {}", user.getEmail(), tenantId);
 
-        return new LoginResponse(
-                accessToken,
-                refreshToken,
-                900L,
-                mapToUserDto(user)
-        );
+        return new LoginResponse(accessToken, refreshToken, 900L, mapToUserDto(user));
+    }
+
+    /**
+     * Legacy login used by the client website where tenant is resolved from the request host.
+     */
+    @Transactional
+    public LoginResponse login(LoginRequest request, UUID tenantId) {
+        String normalizedEmail = request.email().toLowerCase();
+
+        GlobalCredential credential = globalCredentialRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+
+        if (!passwordEncoderService.verifyPassword(request.password(), credential.getPasswordHash())) {
+            throw new IllegalArgumentException("Invalid credentials");
+        }
+
+        User user = userRepository.findByEmailAndTenantId(normalizedEmail, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+
+        if (!user.getActive()) {
+            throw new IllegalArgumentException("Account is disabled");
+        }
+
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
+
+        String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().toString(), user.getTenantId());
+        String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail());
+
+        log.info("User logged in (host-resolved): {}", user.getEmail());
+
+        return new LoginResponse(accessToken, refreshToken, 900L, mapToUserDto(user));
     }
 
     @Transactional
@@ -187,12 +283,25 @@ public class AuthService {
     }
 
     @Transactional
-    public void requestPasswordReset(String email, UUID tenantId) {
-        Optional<User> userOpt = userRepository.findByEmailAndTenantId(email, tenantId);
-        if (userOpt.isEmpty()) {
-            log.info("Password reset requested for non-existent email: {}", email);
+    public void requestPasswordReset(String email) {
+        String normalizedEmail = email.toLowerCase();
+
+        // Global credential must exist; if not, silently return to avoid enumeration.
+        if (globalCredentialRepository.findByEmail(normalizedEmail).isEmpty()) {
+            log.info("Password reset requested for non-existent email: {}", normalizedEmail);
             return;
         }
+
+        // Find any membership row to anchor the reset token (any tenant is fine).
+        Optional<User> userOpt = userRepository.findAllByEmail(normalizedEmail).stream()
+                .filter(User::getActive)
+                .findFirst();
+
+        if (userOpt.isEmpty()) {
+            log.info("Password reset: no active user found for email: {}", normalizedEmail);
+            return;
+        }
+
         User user = userOpt.get();
 
         List<VerificationToken> existingTokens = tokenRepository.findByUserIdAndTokenType(user.getId(), "PASSWORD_RESET");
@@ -208,7 +317,7 @@ public class AuthService {
         tokenRepository.save(token);
         emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
 
-        log.info("Password reset requested for user: {}", user.getEmail());
+        log.info("Password reset requested for: {}", user.getEmail());
     }
 
     @Transactional
@@ -227,12 +336,16 @@ public class AuthService {
         User user = userRepository.findById(resetToken.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        user.setPasswordHash(passwordEncoderService.encodePassword(newPassword));
-        userRepository.save(user);
+        // Update the global credential (password shared across all workspaces).
+        GlobalCredential credential = globalCredentialRepository.findByEmail(user.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Credential not found"));
+
+        credential.setPasswordHash(passwordEncoderService.encodePassword(newPassword));
+        globalCredentialRepository.save(credential);
 
         tokenRepository.delete(resetToken);
 
-        log.info("Password reset for user: {}", user.getEmail());
+        log.info("Password reset for: {}", user.getEmail());
     }
 
     public UserDto getUserProfile(UUID userId) {
@@ -263,14 +376,17 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        if (!passwordEncoderService.verifyPassword(currentPassword, user.getPasswordHash())) {
+        GlobalCredential credential = globalCredentialRepository.findByEmail(user.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Credential not found"));
+
+        if (!passwordEncoderService.verifyPassword(currentPassword, credential.getPasswordHash())) {
             throw new IllegalArgumentException("Current password is incorrect");
         }
 
-        user.setPasswordHash(passwordEncoderService.encodePassword(newPassword));
-        userRepository.save(user);
+        credential.setPasswordHash(passwordEncoderService.encodePassword(newPassword));
+        globalCredentialRepository.save(credential);
 
-        log.info("Password changed for user: {}", user.getEmail());
+        log.info("Password changed for: {}", user.getEmail());
     }
 
     private UserDto mapToUserDto(User user) {

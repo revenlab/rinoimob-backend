@@ -17,9 +17,9 @@ spring:
     password: ${DB_PASSWORD:pass}
     driver-class-name: org.postgresql.Driver
   mail:
-    host: ${MAIL_HOST:smtp.mailtrap.io}
+    host: ${MAIL_HOST:smtp.resend.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
+    username: ${MAIL_USERNAME:resend}
     password: ${MAIL_PASSWORD:}
     properties:
       mail:
@@ -45,7 +45,7 @@ server:
   port: ${SERVER_PORT:39000}
 
 jwt:
-  secret: ${JWT_SECRET:rinoimob-secret-key-change-in-production-minimum-256-bits}
+  secret: ${JWT_SECRET:rinoimob-dev-secret-key-change-in-production-must-be-at-least-512-bits-long!!}
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
 

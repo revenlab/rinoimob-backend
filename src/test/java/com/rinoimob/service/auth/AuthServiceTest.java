@@ -3,11 +3,13 @@ package com.rinoimob.service.auth;
 import com.rinoimob.domain.dto.LoginRequest;
 import com.rinoimob.domain.dto.RegisterRequest;
 import com.rinoimob.domain.dto.TenantRegistrationRequest;
+import com.rinoimob.domain.entity.GlobalCredential;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
 import com.rinoimob.domain.enums.Role;
 import com.rinoimob.domain.enums.VerificationStatus;
+import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
@@ -21,6 +23,8 @@ import org.mockito.MockitoAnnotations;
 import com.rinoimob.config.security.JwtTokenProvider;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -39,6 +43,9 @@ class AuthServiceTest {
 
     @Mock
     private TenantRepository tenantRepository;
+
+    @Mock
+    private GlobalCredentialRepository globalCredentialRepository;
 
     @Mock
     private VerificationTokenRepository tokenRepository;
@@ -73,6 +80,7 @@ class AuthServiceTest {
         );
 
         when(userRepository.existsByEmailAndTenantId(request.email(), tenantId)).thenReturn(false);
+        when(globalCredentialRepository.findByEmail(request.email())).thenReturn(Optional.empty());
         when(passwordEncoderService.encodePassword(request.password())).thenReturn("hashed_password");
 
         User savedUser = new User();
@@ -82,6 +90,7 @@ class AuthServiceTest {
 
         authService.register(request, tenantId);
 
+        verify(globalCredentialRepository, times(1)).save(any(GlobalCredential.class));
         verify(userRepository, times(1)).save(any(User.class));
         verify(tokenRepository, times(1)).save(any(VerificationToken.class));
         verify(emailService, times(1)).sendVerificationEmail(eq(request.email()), anyString());
@@ -114,16 +123,20 @@ class AuthServiceTest {
     void testLoginSuccess() {
         LoginRequest request = new LoginRequest("john@test.com", "Password123");
 
+        GlobalCredential credential = new GlobalCredential();
+        credential.setEmail(request.email());
+        credential.setPasswordHash("hashed_password");
+
         User user = new User();
         user.setId(userId);
         user.setEmail(request.email());
-        user.setPasswordHash("hashed_password");
         user.setActive(true);
         user.setRole(Role.USER);
         user.setTenantId(tenantId);
 
+        when(globalCredentialRepository.findByEmail(request.email())).thenReturn(Optional.of(credential));
+        when(passwordEncoderService.verifyPassword(request.password(), credential.getPasswordHash())).thenReturn(true);
         when(userRepository.findByEmailAndTenantId(request.email(), tenantId)).thenReturn(Optional.of(user));
-        when(passwordEncoderService.verifyPassword(request.password(), user.getPasswordHash())).thenReturn(true);
         when(tokenProvider.generateAccessToken(userId, request.email(), Role.USER.toString(), tenantId))
                 .thenReturn("access_token");
         when(tokenProvider.generateRefreshToken(userId, request.email())).thenReturn("refresh_token");
@@ -141,7 +154,7 @@ class AuthServiceTest {
     void testLoginInvalidCredentials() {
         LoginRequest request = new LoginRequest("john@test.com", "WrongPassword");
 
-        when(userRepository.findByEmailAndTenantId(request.email(), tenantId)).thenReturn(Optional.empty());
+        when(globalCredentialRepository.findByEmail(request.email())).thenReturn(Optional.empty());
 
         assertThrows(IllegalArgumentException.class, () -> authService.login(request, tenantId));
     }
@@ -187,14 +200,21 @@ class AuthServiceTest {
     @DisplayName("Should request password reset successfully")
     void testRequestPasswordResetSuccess() {
         String email = "john@test.com";
+
+        GlobalCredential credential = new GlobalCredential();
+        credential.setEmail(email);
+        credential.setPasswordHash("hashed_password");
+
         User user = new User();
         user.setId(userId);
         user.setEmail(email);
+        user.setActive(true);
 
-        when(userRepository.findByEmailAndTenantId(email, tenantId)).thenReturn(Optional.of(user));
-        when(tokenRepository.findByUserIdAndTokenType(userId, "PASSWORD_RESET")).thenReturn(java.util.Collections.emptyList());
+        when(globalCredentialRepository.findByEmail(email)).thenReturn(Optional.of(credential));
+        when(userRepository.findAllByEmail(email)).thenReturn(List.of(user));
+        when(tokenRepository.findByUserIdAndTokenType(userId, "PASSWORD_RESET")).thenReturn(Collections.emptyList());
 
-        authService.requestPasswordReset(email, tenantId);
+        authService.requestPasswordReset(email);
 
         verify(tokenRepository, times(1)).save(any(VerificationToken.class));
         verify(emailService, times(1)).sendPasswordResetEmail(eq(email), anyString());
@@ -204,9 +224,9 @@ class AuthServiceTest {
     @DisplayName("Should silently return when email not found in password reset")
     void testRequestPasswordResetEmailNotFound() {
         String email = "nonexistent@test.com";
-        when(userRepository.findByEmailAndTenantId(email, tenantId)).thenReturn(Optional.empty());
+        when(globalCredentialRepository.findByEmail(email)).thenReturn(Optional.empty());
 
-        authService.requestPasswordReset(email, tenantId);
+        authService.requestPasswordReset(email);
 
         verify(tokenRepository, never()).save(any(VerificationToken.class));
         verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
@@ -228,14 +248,18 @@ class AuthServiceTest {
         user.setId(userId);
         user.setEmail("john@test.com");
 
+        GlobalCredential credential = new GlobalCredential();
+        credential.setEmail("john@test.com");
+        credential.setPasswordHash("old_hashed_password");
+
         when(tokenRepository.findByToken(token)).thenReturn(Optional.of(resetToken));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(globalCredentialRepository.findByEmail("john@test.com")).thenReturn(Optional.of(credential));
         when(passwordEncoderService.encodePassword(newPassword)).thenReturn("hashed_new_password");
 
         authService.resetPassword(token, newPassword, confirmPassword);
 
-        assertEquals("hashed_new_password", user.getPasswordHash());
-        verify(userRepository, times(1)).save(user);
+        verify(globalCredentialRepository, times(1)).save(argThat(c -> "hashed_new_password".equals(c.getPasswordHash())));
         verify(tokenRepository, times(1)).delete(resetToken);
     }
 
@@ -248,6 +272,7 @@ class AuthServiceTest {
 
         when(tenantRepository.findBySubdomain("acme")).thenReturn(Optional.empty());
         when(tenantRepository.findByName("Acme Corp")).thenReturn(Optional.empty());
+        when(globalCredentialRepository.findByEmail("john@acme.com")).thenReturn(Optional.empty());
 
         Tenant savedTenant = new Tenant();
         savedTenant.setId(UUID.randomUUID());
@@ -264,6 +289,7 @@ class AuthServiceTest {
         authService.signup(request);
 
         verify(tenantRepository, times(1)).save(any(Tenant.class));
+        verify(globalCredentialRepository, times(1)).save(any(GlobalCredential.class));
         verify(userRepository, times(1)).save(argThat(u -> u.getRole() == Role.TENANT_OWNER));
         verify(tokenRepository, times(1)).save(any(VerificationToken.class));
         verify(emailService, times(1)).sendVerificationEmail(eq(request.email()), anyString());
@@ -278,6 +304,7 @@ class AuthServiceTest {
 
         when(tenantRepository.findBySubdomain("acme")).thenReturn(Optional.empty());
         when(tenantRepository.findByName("Acme Corp")).thenReturn(Optional.empty());
+        when(globalCredentialRepository.findByEmail("john@acme.com")).thenReturn(Optional.empty());
 
         Tenant savedTenant = new Tenant();
         savedTenant.setId(UUID.randomUUID());

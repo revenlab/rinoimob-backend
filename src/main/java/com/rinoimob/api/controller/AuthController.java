@@ -1,9 +1,13 @@
 package com.rinoimob.api.controller;
 
+import com.rinoimob.domain.dto.ForgotPasswordRequest;
+import com.rinoimob.domain.dto.IdentifyRequest;
+import com.rinoimob.domain.dto.IdentifyResponse;
 import com.rinoimob.domain.dto.LoginRequest;
 import com.rinoimob.domain.dto.LoginResponse;
 import com.rinoimob.domain.dto.PasswordResetRequest;
 import com.rinoimob.domain.dto.RegisterRequest;
+import com.rinoimob.domain.dto.SelectTenantRequest;
 import com.rinoimob.domain.dto.TenantRegistrationRequest;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.service.TenantService;
@@ -41,7 +45,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    @Operation(summary = "Register a new user")
+    @Operation(summary = "Register a new user within the current tenant")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         Optional<Tenant> tenantOpt = tenantService.getCurrentTenant();
         if (tenantOpt.isEmpty()) {
@@ -51,8 +55,22 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
+    @PostMapping("/identify")
+    @Operation(summary = "Step 1 of workspace-selector login: validate credentials and list workspaces")
+    public ResponseEntity<IdentifyResponse> identify(@Valid @RequestBody IdentifyRequest request) {
+        IdentifyResponse response = authService.identify(request.email(), request.password());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/select-tenant")
+    @Operation(summary = "Step 2 of workspace-selector login: select workspace and obtain JWT")
+    public ResponseEntity<LoginResponse> selectTenant(@Valid @RequestBody SelectTenantRequest request) {
+        LoginResponse response = authService.selectTenant(request.preAuthToken(), request.tenantId());
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/login")
-    @Operation(summary = "Login user")
+    @Operation(summary = "Login via host-resolved tenant (used by client website)")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         Optional<Tenant> tenantOpt = tenantService.getCurrentTenant();
         if (tenantOpt.isEmpty()) {
@@ -71,17 +89,9 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     @Operation(summary = "Request password reset")
-    public ResponseEntity<?> forgotPassword(@RequestParam String email) {
-        Optional<Tenant> tenantOpt = tenantService.getCurrentTenant();
-        if (tenantOpt.isEmpty()) {
-            throw tenantNotResolvedBadRequest();
-        }
-        authService.requestPasswordReset(email, tenantOpt.get().getId());
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.requestPasswordReset(request.email());
         return ResponseEntity.ok().build();
-    }
-
-    private ResponseStatusException tenantNotResolvedBadRequest() {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tenant context not found");
     }
 
     @PostMapping("/reset-password")
@@ -90,4 +100,9 @@ public class AuthController {
         authService.resetPassword(request.token(), request.password(), request.confirmPassword());
         return ResponseEntity.ok().build();
     }
+
+    private ResponseStatusException tenantNotResolvedBadRequest() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tenant context not found");
+    }
 }
+

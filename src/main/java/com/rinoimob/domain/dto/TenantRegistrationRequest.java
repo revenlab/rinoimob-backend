@@ -1,5 +1,6 @@
 package com.rinoimob.domain.dto;
 
+import com.rinoimob.validation.ValidPassword;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -30,7 +31,7 @@ public record TenantRegistrationRequest(
     String email,
 
     @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 255, message = "Password must be between 8 and 255 characters")
+    @ValidPassword
     String password,
 
     @NotBlank(message = "Confirm password is required")
