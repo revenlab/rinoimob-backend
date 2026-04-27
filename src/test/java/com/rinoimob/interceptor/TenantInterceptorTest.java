@@ -100,6 +100,20 @@ class TenantInterceptorTest {
     }
 
     @Test
+    void testPreHandleDoesNotOverwriteJwtResolvedTenant() throws Exception {
+        // Simulates: JWT filter already set TenantContext before interceptor runs.
+        String jwtTenantId = UUID.randomUUID().toString();
+        TenantContext.setTenantId(jwtTenantId);
+
+        // Attacker sends a different tenant in the header — interceptor must ignore it.
+        boolean result = interceptor.preHandle(request, response, new Object());
+
+        assertThat(result).isTrue();
+        // Must keep the JWT-resolved tenant, NOT the attacker's header value.
+        assertThat(TenantContext.getTenantId()).isEqualTo(jwtTenantId);
+    }
+
+    @Test
     void testAfterCompletion() throws Exception {
         TenantContext.setTenantId("test-tenant-123");
 

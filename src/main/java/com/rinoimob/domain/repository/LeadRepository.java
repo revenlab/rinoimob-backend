@@ -14,6 +14,6 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
 
     List<Lead> findByTenantIdAndStatus(UUID tenantId, String status);
 
-    List<Lead> findByAssignedTo(UUID assignedTo);
+    List<Lead> findByTenantIdAndAssignedTo(UUID tenantId, UUID assignedTo);
 
 }

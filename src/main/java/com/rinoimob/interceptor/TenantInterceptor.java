@@ -18,13 +18,20 @@ public class TenantInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        String tenantId = request.getHeader("X-Tenant-ID");
+        // If the JWT filter already resolved the tenant from the token, trust it —
+        // never allow an incoming header to override an authenticated JWT claim.
+        if (TenantContext.getTenantId() != null) {
+            return true;
+        }
 
+        // Unauthenticated requests (e.g. client website calls): try X-Tenant-ID header first.
+        String tenantId = request.getHeader("X-Tenant-ID");
         if (tenantId != null && !tenantId.isBlank()) {
             TenantContext.setTenantId(tenantId);
             return true;
         }
 
+        // Fall back to subdomain resolution for client-facing website requests.
         String subdomain = extractSubdomainFromHost(request.getServerName());
         if (subdomain != null) {
             tenantRepository.findBySubdomain(subdomain)
