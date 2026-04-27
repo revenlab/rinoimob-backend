@@ -1,13 +1,19 @@
 package com.rinoimob.interceptor;
 
 import com.rinoimob.context.TenantContext;
+import com.rinoimob.domain.entity.Tenant;
+import com.rinoimob.domain.repository.TenantRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -21,7 +27,11 @@ class TenantInterceptorTest {
     @Mock
     private HttpServletResponse response;
 
-    private final TenantInterceptor interceptor = new TenantInterceptor();
+    @Mock
+    private TenantRepository tenantRepository;
+
+    @InjectMocks
+    private TenantInterceptor interceptor;
 
     @AfterEach
     void tearDown() {
@@ -30,33 +40,77 @@ class TenantInterceptorTest {
 
     @Test
     void testPreHandleWithTenantIdHeader() throws Exception {
-        when(request.getHeader("X-Tenant-ID")).thenReturn("test-tenant-123");
+        String tenantId = UUID.randomUUID().toString();
+        when(request.getHeader("X-Tenant-ID")).thenReturn(tenantId);
 
         boolean result = interceptor.preHandle(request, response, new Object());
 
         assertThat(result).isTrue();
-        assertThat(TenantContext.getTenantId()).isEqualTo("test-tenant-123");
+        assertThat(TenantContext.getTenantId()).isEqualTo(tenantId);
     }
 
     @Test
     void testPreHandleWithSubdomain() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = new Tenant();
+        tenant.setId(tenantId);
+
         when(request.getHeader("X-Tenant-ID")).thenReturn(null);
         when(request.getServerName()).thenReturn("mycompany.example.com");
+        when(tenantRepository.findBySubdomain("mycompany")).thenReturn(Optional.of(tenant));
 
         boolean result = interceptor.preHandle(request, response, new Object());
 
         assertThat(result).isTrue();
-        assertThat(TenantContext.getTenantId()).isEqualTo("mycompany");
+        assertThat(TenantContext.getTenantId()).isEqualTo(tenantId.toString());
+    }
+
+    @Test
+    void testPreHandleWithUnknownSubdomain() throws Exception {
+        when(request.getHeader("X-Tenant-ID")).thenReturn(null);
+        when(request.getServerName()).thenReturn("unknown.example.com");
+        when(tenantRepository.findBySubdomain("unknown")).thenReturn(Optional.empty());
+
+        boolean result = interceptor.preHandle(request, response, new Object());
+
+        assertThat(result).isTrue();
+        assertThat(TenantContext.getTenantId()).isNull();
+    }
+
+    @Test
+    void testPreHandleWithAppSubdomainIsIgnored() throws Exception {
+        when(request.getHeader("X-Tenant-ID")).thenReturn(null);
+        when(request.getServerName()).thenReturn("app.example.com");
+
+        boolean result = interceptor.preHandle(request, response, new Object());
+
+        assertThat(result).isTrue();
+        assertThat(TenantContext.getTenantId()).isNull();
     }
 
     @Test
     void testPreHandleWithLocalhost() throws Exception {
         when(request.getHeader("X-Tenant-ID")).thenReturn(null);
-        when(request.getServerName()).thenReturn("localhost:39000");
+        when(request.getServerName()).thenReturn("localhost");
 
         boolean result = interceptor.preHandle(request, response, new Object());
 
         assertThat(result).isTrue();
+        assertThat(TenantContext.getTenantId()).isNull();
+    }
+
+    @Test
+    void testPreHandleDoesNotOverwriteJwtResolvedTenant() throws Exception {
+        // Simulates: JWT filter already set TenantContext before interceptor runs.
+        String jwtTenantId = UUID.randomUUID().toString();
+        TenantContext.setTenantId(jwtTenantId);
+
+        // Attacker sends a different tenant in the header — interceptor must ignore it.
+        boolean result = interceptor.preHandle(request, response, new Object());
+
+        assertThat(result).isTrue();
+        // Must keep the JWT-resolved tenant, NOT the attacker's header value.
+        assertThat(TenantContext.getTenantId()).isEqualTo(jwtTenantId);
     }
 
     @Test
@@ -67,15 +121,4 @@ class TenantInterceptorTest {
 
         assertThat(TenantContext.getTenantId()).isNull();
     }
-
-    @Test
-    void testPreHandleWithoutTenantId() throws Exception {
-        when(request.getHeader("X-Tenant-ID")).thenReturn(null);
-        when(request.getServerName()).thenReturn("localhost");
-
-        boolean result = interceptor.preHandle(request, response, new Object());
-
-        assertThat(result).isTrue();
-    }
-
 }

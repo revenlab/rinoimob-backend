@@ -1,5 +1,7 @@
 package com.rinoimob.domain.entity;
 
+import com.rinoimob.domain.enums.Role;
+import com.rinoimob.domain.enums.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,7 +11,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"tenant_id", "email"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,9 +29,6 @@ public class User {
     @Column(nullable = false)
     private String email;
 
-    @Column(name = "password_hash")
-    private String passwordHash;
-
     @Column(name = "first_name")
     private String firstName;
 
@@ -36,6 +37,17 @@ public class User {
 
     @Column(nullable = false)
     private Boolean active = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role = Role.USER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_status")
+    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
 
     @Column(name = "last_login")
     private LocalDateTime lastLogin;

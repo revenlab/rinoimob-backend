@@ -14,6 +14,6 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
     List<Property> findByTenantIdAndActive(UUID tenantId, Boolean active);
 
-    List<Property> findByOwnerId(UUID ownerId);
+    List<Property> findByTenantIdAndOwnerId(UUID tenantId, UUID ownerId);
 
 }
