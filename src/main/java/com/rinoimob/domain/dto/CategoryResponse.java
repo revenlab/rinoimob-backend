@@ -10,5 +10,5 @@ public record CategoryResponse(
     String color,
     Boolean active,
     Integer position,
-    boolean global
+    boolean isGlobal
 ) {}
