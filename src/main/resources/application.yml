@@ -60,3 +60,5 @@ app:
 seaweedfs:
   master:
     url: ${SEAWEEDFS_MASTER_URL:http://localhost:9333}
+  volume:
+    public-url: ${SEAWEEDFS_VOLUME_PUBLIC_URL:http://localhost:8080}
