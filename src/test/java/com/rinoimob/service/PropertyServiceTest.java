@@ -177,8 +177,7 @@ class PropertyServiceTest {
     @Test
     void listProperties_returnsMappedPage() {
         Page<Property> page = new PageImpl<>(List.of(buildProperty()));
-        when(propertyRepository.findWithFilters(
-                eq(TENANT_ID), any(), any(), any(), any(), any(), any(), any(), any()))
+        when(propertyRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(page);
 
         Page<PropertySummaryResponse> result = propertyService.listProperties(

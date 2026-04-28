@@ -9,6 +9,7 @@ import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import com.rinoimob.domain.repository.FloorPlanPhotoRepository;
+import com.rinoimob.domain.repository.PropertySpecification;
 import com.rinoimob.domain.repository.FloorPlanRepository;
 import com.rinoimob.domain.repository.PropertyPhotoRepository;
 import com.rinoimob.domain.repository.PropertyRepository;
@@ -87,8 +88,10 @@ public class PropertyService {
             String city,
             Pageable pageable) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return propertyRepository.findWithFilters(
-                tenantId, status, operation, propertyType, minPrice, maxPrice, bedrooms, city, pageable)
+        return propertyRepository.findAll(
+                PropertySpecification.withFilters(
+                        tenantId, status, operation, propertyType, minPrice, maxPrice, bedrooms, city),
+                pageable)
                 .map(this::toSummary);
     }
 
