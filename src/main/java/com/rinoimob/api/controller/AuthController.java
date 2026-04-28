@@ -5,6 +5,7 @@ import com.rinoimob.domain.dto.IdentifyRequest;
 import com.rinoimob.domain.dto.IdentifyResponse;
 import com.rinoimob.domain.dto.LoginRequest;
 import com.rinoimob.domain.dto.LoginResponse;
+import com.rinoimob.domain.dto.MeResponse;
 import com.rinoimob.domain.dto.PasswordResetRequest;
 import com.rinoimob.domain.dto.RegisterRequest;
 import com.rinoimob.domain.dto.SelectTenantRequest;
@@ -14,6 +15,7 @@ import com.rinoimob.service.TenantService;
 import com.rinoimob.service.auth.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -35,6 +38,16 @@ public class AuthController {
     public AuthController(AuthService authService, TenantService tenantService) {
         this.authService = authService;
         this.tenantService = tenantService;
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Get current authenticated user and validate session")
+    public ResponseEntity<MeResponse> me(HttpServletRequest request) {
+        UUID userId = (UUID) request.getAttribute("userId");
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        return ResponseEntity.ok(authService.getMe(userId));
     }
 
     @PostMapping("/signup")

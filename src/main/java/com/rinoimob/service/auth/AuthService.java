@@ -5,6 +5,7 @@ import com.rinoimob.domain.dto.IdentifyRequest;
 import com.rinoimob.domain.dto.IdentifyResponse;
 import com.rinoimob.domain.dto.LoginRequest;
 import com.rinoimob.domain.dto.LoginResponse;
+import com.rinoimob.domain.dto.MeResponse;
 import com.rinoimob.domain.dto.RegisterRequest;
 import com.rinoimob.domain.dto.SelectTenantRequest;
 import com.rinoimob.domain.dto.TenantRegistrationRequest;
@@ -20,6 +21,7 @@ import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
+import com.rinoimob.context.TenantContext;
 import com.rinoimob.service.email.EmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -346,6 +348,41 @@ public class AuthService {
         tokenRepository.delete(resetToken);
 
         log.info("Password reset for: {}", user.getEmail());
+    }
+
+    public MeResponse getMe(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        String tenantIdStr = TenantContext.getTenantId();
+        UUID tenantId = null;
+        String tenantName = null;
+        String tenantSubdomain = null;
+
+        if (tenantIdStr != null) {
+            try {
+                tenantId = UUID.fromString(tenantIdStr);
+                Optional<Tenant> tenant = tenantRepository.findById(tenantId);
+                if (tenant.isPresent()) {
+                    tenantName = tenant.get().getName();
+                    tenantSubdomain = tenant.get().getSubdomain();
+                }
+            } catch (IllegalArgumentException ignored) {
+                // invalid UUID in context — skip tenant info
+            }
+        }
+
+        return new MeResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getActive(),
+                user.getCreatedAt(),
+                tenantId,
+                tenantName,
+                tenantSubdomain
+        );
     }
 
     public UserDto getUserProfile(UUID userId) {
