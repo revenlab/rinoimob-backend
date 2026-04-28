@@ -1,5 +1,6 @@
 package com.rinoimob.domain.entity;
 
+import com.rinoimob.domain.enums.PropertyCondition;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
@@ -14,8 +15,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -105,6 +108,24 @@ public class Property {
 
     @Column(name = "cover_photo_id")
     private UUID coverPhotoId;
+
+    @Column(name = "reference_code", length = 50)
+    private String referenceCode;
+
+    @Column(name = "floor_number")
+    private Integer floorNumber;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "condition", length = 30)
+    private PropertyCondition condition;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "property_category_map",
+            joinColumns = @JoinColumn(name = "property_id"),
+            inverseJoinColumns = @JoinColumn(name = "category_id")
+    )
+    private Set<PropertyCategory> categories = new HashSet<>();
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", nullable = false)

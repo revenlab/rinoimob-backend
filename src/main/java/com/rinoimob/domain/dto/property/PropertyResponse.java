@@ -1,5 +1,7 @@
 package com.rinoimob.domain.dto.property;
 
+import com.rinoimob.domain.dto.CategoryResponse;
+import com.rinoimob.domain.enums.PropertyCondition;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
@@ -17,6 +19,8 @@ public record PropertyResponse(
         PropertyOperation operation,
         PropertyType propertyType,
         PropertyStatus status,
+        PropertyCondition condition,
+        String referenceCode,
         BigDecimal price,
         String currency,
         BigDecimal taxes,
@@ -27,6 +31,7 @@ public record PropertyResponse(
         Integer suites,
         Integer bathrooms,
         Integer parking,
+        Integer floorNumber,
         String addressStreet,
         String addressNumber,
         String addressComplement,
@@ -39,6 +44,7 @@ public record PropertyResponse(
         BigDecimal lng,
         UUID coverPhotoId,
         Map<String, Object> attributes,
+        List<CategoryResponse> categories,
         LocalDateTime publishedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,

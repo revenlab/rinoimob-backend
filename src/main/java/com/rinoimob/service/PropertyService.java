@@ -4,11 +4,13 @@ import com.rinoimob.domain.dto.property.*;
 import com.rinoimob.domain.entity.FloorPlan;
 import com.rinoimob.domain.entity.FloorPlanPhoto;
 import com.rinoimob.domain.entity.Property;
+import com.rinoimob.domain.entity.PropertyCategory;
 import com.rinoimob.domain.entity.PropertyPhoto;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import com.rinoimob.domain.repository.FloorPlanPhotoRepository;
+import com.rinoimob.domain.repository.PropertyCategoryRepository;
 import com.rinoimob.domain.repository.PropertySpecification;
 import com.rinoimob.domain.repository.FloorPlanRepository;
 import com.rinoimob.domain.repository.PropertyPhotoRepository;
@@ -27,7 +29,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -39,7 +43,9 @@ public class PropertyService {
     private final PropertyPhotoRepository photoRepository;
     private final FloorPlanRepository floorPlanRepository;
     private final FloorPlanPhotoRepository floorPlanPhotoRepository;
+    private final PropertyCategoryRepository categoryRepository;
     private final FileStorageService fileStorageService;
+    private final CategoryService categoryService;
 
     // ── CRUD ─────────────────────────────────────────────────────────────────
 
@@ -226,6 +232,8 @@ public class PropertyService {
         p.setDescription(req.description());
         p.setOperation(req.operation());
         p.setPropertyType(req.propertyType());
+        p.setCondition(req.condition());
+        p.setReferenceCode(req.referenceCode());
         p.setPrice(req.price());
         p.setCurrency(req.currency() != null ? req.currency() : "BRL");
         p.setTaxes(req.taxes());
@@ -236,6 +244,7 @@ public class PropertyService {
         p.setSuites(req.suites());
         p.setBathrooms(req.bathrooms());
         p.setParking(req.parking());
+        p.setFloorNumber(req.floorNumber());
         p.setAddressStreet(req.addressStreet());
         p.setAddressNumber(req.addressNumber());
         p.setAddressComplement(req.addressComplement());
@@ -247,6 +256,7 @@ public class PropertyService {
         p.setLat(req.lat());
         p.setLng(req.lng());
         if (req.attributes() != null) p.setAttributes(req.attributes());
+        if (req.categoryIds() != null) p.setCategories(resolveCategories(req.categoryIds()));
     }
 
     private void applyUpdate(Property p, UpdatePropertyRequest req) {
@@ -254,6 +264,8 @@ public class PropertyService {
         if (req.description() != null) p.setDescription(req.description());
         if (req.operation() != null) p.setOperation(req.operation());
         if (req.propertyType() != null) p.setPropertyType(req.propertyType());
+        if (req.condition() != null) p.setCondition(req.condition());
+        if (req.referenceCode() != null) p.setReferenceCode(req.referenceCode());
         if (req.status() != null) {
             p.setStatus(req.status());
             if (req.status() == PropertyStatus.ACTIVE && p.getPublishedAt() == null) {
@@ -270,6 +282,7 @@ public class PropertyService {
         if (req.suites() != null) p.setSuites(req.suites());
         if (req.bathrooms() != null) p.setBathrooms(req.bathrooms());
         if (req.parking() != null) p.setParking(req.parking());
+        if (req.floorNumber() != null) p.setFloorNumber(req.floorNumber());
         if (req.addressStreet() != null) p.setAddressStreet(req.addressStreet());
         if (req.addressNumber() != null) p.setAddressNumber(req.addressNumber());
         if (req.addressComplement() != null) p.setAddressComplement(req.addressComplement());
@@ -281,20 +294,41 @@ public class PropertyService {
         if (req.lat() != null) p.setLat(req.lat());
         if (req.lng() != null) p.setLng(req.lng());
         if (req.attributes() != null) p.setAttributes(req.attributes());
+        if (req.categoryIds() != null) p.setCategories(resolveCategories(req.categoryIds()));
+    }
+
+    private Set<PropertyCategory> resolveCategories(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return new HashSet<>();
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        Set<PropertyCategory> resolved = new HashSet<>();
+        for (UUID catId : ids) {
+            categoryRepository.findById(catId).ifPresent(cat -> {
+                // Allow global or own-tenant categories only
+                if (cat.isGlobal() || tenantId.equals(cat.getTenantId())) {
+                    resolved.add(cat);
+                }
+            });
+        }
+        return resolved;
     }
 
     private PropertyResponse toResponse(Property p) {
+        List<com.rinoimob.domain.dto.CategoryResponse> cats = p.getCategories().stream()
+                .map(categoryService::toResponse).toList();
         return new PropertyResponse(
                 p.getId(), p.getTitle(), p.getDescription(),
                 p.getOperation(), p.getPropertyType(), p.getStatus(),
+                p.getCondition(), p.getReferenceCode(),
                 p.getPrice(), p.getCurrency(), p.getTaxes(), p.getCondoFee(),
                 p.getAreaTotal(), p.getAreaUseful(),
                 p.getBedrooms(), p.getSuites(), p.getBathrooms(), p.getParking(),
+                p.getFloorNumber(),
                 p.getAddressStreet(), p.getAddressNumber(), p.getAddressComplement(),
                 p.getAddressNeighborhood(), p.getAddressCity(), p.getAddressState(),
                 p.getAddressCountry(), p.getAddressZip(),
                 p.getLat(), p.getLng(), p.getCoverPhotoId(),
-                p.getAttributes(), p.getPublishedAt(), p.getCreatedAt(), p.getUpdatedAt(),
+                p.getAttributes(), cats,
+                p.getPublishedAt(), p.getCreatedAt(), p.getUpdatedAt(),
                 p.getPhotos().stream().map(this::toPhotoResponse).toList(),
                 p.getFloorPlans().stream().map(this::toFloorPlanResponse).toList()
         );
@@ -306,11 +340,14 @@ public class PropertyService {
                 .findFirst()
                 .map(PropertyPhoto::getUrl)
                 .orElse(null);
+        List<com.rinoimob.domain.dto.CategoryResponse> cats = p.getCategories().stream()
+                .map(categoryService::toResponse).toList();
         return new PropertySummaryResponse(
                 p.getId(), p.getTitle(), p.getOperation(), p.getPropertyType(), p.getStatus(),
+                p.getCondition(), p.getReferenceCode(),
                 p.getPrice(), p.getCurrency(), p.getAreaTotal(), p.getBedrooms(), p.getBathrooms(),
                 p.getAddressCity(), p.getAddressState(), p.getAddressCountry(),
-                p.getCoverPhotoId(), coverUrl, p.getCreatedAt()
+                p.getCoverPhotoId(), coverUrl, cats, p.getCreatedAt()
         );
     }
 

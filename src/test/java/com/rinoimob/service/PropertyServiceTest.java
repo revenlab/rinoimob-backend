@@ -8,6 +8,7 @@ import com.rinoimob.domain.entity.PropertyPhoto;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
+import com.rinoimob.domain.enums.PropertyCondition;
 import com.rinoimob.domain.repository.*;
 import com.rinoimob.service.storage.FileStorageService;
 import org.junit.jupiter.api.*;
@@ -40,7 +41,9 @@ class PropertyServiceTest {
     @Mock private PropertyPhotoRepository photoRepository;
     @Mock private FloorPlanRepository floorPlanRepository;
     @Mock private FloorPlanPhotoRepository floorPlanPhotoRepository;
+    @Mock private PropertyCategoryRepository categoryRepository;
     @Mock private FileStorageService fileStorageService;
+    @Mock private CategoryService categoryService;
 
     private PropertyService propertyService;
 
@@ -49,7 +52,7 @@ class PropertyServiceTest {
         TenantContext.setTenantId(TENANT_ID.toString());
         propertyService = new PropertyService(
                 propertyRepository, photoRepository, floorPlanRepository,
-                floorPlanPhotoRepository, fileStorageService);
+                floorPlanPhotoRepository, categoryRepository, fileStorageService, categoryService);
     }
 
     @AfterEach
@@ -63,10 +66,10 @@ class PropertyServiceTest {
     void createProperty_savesAndReturnsMappedResponse() {
         CreatePropertyRequest req = new CreatePropertyRequest(
                 "Casa Teste", "Descrição", PropertyOperation.SALE, PropertyType.HOUSE,
-                PropertyStatus.DRAFT, new BigDecimal("500000"), "BRL", null, null,
-                new BigDecimal("120"), new BigDecimal("100"), 3, 1, 2, 2,
+                PropertyStatus.DRAFT, null, null, new BigDecimal("500000"), "BRL", null, null,
+                new BigDecimal("120"), new BigDecimal("100"), 3, 1, 2, 2, null,
                 "Rua A", "10", null, "Bairro", "São Paulo", "SP", "BR", "01001-000",
-                null, null, null);
+                null, null, null, null);
 
         Property savedProperty = buildProperty();
         when(propertyRepository.save(any(Property.class))).thenReturn(savedProperty);
@@ -83,8 +86,8 @@ class PropertyServiceTest {
     void createProperty_defaultsToDraftStatus_whenStatusNull() {
         CreatePropertyRequest req = new CreatePropertyRequest(
                 "Casa", null, PropertyOperation.RENT, PropertyType.APARTMENT,
-                null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null);
 
         Property savedProperty = buildProperty();
         when(propertyRepository.save(any(Property.class))).thenReturn(savedProperty);
@@ -129,8 +132,8 @@ class PropertyServiceTest {
 
         UpdatePropertyRequest req = new UpdatePropertyRequest(
                 "Novo Título", null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null);
 
         PropertyResponse response = propertyService.updateProperty(PROPERTY_ID, req);
 
@@ -149,8 +152,8 @@ class PropertyServiceTest {
 
         UpdatePropertyRequest req = new UpdatePropertyRequest(
                 null, null, null, null, PropertyStatus.ACTIVE, null, null, null, null,
-                null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null);
 
         propertyService.updateProperty(PROPERTY_ID, req);
 
@@ -327,6 +330,7 @@ class PropertyServiceTest {
         p.setCurrency("BRL");
         p.setAddressCountry("BR");
         p.setAttributes(new HashMap<>());
+        p.setCategories(new HashSet<>());
         p.setCreatedAt(LocalDateTime.now());
         p.setUpdatedAt(LocalDateTime.now());
         return p;

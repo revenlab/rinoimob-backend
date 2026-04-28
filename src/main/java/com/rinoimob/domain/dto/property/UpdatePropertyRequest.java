@@ -1,11 +1,14 @@
 package com.rinoimob.domain.dto.property;
 
+import com.rinoimob.domain.enums.PropertyCondition;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public record UpdatePropertyRequest(
         String title,
@@ -13,6 +16,8 @@ public record UpdatePropertyRequest(
         PropertyOperation operation,
         PropertyType propertyType,
         PropertyStatus status,
+        PropertyCondition condition,
+        String referenceCode,
         BigDecimal price,
         String currency,
         BigDecimal taxes,
@@ -23,6 +28,7 @@ public record UpdatePropertyRequest(
         Integer suites,
         Integer bathrooms,
         Integer parking,
+        Integer floorNumber,
         String addressStreet,
         String addressNumber,
         String addressComplement,
@@ -33,5 +39,6 @@ public record UpdatePropertyRequest(
         String addressZip,
         BigDecimal lat,
         BigDecimal lng,
-        Map<String, Object> attributes
+        Map<String, Object> attributes,
+        List<UUID> categoryIds
 ) {}
