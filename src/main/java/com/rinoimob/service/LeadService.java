@@ -46,6 +46,20 @@ public class LeadService {
     private final PropertyRepository propertyRepository;
 
     @Transactional(readOnly = true)
+    public LeadStatsResponse getStats(UUID tenantId) {
+        long total = leadRepository.countByTenantIdAndDeletedAtIsNull(tenantId);
+        long newLeads = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.NEW);
+        long contacted = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.CONTACTED);
+        long qualified = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.QUALIFIED);
+        long won = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.WON);
+        long lost = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.LOST);
+        LocalDateTime weekAgo = LocalDateTime.now().minusDays(7);
+        long thisWeek = leadRepository.countByTenantIdAndCreatedAtAfterAndDeletedAtIsNull(tenantId, weekAgo);
+        double conversionRate = (won + lost) > 0 ? (double) won / (won + lost) * 100 : 0;
+        return new LeadStatsResponse(total, newLeads, contacted, qualified, won, lost, thisWeek, conversionRate);
+    }
+
+    @Transactional(readOnly = true)
     public Page<LeadResponse> list(UUID tenantId, LeadStatus status, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         if (status != null) {

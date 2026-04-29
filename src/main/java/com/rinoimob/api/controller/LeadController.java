@@ -22,6 +22,12 @@ public class LeadController {
 
     private final LeadService leadService;
 
+    @GetMapping("/stats")
+    public LeadStatsResponse stats() {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return leadService.getStats(tenantId);
+    }
+
     @GetMapping
     public ResponseEntity<Page<LeadResponse>> list(
             @RequestParam(required = false) LeadStatus status,
