@@ -75,6 +75,12 @@ public class LeadController {
         return ResponseEntity.ok(leadService.getEvents(tenantId, id));
     }
 
+    @GetMapping("/{id}/properties")
+    public ResponseEntity<List<LeadPropertyResponse>> getProperties(@PathVariable UUID id) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.ok(leadService.getProperties(tenantId, id));
+    }
+
     @PostMapping("/{id}/properties")
     public ResponseEntity<LeadPropertyResponse> addProperty(
             @PathVariable UUID id,

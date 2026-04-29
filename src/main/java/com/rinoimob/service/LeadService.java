@@ -178,6 +178,14 @@ public class LeadService {
         logEvent(leadId, null, LeadEventType.PROPERTY_UNLINKED, "Imóvel desvinculado");
     }
 
+    @Transactional(readOnly = true)
+    public List<LeadPropertyResponse> getProperties(UUID tenantId, UUID leadId) {
+        findOwned(leadId, tenantId);
+        return leadPropertyRepository.findAllByLeadIdOrderByCreatedAtAsc(leadId).stream()
+                .map(this::toLeadPropertyResponse)
+                .toList();
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private Lead findOwned(UUID id, UUID tenantId) {
@@ -213,10 +221,11 @@ public class LeadService {
         Property p = propOpt.get();
         String coverUrl = p.getPhotos().stream()
                 .filter(ph -> Boolean.TRUE.equals(ph.getIsCover()))
-                .findFirst().map(PropertyPhoto::getUrl).orElse(null);
+                .findFirst().map(PropertyPhoto::getUrl)
+                .orElseGet(() -> p.getPhotos().stream().findFirst().map(PropertyPhoto::getUrl).orElse(null));
         return new LeadPropertyResponse(lp.getId(), lp.getLeadId(), lp.getPropertyId(),
                 lp.getInterestLevel(), lp.getCreatedAt(),
-                p.getTitle(), p.getOperation().name(), p.getPrice(), p.getCurrency(),
+                p.getTitle(), p.getOperation() != null ? p.getOperation().name() : null, p.getPrice(), p.getCurrency(),
                 p.getAddressCity(), p.getAddressState(), coverUrl);
     }
 
