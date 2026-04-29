@@ -1,5 +1,6 @@
 package com.rinoimob.domain.entity;
 
+import com.rinoimob.domain.enums.LeadStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,37 +20,40 @@ public class Lead {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
 
     @Column(name = "property_id")
     private UUID propertyId;
 
-    @Column(nullable = false, name = "first_name")
-    private String firstName;
-
-    @Column(nullable = false, name = "last_name")
-    private String lastName;
+    @Column(nullable = false, length = 200)
+    private String name;
 
     private String email;
 
     private String phone;
 
-    @Column(columnDefinition = "VARCHAR(50) DEFAULT 'new'")
-    private String status = "new";
+    @Column(columnDefinition = "TEXT")
+    private String message;
 
-    private String source;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private LeadStatus status = LeadStatus.NEW;
+
+    @Column(length = 50)
+    private String source = "PORTAL";
 
     @Column(name = "assigned_to")
     private UUID assignedTo;
 
-    private String notes;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
@@ -61,5 +65,4 @@ public class Lead {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-
 }
