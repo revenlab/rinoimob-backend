@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -66,5 +67,11 @@ public class LeadController {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         UUID userId = (UUID) httpRequest.getAttribute("userId");
         return ResponseEntity.status(HttpStatus.CREATED).body(leadService.addNote(tenantId, id, userId, request));
+    }
+
+    @GetMapping("/{id}/events")
+    public ResponseEntity<List<LeadEventResponse>> getEvents(@PathVariable UUID id) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.ok(leadService.getEvents(tenantId, id));
     }
 }

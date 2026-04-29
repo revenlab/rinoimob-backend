@@ -17,6 +17,7 @@ public record LeadResponse(
         LeadStatus status,
         String source,
         UUID assignedTo,
+        String assignedToName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         List<LeadNoteResponse> notes

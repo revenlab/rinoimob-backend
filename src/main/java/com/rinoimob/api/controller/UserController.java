@@ -1,8 +1,11 @@
 package com.rinoimob.api.controller;
 
+import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.ChangePasswordRequest;
 import com.rinoimob.domain.dto.UpdateProfileRequest;
 import com.rinoimob.domain.dto.UserDto;
+import com.rinoimob.domain.entity.User;
+import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.service.auth.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -23,9 +27,23 @@ import java.util.UUID;
 public class UserController {
 
     private final AuthService authService;
+    private final UserRepository userRepository;
 
-    public UserController(AuthService authService) {
+    public UserController(AuthService authService, UserRepository userRepository) {
         this.authService = authService;
+        this.userRepository = userRepository;
+    }
+
+    @GetMapping
+    @Operation(summary = "List active users for the current tenant")
+    public ResponseEntity<List<UserDto>> listUsers(HttpServletRequest request) {
+        UUID tenantId = (UUID) request.getAttribute("tenantId");
+        if (tenantId == null) tenantId = UUID.fromString(TenantContext.getTenantId());
+        List<User> users = userRepository.findByTenantIdAndActive(tenantId, true);
+        List<UserDto> dtos = users.stream()
+                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(), u.getActive(), u.getCreatedAt()))
+                .toList();
+        return ResponseEntity.ok(dtos);
     }
 
     @GetMapping("/profile")
