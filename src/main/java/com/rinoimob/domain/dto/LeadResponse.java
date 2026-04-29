@@ -20,5 +20,6 @@ public record LeadResponse(
         String assignedToName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        List<LeadNoteResponse> notes
+        List<LeadNoteResponse> notes,
+        List<LeadPropertyResponse> properties
 ) {}

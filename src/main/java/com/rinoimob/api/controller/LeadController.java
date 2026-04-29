@@ -74,4 +74,30 @@ public class LeadController {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return ResponseEntity.ok(leadService.getEvents(tenantId, id));
     }
+
+    @PostMapping("/{id}/properties")
+    public ResponseEntity<LeadPropertyResponse> addProperty(
+            @PathVariable UUID id,
+            @Valid @RequestBody AddLeadPropertyRequest request) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(leadService.addProperty(tenantId, id, request));
+    }
+
+    @PatchMapping("/{id}/properties/{linkId}")
+    public ResponseEntity<LeadPropertyResponse> updatePropertyInterest(
+            @PathVariable UUID id,
+            @PathVariable UUID linkId,
+            @Valid @RequestBody UpdateLeadPropertyRequest request) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.ok(leadService.updatePropertyInterest(tenantId, id, linkId, request));
+    }
+
+    @DeleteMapping("/{id}/properties/{linkId}")
+    public ResponseEntity<Void> removeProperty(
+            @PathVariable UUID id,
+            @PathVariable UUID linkId) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        leadService.removeProperty(tenantId, id, linkId);
+        return ResponseEntity.noContent().build();
+    }
 }
