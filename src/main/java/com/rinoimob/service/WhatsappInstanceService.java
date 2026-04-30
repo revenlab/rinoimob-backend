@@ -10,12 +10,14 @@ import com.rinoimob.domain.entity.WhatsappInstance;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.WhatsappInstanceRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WhatsappInstanceService {
@@ -52,7 +54,8 @@ public class WhatsappInstanceService {
             instance.setStatus("CONNECTING");
             instance = instanceRepo.save(instance);
         } catch (Exception e) {
-            // log but don't fail — user can retry via QR code endpoint
+            log.error("Failed to create Evolution API instance '{}': {}", instanceName, e.getMessage(), e);
+            // Keep as DISCONNECTED — user can delete and recreate
         }
 
         return toResponse(instance);

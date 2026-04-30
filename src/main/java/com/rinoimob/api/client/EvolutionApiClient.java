@@ -1,6 +1,7 @@
 package com.rinoimob.api.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -8,6 +9,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
 
+@Slf4j
 @Component
 public class EvolutionApiClient {
 
@@ -29,6 +31,7 @@ public class EvolutionApiClient {
 
     /** Creates a new instance in Evolution API with RabbitMQ enabled */
     public void createInstance(String instanceName) {
+        log.info("Creating Evolution API instance: {} at {}", instanceName, baseUrl);
         Map<String, Object> body = Map.of(
             "instanceName", instanceName,
             "integration", "WHATSAPP-BAILEYS",
