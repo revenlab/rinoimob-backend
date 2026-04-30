@@ -1,6 +1,5 @@
 package com.rinoimob.domain.entity;
 
-import com.rinoimob.domain.enums.Role;
 import com.rinoimob.domain.enums.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -37,10 +36,6 @@ public class User {
 
     @Column(nullable = false)
     private Boolean active = true;
-
-    @Enumerated(EnumType.STRING)
-    @Column
-    private Role role;
 
     @Column(name = "system_role")
     private String systemRole;
