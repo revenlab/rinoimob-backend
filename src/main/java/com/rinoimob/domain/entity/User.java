@@ -39,8 +39,14 @@ public class User {
     private Boolean active = true;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role = Role.USER;
+    @Column
+    private Role role;
+
+    @Column(name = "system_role")
+    private String systemRole;
+
+    @Column(name = "tenant_role_id")
+    private UUID tenantRoleId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status")
@@ -69,4 +75,7 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
+    public boolean isSystemUser() {
+        return systemRole != null;
+    }
 }

@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,12 +24,14 @@ public class LeadController {
     private final LeadService leadService;
 
     @GetMapping("/stats")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
     public LeadStatsResponse stats() {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return leadService.getStats(tenantId);
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
     public ResponseEntity<Page<LeadResponse>> list(
             @RequestParam(required = false) LeadStatus status,
             @RequestParam(defaultValue = "0") int page,
@@ -38,12 +41,14 @@ public class LeadController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
     public ResponseEntity<LeadResponse> get(@PathVariable UUID id) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return ResponseEntity.ok(leadService.get(tenantId, id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
     public ResponseEntity<LeadResponse> create(
             @Valid @RequestBody CreateLeadRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
@@ -51,6 +56,7 @@ public class LeadController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
     public ResponseEntity<LeadResponse> update(
             @PathVariable UUID id,
             @RequestBody UpdateLeadRequest request) {
@@ -59,6 +65,7 @@ public class LeadController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         leadService.delete(tenantId, id);
@@ -66,6 +73,7 @@ public class LeadController {
     }
 
     @PostMapping("/{id}/notes")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
     public ResponseEntity<LeadNoteResponse> addNote(
             @PathVariable UUID id,
             @Valid @RequestBody LeadNoteRequest request,
@@ -76,18 +84,21 @@ public class LeadController {
     }
 
     @GetMapping("/{id}/events")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
     public ResponseEntity<List<LeadEventResponse>> getEvents(@PathVariable UUID id) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return ResponseEntity.ok(leadService.getEvents(tenantId, id));
     }
 
     @GetMapping("/{id}/properties")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
     public ResponseEntity<List<LeadPropertyResponse>> getProperties(@PathVariable UUID id) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return ResponseEntity.ok(leadService.getProperties(tenantId, id));
     }
 
     @PostMapping("/{id}/properties")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
     public ResponseEntity<LeadPropertyResponse> addProperty(
             @PathVariable UUID id,
             @Valid @RequestBody AddLeadPropertyRequest request) {
@@ -96,6 +107,7 @@ public class LeadController {
     }
 
     @PatchMapping("/{id}/properties/{linkId}")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
     public ResponseEntity<LeadPropertyResponse> updatePropertyInterest(
             @PathVariable UUID id,
             @PathVariable UUID linkId,
@@ -105,6 +117,7 @@ public class LeadController {
     }
 
     @DeleteMapping("/{id}/properties/{linkId}")
+    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
     public ResponseEntity<Void> removeProperty(
             @PathVariable UUID id,
             @PathVariable UUID linkId) {

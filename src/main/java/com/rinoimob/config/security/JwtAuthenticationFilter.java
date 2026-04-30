@@ -1,6 +1,7 @@
 package com.rinoimob.config.security;
 
 import com.rinoimob.context.TenantContext;
+import com.rinoimob.service.auth.TokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,15 +15,18 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
+    private final TokenService tokenService;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, TokenService tokenService) {
         this.tokenProvider = tokenProvider;
+        this.tokenService = tokenService;
     }
 
     @Override
@@ -32,14 +36,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
 
             if (StringUtils.hasText(jwt) && tokenProvider.isAccessToken(jwt) && tokenProvider.isTokenValid(jwt)) {
+                String jti = tokenProvider.getJtiFromToken(jwt);
+
+                if (jti != null && !tokenService.isValid(jti)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 var userId = tokenProvider.getUserIdFromToken(jwt);
                 var email = tokenProvider.getEmailFromToken(jwt);
                 var role = tokenProvider.getRoleFromToken(jwt);
                 var tenantId = tokenProvider.getTenantIdFromToken(jwt);
+                var permissions = tokenProvider.getPermissionsFromToken(jwt);
 
-                var authorities = (role != null)
-                        ? List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                        : List.<SimpleGrantedAuthority>of();
+                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                if (role != null) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
+                }
+                for (String permission : permissions) {
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_" + permission));
+                }
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(email, null, authorities);
@@ -49,6 +65,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 request.setAttribute("userId", userId);
                 request.setAttribute("email", email);
                 request.setAttribute("role", role);
+                if (jti != null) {
+                    request.setAttribute("jti", jti);
+                }
 
                 if (tenantId != null) {
                     TenantContext.setTenantId(tenantId.toString());
