@@ -27,6 +27,11 @@ spring:
           auth: true
           starttls:
             enable: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 springdoc:
   swagger-ui:
@@ -62,3 +67,8 @@ seaweedfs:
     url: ${SEAWEEDFS_MASTER_URL:http://localhost:9333}
   volume:
     public-url: ${SEAWEEDFS_VOLUME_PUBLIC_URL:http://localhost:8080}
+
+evolution:
+  api:
+    url: ${EVOLUTION_API_URL:http://localhost:8081}
+    key: ${EVOLUTION_API_KEY:changeme-evolution-apikey}
