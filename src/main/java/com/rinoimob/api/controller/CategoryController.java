@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,18 +26,21 @@ public class CategoryController {
 
     @GetMapping
     @Operation(summary = "List all categories available to the current tenant (globals + own)")
+    @PreAuthorize("hasAuthority('PERMISSION_categories:read')")
     public ResponseEntity<List<CategoryResponse>> list() {
         return ResponseEntity.ok(categoryService.listAvailable());
     }
 
     @PostMapping
     @Operation(summary = "Create a new category for the current tenant")
+    @PreAuthorize("hasAuthority('PERMISSION_categories:write')")
     public ResponseEntity<CategoryResponse> create(@Valid @RequestBody CreateCategoryRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(categoryService.create(request));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update an existing tenant-owned category")
+    @PreAuthorize("hasAuthority('PERMISSION_categories:write')")
     public ResponseEntity<CategoryResponse> update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateCategoryRequest request) {
@@ -45,6 +49,7 @@ public class CategoryController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a tenant-owned category")
+    @PreAuthorize("hasAuthority('PERMISSION_categories:write')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         categoryService.delete(id);
         return ResponseEntity.noContent().build();

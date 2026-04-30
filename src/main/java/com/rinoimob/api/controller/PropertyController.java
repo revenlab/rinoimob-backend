@@ -13,6 +13,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,6 +28,7 @@ public class PropertyController {
     private final PropertyService propertyService;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('PERMISSION_properties:read')")
     public ResponseEntity<Page<PropertySummaryResponse>> list(
             @RequestParam(required = false) PropertyStatus status,
             @RequestParam(required = false) PropertyOperation operation,
@@ -41,16 +43,19 @@ public class PropertyController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<PropertyResponse> create(@Valid @RequestBody CreatePropertyRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(propertyService.createProperty(request));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:read')")
     public ResponseEntity<PropertyResponse> get(@PathVariable UUID id) {
         return ResponseEntity.ok(propertyService.getProperty(id));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<PropertyResponse> update(
             @PathVariable UUID id,
             @RequestBody UpdatePropertyRequest request) {
@@ -58,6 +63,7 @@ public class PropertyController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         propertyService.deleteProperty(id);
         return ResponseEntity.noContent().build();
@@ -66,6 +72,7 @@ public class PropertyController {
     // ── Photos ────────────────────────────────────────────────────────────────
 
     @PostMapping(value = "/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<PropertyPhotoResponse> uploadPhoto(
             @PathVariable UUID id,
             @RequestPart("file") MultipartFile file,
@@ -74,12 +81,14 @@ public class PropertyController {
     }
 
     @PatchMapping("/{id}/photos/{photoId}/cover")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<Void> setCover(@PathVariable UUID id, @PathVariable UUID photoId) {
         propertyService.setCoverPhoto(id, photoId);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}/photos/{photoId}")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<Void> deletePhoto(@PathVariable UUID id, @PathVariable UUID photoId) {
         propertyService.deletePhoto(id, photoId);
         return ResponseEntity.noContent().build();
@@ -88,6 +97,7 @@ public class PropertyController {
     // ── Floor Plans ───────────────────────────────────────────────────────────
 
     @PostMapping("/{id}/floor-plans")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<FloorPlanResponse> addFloorPlan(
             @PathVariable UUID id,
             @Valid @RequestBody CreateFloorPlanRequest request) {
@@ -95,12 +105,14 @@ public class PropertyController {
     }
 
     @DeleteMapping("/{id}/floor-plans/{planId}")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<Void> deleteFloorPlan(@PathVariable UUID id, @PathVariable UUID planId) {
         propertyService.deleteFloorPlan(id, planId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping(value = "/{id}/floor-plans/{planId}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<FloorPlanPhotoResponse> uploadFloorPlanPhoto(
             @PathVariable UUID id,
             @PathVariable UUID planId,

@@ -31,29 +31,44 @@ public class JwtTokenProvider {
     private long refreshTokenExpiration;
 
     public String generateAccessToken(UUID userId, String email, String role, UUID tenantId) {
-        return generateToken(userId, email, role, tenantId, accessTokenExpiration, "access");
+        return generateAccessToken(userId, email, role, tenantId, List.of());
     }
 
-    public String generateRefreshToken(UUID userId, String email) {
-        return generateToken(userId, email, null, null, refreshTokenExpiration, "refresh");
-    }
-
-    private String generateToken(UUID userId, String email, String role, UUID tenantId, long expiration, String type) {
+    public String generateAccessToken(UUID userId, String email, String role, UUID tenantId, List<String> permissions) {
+        String jti = UUID.randomUUID().toString();
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", email);
-        claims.put("type", type);
+        claims.put("type", "access");
+        claims.put("jti", jti);
         if (role != null) {
             claims.put("role", role);
         }
         if (tenantId != null) {
             claims.put("tenantId", tenantId.toString());
         }
+        if (permissions != null && !permissions.isEmpty()) {
+            claims.put("permissions", String.join(",", permissions));
+        }
 
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(userId.toString())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpiration))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    public String generateRefreshToken(UUID userId, String email) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", email);
+        claims.put("type", "refresh");
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(userId.toString())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + refreshTokenExpiration))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
@@ -81,6 +96,33 @@ public class JwtTokenProvider {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    public String getJtiFromToken(String token) {
+        try {
+            Claims claims = getAllClaimsFromToken(token);
+            return claims.get("jti", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public List<String> getPermissionsFromToken(String token) {
+        try {
+            Claims claims = getAllClaimsFromToken(token);
+            String perms = claims.get("permissions", String.class);
+            if (perms == null || perms.isBlank()) return List.of();
+            return Arrays.stream(perms.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    public long getAccessTokenTtlSeconds() {
+        return accessTokenExpiration / 1000;
     }
 
     public boolean isTokenValid(String token) {

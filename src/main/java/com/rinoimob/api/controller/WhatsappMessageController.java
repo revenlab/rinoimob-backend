@@ -6,6 +6,7 @@ import com.rinoimob.service.WhatsappMessageService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,11 +20,13 @@ public class WhatsappMessageController {
     private final WhatsappMessageService service;
 
     @GetMapping("/{leadId}/messages")
+    @PreAuthorize("hasAuthority('PERMISSION_whatsapp:read')")
     public ResponseEntity<List<WhatsappMessageResponse>> getMessages(@PathVariable UUID leadId) {
         return ResponseEntity.ok(service.getMessagesForLead(leadId));
     }
 
     @PostMapping("/{leadId}/messages")
+    @PreAuthorize("hasAuthority('PERMISSION_whatsapp:write')")
     public ResponseEntity<WhatsappMessageResponse> send(
             @PathVariable UUID leadId,
             @RequestBody SendWhatsappMessageRequest req,

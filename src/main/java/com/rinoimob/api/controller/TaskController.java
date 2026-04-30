@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -21,6 +22,7 @@ public class TaskController {
     private final TaskService taskService;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('PERMISSION_tasks:read')")
     public Page<TaskResponse> list(
             @RequestParam(required = false) Boolean pending,
             @RequestParam(required = false) UUID leadId,
@@ -33,18 +35,21 @@ public class TaskController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('PERMISSION_tasks:write')")
     public TaskResponse create(@Valid @RequestBody CreateTaskRequest req) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return taskService.create(tenantId, req);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERMISSION_tasks:write')")
     public TaskResponse update(@PathVariable UUID id, @RequestBody UpdateTaskRequest req) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return taskService.update(id, tenantId, req);
     }
 
     @PostMapping("/{id}/complete")
+    @PreAuthorize("hasAuthority('PERMISSION_tasks:write')")
     public TaskResponse complete(@PathVariable UUID id) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return taskService.complete(id, tenantId);
@@ -52,6 +57,7 @@ public class TaskController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('PERMISSION_tasks:write')")
     public void delete(@PathVariable UUID id) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         taskService.delete(id, tenantId);

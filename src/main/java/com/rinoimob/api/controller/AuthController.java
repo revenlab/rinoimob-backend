@@ -93,6 +93,17 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/logout")
+    @Operation(summary = "Logout and revoke current token")
+    public ResponseEntity<Void> logout(HttpServletRequest request) {
+        UUID userId = (UUID) request.getAttribute("userId");
+        String jti = (String) request.getAttribute("jti");
+        if (userId != null) {
+            authService.logout(userId, jti);
+        }
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/verify-email")
     @Operation(summary = "Verify email with token")
     public ResponseEntity<Void> verifyEmail(@RequestParam String token) {
@@ -118,4 +129,3 @@ public class AuthController {
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tenant context not found");
     }
 }
-

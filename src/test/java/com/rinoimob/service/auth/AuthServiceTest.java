@@ -13,6 +13,7 @@ import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
+import com.rinoimob.service.TenantRoleService;
 import com.rinoimob.service.email.EmailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,12 @@ class AuthServiceTest {
 
     @Mock
     private EmailService emailService;
+
+    @Mock
+    private TenantRoleService tenantRoleService;
+
+    @Mock
+    private TokenService tokenService;
 
     @InjectMocks
     private AuthService authService;
@@ -137,8 +144,11 @@ class AuthServiceTest {
         when(globalCredentialRepository.findByEmail(request.email())).thenReturn(Optional.of(credential));
         when(passwordEncoderService.verifyPassword(request.password(), credential.getPasswordHash())).thenReturn(true);
         when(userRepository.findByEmailAndTenantId(request.email(), tenantId)).thenReturn(Optional.of(user));
-        when(tokenProvider.generateAccessToken(userId, request.email(), Role.USER.toString(), tenantId))
+        when(tenantRoleService.getPermissionsForUser(user)).thenReturn(List.of());
+        when(tokenProvider.generateAccessToken(any(), anyString(), anyString(), any(), any()))
                 .thenReturn("access_token");
+        when(tokenProvider.getJtiFromToken("access_token")).thenReturn("test-jti");
+        when(tokenProvider.getAccessTokenTtlSeconds()).thenReturn(900L);
         when(tokenProvider.generateRefreshToken(userId, request.email())).thenReturn("refresh_token");
 
         var response = authService.login(request, tenantId);
@@ -290,7 +300,7 @@ class AuthServiceTest {
 
         verify(tenantRepository, times(1)).save(any(Tenant.class));
         verify(globalCredentialRepository, times(1)).save(any(GlobalCredential.class));
-        verify(userRepository, times(1)).save(argThat(u -> u.getRole() == Role.TENANT_OWNER));
+        verify(userRepository, times(1)).save(argThat(u -> "TENANT_OWNER".equals(u.getSystemRole())));
         verify(tokenRepository, times(1)).save(any(VerificationToken.class));
         verify(emailService, times(1)).sendVerificationEmail(eq(request.email()), anyString());
     }
