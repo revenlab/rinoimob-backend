@@ -51,6 +51,9 @@ public class Task {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "task_type_id")
+    private UUID taskTypeId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

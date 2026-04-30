@@ -10,5 +10,6 @@ public record CreateTaskRequest(
         String description,
         UUID leadId,
         UUID assignedTo,
-        LocalDateTime dueAt
+        LocalDateTime dueAt,
+        UUID taskTypeId
 ) {}

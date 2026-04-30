@@ -17,5 +17,9 @@ public record TaskResponse(
         LocalDateTime completedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        boolean overdue
+        boolean overdue,
+        UUID taskTypeId,
+        String taskTypeName,
+        String taskTypeColor,
+        String taskTypeIcon
 ) {}

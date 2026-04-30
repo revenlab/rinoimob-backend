@@ -8,5 +8,6 @@ public record UpdateTaskRequest(
         String description,
         UUID leadId,
         UUID assignedTo,
-        LocalDateTime dueAt
+        LocalDateTime dueAt,
+        UUID taskTypeId
 ) {}

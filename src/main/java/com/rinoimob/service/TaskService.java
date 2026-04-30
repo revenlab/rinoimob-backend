@@ -4,8 +4,10 @@ import com.rinoimob.domain.dto.CreateTaskRequest;
 import com.rinoimob.domain.dto.TaskResponse;
 import com.rinoimob.domain.dto.UpdateTaskRequest;
 import com.rinoimob.domain.entity.Task;
+import com.rinoimob.domain.entity.TaskType;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.domain.repository.TaskRepository;
+import com.rinoimob.domain.repository.TaskTypeRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -30,6 +32,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final LeadRepository leadRepository;
     private final UserRepository userRepository;
+    private final TaskTypeRepository taskTypeRepository;
 
     public Page<TaskResponse> list(UUID tenantId, Boolean pending, UUID leadId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("dueAt").ascending().and(Sort.by("createdAt").descending()));
@@ -59,6 +62,7 @@ public class TaskService {
                 .leadId(req.leadId())
                 .assignedTo(req.assignedTo())
                 .dueAt(req.dueAt())
+                .taskTypeId(req.taskTypeId())
                 .build();
         return toResponse(taskRepository.save(task));
     }
@@ -70,6 +74,7 @@ public class TaskService {
         if (req.leadId() != null) task.setLeadId(req.leadId());
         if (req.assignedTo() != null) task.setAssignedTo(req.assignedTo());
         if (req.dueAt() != null) task.setDueAt(req.dueAt());
+        if (req.taskTypeId() != null) task.setTaskTypeId(req.taskTypeId());
         return toResponse(taskRepository.save(task));
     }
 
@@ -103,11 +108,18 @@ public class TaskService {
         boolean overdue = task.getDueAt() != null
                 && task.getDueAt().isBefore(LocalDateTime.now())
                 && task.getCompletedAt() == null;
+        TaskType taskType = task.getTaskTypeId() != null
+                ? taskTypeRepository.findById(task.getTaskTypeId()).orElse(null)
+                : null;
         return new TaskResponse(
                 task.getId(), task.getTenantId(), task.getLeadId(), leadName,
                 task.getAssignedTo(), assignedToName, task.getTitle(), task.getDescription(),
                 task.getDueAt(), task.getCompletedAt() != null, task.getCompletedAt(),
-                task.getCreatedAt(), task.getUpdatedAt(), overdue
+                task.getCreatedAt(), task.getUpdatedAt(), overdue,
+                task.getTaskTypeId(),
+                taskType != null ? taskType.getName() : null,
+                taskType != null ? taskType.getColor() : null,
+                taskType != null ? taskType.getIcon() : null
         );
     }
 }
