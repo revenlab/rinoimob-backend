@@ -28,8 +28,27 @@ public class WhatsappInstanceService {
 
     public List<WhatsappInstanceResponse> listForTenant() {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return instanceRepo.findByTenantIdOrderByCreatedAtAsc(tenantId)
-            .stream().map(this::toResponse).toList();
+        List<WhatsappInstance> instances = instanceRepo.findByTenantIdOrderByCreatedAtAsc(tenantId);
+
+        // Sync connection status from Evolution API on every listing
+        instances.forEach(instance -> {
+            try {
+                String state = evolutionClient.getConnectionState(instance.getInstanceName());
+                String newStatus = switch (state) {
+                    case "open" -> "CONNECTED";
+                    case "connecting" -> "CONNECTING";
+                    default -> "DISCONNECTED";
+                };
+                if (!newStatus.equals(instance.getStatus())) {
+                    instance.setStatus(newStatus);
+                    instanceRepo.save(instance);
+                }
+            } catch (Exception e) {
+                log.warn("Could not sync status for instance '{}': {}", instance.getInstanceName(), e.getMessage());
+            }
+        });
+
+        return instances.stream().map(this::toResponse).toList();
     }
 
     public WhatsappInstanceResponse create(CreateWhatsappInstanceRequest req) {
