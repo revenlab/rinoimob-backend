@@ -7,7 +7,6 @@ import com.rinoimob.domain.entity.GlobalCredential;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
-import com.rinoimob.domain.enums.Role;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRepository;
@@ -138,7 +137,6 @@ class AuthServiceTest {
         user.setId(userId);
         user.setEmail(request.email());
         user.setActive(true);
-        user.setRole(Role.USER);
         user.setTenantId(tenantId);
 
         when(globalCredentialRepository.findByEmail(request.email())).thenReturn(Optional.of(credential));
