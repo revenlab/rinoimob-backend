@@ -222,8 +222,7 @@ public class AuthService {
         userRepository.save(user);
 
         List<String> permissions = tenantRoleService.getPermissionsForUser(user);
-        String roleStr = user.getSystemRole() != null ? user.getSystemRole() :
-                         (user.getRole() != null ? user.getRole().toString() : null);
+        String roleStr = user.getSystemRole();
 
         String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), roleStr, user.getTenantId(), permissions);
         String jti = tokenProvider.getJtiFromToken(accessToken);
@@ -259,8 +258,7 @@ public class AuthService {
         userRepository.save(user);
 
         List<String> permissions = tenantRoleService.getPermissionsForUser(user);
-        String roleStr = user.getSystemRole() != null ? user.getSystemRole() :
-                         (user.getRole() != null ? user.getRole().toString() : null);
+        String roleStr = user.getSystemRole();
 
         String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), roleStr, user.getTenantId(), permissions);
         String jti = tokenProvider.getJtiFromToken(accessToken);
