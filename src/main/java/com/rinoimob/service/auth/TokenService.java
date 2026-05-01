@@ -2,9 +2,7 @@ package com.rinoimob.service.auth;
 
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class TokenService {
@@ -14,35 +12,47 @@ public class TokenService {
         this.stringRedisTemplate = stringRedisTemplate;
     }
 
-    public void store(String jti, UUID userId, long ttlSeconds) {
-        String tokenKey = "token:" + jti;
-        String userTokensKey = "user_tokens:" + userId;
-        stringRedisTemplate.opsForValue().set(tokenKey, userId.toString(), ttlSeconds, TimeUnit.SECONDS);
-        stringRedisTemplate.opsForSet().add(userTokensKey, jti);
-        stringRedisTemplate.expire(userTokensKey, ttlSeconds, TimeUnit.SECONDS);
+    /**
+     * Records the issued-at time for tokens of a tenant.
+     * Used for immediate invalidation of all tokens when permissions change.
+     */
+    public void recordTenantTokenIssueTime(UUID tenantId, long issuedAtMs) {
+        String key = "tenant:" + tenantId + ":last_valid_token_issued_at";
+        stringRedisTemplate.opsForValue().set(key, String.valueOf(issuedAtMs));
     }
 
-    public boolean isValid(String jti) {
-        return Boolean.TRUE.equals(stringRedisTemplate.hasKey("token:" + jti));
-    }
-
-    public void revoke(String jti) {
-        String tokenKey = "token:" + jti;
-        String userId = stringRedisTemplate.opsForValue().get(tokenKey);
-        if (userId != null) {
-            stringRedisTemplate.delete(tokenKey);
-            stringRedisTemplate.opsForSet().remove("user_tokens:" + userId, jti);
+    /**
+     * Gets the last valid token issued time for a tenant.
+     * Tokens issued before this time are invalid.
+     * Returns current time if never set (all tokens become invalid).
+     */
+    public long getLastValidTokenIssuedTime(UUID tenantId) {
+        String key = "tenant:" + tenantId + ":last_valid_token_issued_at";
+        String value = stringRedisTemplate.opsForValue().get(key);
+        if (value == null) {
+            return System.currentTimeMillis();
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return System.currentTimeMillis();
         }
     }
 
-    public void revokeAllForUser(UUID userId) {
-        String userTokensKey = "user_tokens:" + userId;
-        Set<String> jtis = stringRedisTemplate.opsForSet().members(userTokensKey);
-        if (jtis != null) {
-            for (String jti : jtis) {
-                stringRedisTemplate.delete("token:" + jti);
-            }
-        }
-        stringRedisTemplate.delete(userTokensKey);
+    /**
+     * Validates if a token is valid for a tenant.
+     * Token is valid if issued AFTER the last valid issue time.
+     */
+    public boolean isTokenValidForTenant(UUID tenantId, long tokenIssuedAtMs) {
+        long lastValidTime = getLastValidTokenIssuedTime(tenantId);
+        return tokenIssuedAtMs >= lastValidTime;
+    }
+
+    /**
+     * Invalidates all tokens for a tenant by setting the last valid issue time to now.
+     * Called when role changes or user is deactivated.
+     */
+    public void invalidateTenantTokens(UUID tenantId) {
+        recordTenantTokenIssueTime(tenantId, System.currentTimeMillis());
     }
 }

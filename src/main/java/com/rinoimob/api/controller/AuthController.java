@@ -1,5 +1,6 @@
 package com.rinoimob.api.controller;
 
+import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.ForgotPasswordRequest;
 import com.rinoimob.domain.dto.IdentifyRequest;
 import com.rinoimob.domain.dto.IdentifyResponse;
@@ -95,12 +96,9 @@ public class AuthController {
 
     @PostMapping("/logout")
     @Operation(summary = "Logout and revoke current token")
-    public ResponseEntity<Void> logout(HttpServletRequest request) {
-        UUID userId = (UUID) request.getAttribute("userId");
-        String jti = (String) request.getAttribute("jti");
-        if (userId != null) {
-            authService.logout(userId, jti);
-        }
+    public ResponseEntity<Void> logout() {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        authService.logout(tenantId);
         return ResponseEntity.ok().build();
     }
 

@@ -107,6 +107,14 @@ public class JwtTokenProvider {
         }
     }
 
+    /**
+     * Extracts the issued-at (iat) claim from JWT token in milliseconds.
+     */
+    public long getIssuedAtFromToken(String token) {
+        Claims claims = getAllClaimsFromToken(token);
+        return claims.getIssuedAt().getTime();
+    }
+
     public List<String> getPermissionsFromToken(String token) {
         try {
             Claims claims = getAllClaimsFromToken(token);

@@ -106,7 +106,10 @@ public class UserManagementService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found"));
         user.setTenantRoleId(roleId);
         User saved = userRepository.save(user);
-        tokenService.revokeAllForUser(userId);
+        
+        // Invalidate all tokens for this tenant when role changes
+        tokenService.invalidateTenantTokens(tenantId);
+        
         return toResponse(saved);
     }
 
@@ -119,7 +122,9 @@ public class UserManagementService {
         }
         user.setActive(false);
         userRepository.save(user);
-        tokenService.revokeAllForUser(userId);
+        
+        // Invalidate all tokens for this tenant when user is deactivated
+        tokenService.invalidateTenantTokens(tenantId);
     }
 
     private UserManagementResponse toResponse(User user) {
