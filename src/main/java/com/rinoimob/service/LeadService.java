@@ -44,6 +44,7 @@ public class LeadService {
     private final UserRepository userRepository;
     private final LeadPropertyRepository leadPropertyRepository;
     private final PropertyRepository propertyRepository;
+    private final AutomationEventDispatcher automationEventDispatcher;
 
     @Transactional(readOnly = true)
     public LeadStatsResponse getStats(UUID tenantId) {
@@ -100,18 +101,21 @@ public class LeadService {
             leadPropertyRepository.save(lp);
         }
         log.info("Lead created id={} tenant={}", lead.getId(), tenantId);
+        automationEventDispatcher.dispatchLeadCreated(lead);
         return toResponse(lead, List.of(), null, List.of());
     }
 
     @Transactional
     public LeadResponse update(UUID tenantId, UUID id, UpdateLeadRequest req) {
         Lead lead = findOwned(id, tenantId);
+        LeadStatus oldStatus = lead.getStatus();
+        UUID oldAssignedTo = lead.getAssignedTo();
+        
         if (req.name() != null) lead.setName(req.name());
         if (req.email() != null) lead.setEmail(req.email());
         if (req.phone() != null) lead.setPhone(req.phone());
         if (req.message() != null) lead.setMessage(req.message());
         if (req.status() != null && !req.status().equals(lead.getStatus())) {
-            LeadStatus oldStatus = lead.getStatus();
             lead.setStatus(req.status());
             logEvent(lead.getId(), null, LeadEventType.STATUS_CHANGED,
                     "Status alterado de " + oldStatus + " para " + req.status());
@@ -124,6 +128,15 @@ public class LeadService {
         }
         lead = leadRepository.save(lead);
         log.info("Lead updated id={}", id);
+        
+        if (!oldStatus.equals(lead.getStatus())) {
+            automationEventDispatcher.dispatchLeadStatusChanged(lead, oldStatus);
+        }
+        if (oldAssignedTo == null ? lead.getAssignedTo() != null : !oldAssignedTo.equals(lead.getAssignedTo())) {
+            User assignedUser = lead.getAssignedTo() != null ? userRepository.findById(lead.getAssignedTo()).orElse(null) : null;
+            automationEventDispatcher.dispatchLeadAssigned(lead, assignedUser);
+        }
+        
         List<LeadNote> notes = leadNoteRepository.findAllByLeadIdOrderByCreatedAtDesc(id);
         List<LeadProperty> leadProps = leadPropertyRepository.findAllByLeadIdOrderByCreatedAtAsc(id);
         List<LeadPropertyResponse> propResponses = leadProps.stream().map(this::toLeadPropertyResponse).toList();
