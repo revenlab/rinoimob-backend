@@ -72,6 +72,38 @@ public class WhatsappMessageService {
         return toResponse(message);
     }
 
+    public WhatsappMessageResponse sendToNumber(String phoneNumber, UUID instanceId, String text, UUID userId) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            throw new RuntimeException("Phone number is required");
+        }
+
+        WhatsappInstance instance = instanceRepo.findByIdAndTenantId(instanceId, tenantId)
+            .orElseThrow(() -> new RuntimeException("Instance not found"));
+
+        if (!"CONNECTED".equals(instance.getStatus())) {
+            throw new RuntimeException("WhatsApp instance is not connected");
+        }
+
+        String toNumber = phoneNumber.replaceAll("\\D", "");
+
+        String externalId = evolutionClient.sendText(instance.getInstanceName(), toNumber, text);
+
+        WhatsappMessage message = new WhatsappMessage();
+        message.setTenantId(tenantId);
+        message.setLeadId(null);
+        message.setInstanceId(instance.getId());
+        message.setDirection("OUTBOUND");
+        message.setContent(text);
+        message.setSentByUserId(userId);
+        message.setExternalMessageId(externalId);
+        message.setStatus("SENT");
+        message = messageRepo.save(message);
+
+        return toResponse(message);
+    }
+
     public WhatsappMessageResponse toResponse(WhatsappMessage m) {
         WhatsappMessageResponse r = new WhatsappMessageResponse();
         r.setId(m.getId());

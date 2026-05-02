@@ -6,6 +6,8 @@ import com.rinoimob.domain.entity.AutomationExecution;
 import com.rinoimob.domain.entity.AutomationWorkflow;
 import com.rinoimob.domain.enums.*;
 import com.rinoimob.domain.repository.AutomationExecutionRepository;
+import com.rinoimob.service.automation.ActionHandler;
+import com.rinoimob.service.automation.ActionHandlerRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ public class AutomationExecutor {
 
     private final AutomationExecutionRepository automationExecutionRepository;
     private final ObjectMapper objectMapper;
+    private final ActionHandlerRegistry actionHandlerRegistry;
 
     @Transactional
     public AutomationExecutionResponse executeWorkflow(AutomationWorkflow workflow, String triggerEvent,
@@ -184,47 +187,15 @@ public class AutomationExecutor {
 
     private void executeActionByType(ActionType type, Map<String, Object> data, Map<String, Object> context,
                                      Map<String, Object> resultData) {
-        switch (type) {
-            case SEND_WHATSAPP:
-                log.info("Executing SEND_WHATSAPP action with data: {}", data);
-                resultData.put("whatsapp_sent", true);
-                break;
-
-            case SEND_EMAIL:
-                log.info("Executing SEND_EMAIL action with data: {}", data);
-                resultData.put("email_sent", true);
-                break;
-
-            case CREATE_TASK:
-                log.info("Executing CREATE_TASK action with data: {}", data);
-                resultData.put("task_created", true);
-                break;
-
-            case UPDATE_LEAD_STATUS:
-                String newStatus = (String) data.get("newStatus");
-                log.info("Executing UPDATE_LEAD_STATUS action to: {}", newStatus);
-                resultData.put("lead_status_updated", newStatus);
-                break;
-
-            case ASSIGN_LEAD:
-                String assigneeId = (String) data.get("userId");
-                log.info("Executing ASSIGN_LEAD action to user: {}", assigneeId);
-                resultData.put("lead_assigned", assigneeId);
-                break;
-
-            case WAIT:
-                Integer delaySeconds = ((Number) data.get("delaySeconds")).intValue();
-                log.info("Executing WAIT action for {} seconds", delaySeconds);
-                resultData.put("waited", delaySeconds);
-                break;
-
-            case SEND_NOTIFICATION:
-                log.info("Executing SEND_NOTIFICATION action with data: {}", data);
-                resultData.put("notification_sent", true);
-                break;
-
-            default:
-                log.warn("Unknown action type in execution");
+        try {
+            ActionHandler handler = actionHandlerRegistry.getHandler(type);
+            handler.execute(data, context, resultData);
+            log.info("Action {} executed successfully", type);
+        } catch (Exception e) {
+            log.error("Error executing action {}: {}", type, e.getMessage(), e);
+            resultData.put("action_error", type.name());
+            resultData.put("action_error_message", e.getMessage());
+            throw new RuntimeException("Action execution failed: " + e.getMessage(), e);
         }
     }
 

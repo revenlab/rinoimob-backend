@@ -24,6 +24,23 @@ public class EmailService {
     }
 
     @Async
+    public void sendEmail(String to, String subject, String text) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(text);
+
+            mailSender.send(message);
+            log.info("Email sent to {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send email to {}: {}", to, e.getMessage(), e);
+            throw new RuntimeException("Email send failed: " + e.getMessage(), e);
+        }
+    }
+
+    @Async
     public void sendVerificationEmail(String email, String token) {
         try {
             String verificationUrl = frontendUrl + "/verify-email?token=" + token;
