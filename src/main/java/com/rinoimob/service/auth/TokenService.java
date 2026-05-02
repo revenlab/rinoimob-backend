@@ -2,9 +2,7 @@ package com.rinoimob.service.auth;
 
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class TokenService {
@@ -14,35 +12,84 @@ public class TokenService {
         this.stringRedisTemplate = stringRedisTemplate;
     }
 
-    public void store(String jti, UUID userId, long ttlSeconds) {
-        String tokenKey = "token:" + jti;
-        String userTokensKey = "user_tokens:" + userId;
-        stringRedisTemplate.opsForValue().set(tokenKey, userId.toString(), ttlSeconds, TimeUnit.SECONDS);
-        stringRedisTemplate.opsForSet().add(userTokensKey, jti);
-        stringRedisTemplate.expire(userTokensKey, ttlSeconds, TimeUnit.SECONDS);
+    /**
+     * Records the minimum valid token issued-at time for a tenant.
+     * All tokens issued BEFORE this time are invalid for the tenant.
+     * Used when: role permissions change, affects all users in tenant.
+     */
+    public void recordTenantMinValidTokenIssuedTime(UUID tenantId, long issuedAtMs) {
+        String key = "tenant:" + tenantId + ":min_valid_token_issued_at";
+        stringRedisTemplate.opsForValue().set(key, String.valueOf(issuedAtMs));
     }
 
-    public boolean isValid(String jti) {
-        return Boolean.TRUE.equals(stringRedisTemplate.hasKey("token:" + jti));
+    /**
+     * Records the minimum valid token issued-at time for a specific user.
+     * All tokens issued BEFORE this time are invalid for this user.
+     * Used when: user is deactivated, user logs out, user permissions change.
+     */
+    public void recordUserMinValidTokenIssuedTime(UUID userId, long issuedAtMs) {
+        String key = "user:" + userId + ":min_valid_token_issued_at";
+        stringRedisTemplate.opsForValue().set(key, String.valueOf(issuedAtMs));
     }
 
-    public void revoke(String jti) {
-        String tokenKey = "token:" + jti;
-        String userId = stringRedisTemplate.opsForValue().get(tokenKey);
-        if (userId != null) {
-            stringRedisTemplate.delete(tokenKey);
-            stringRedisTemplate.opsForSet().remove("user_tokens:" + userId, jti);
+    /**
+     * Gets the minimum valid token issued-at time for a tenant.
+     * Returns 0 if never set (all tokens are valid).
+     */
+    public long getTenantMinValidTokenIssuedTime(UUID tenantId) {
+        String key = "tenant:" + tenantId + ":min_valid_token_issued_at";
+        String value = stringRedisTemplate.opsForValue().get(key);
+        if (value == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return 0L;
         }
     }
 
-    public void revokeAllForUser(UUID userId) {
-        String userTokensKey = "user_tokens:" + userId;
-        Set<String> jtis = stringRedisTemplate.opsForSet().members(userTokensKey);
-        if (jtis != null) {
-            for (String jti : jtis) {
-                stringRedisTemplate.delete("token:" + jti);
-            }
+    /**
+     * Gets the minimum valid token issued-at time for a specific user.
+     * Returns 0 if never set (all tokens are valid).
+     */
+    public long getUserMinValidTokenIssuedTime(UUID userId) {
+        String key = "user:" + userId + ":min_valid_token_issued_at";
+        String value = stringRedisTemplate.opsForValue().get(key);
+        if (value == null) {
+            return 0L;
         }
-        stringRedisTemplate.delete(userTokensKey);
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
+    }
+
+    /**
+     * Validates if a token is valid for a user in a tenant.
+     * Token is valid if issued AFTER both tenant's and user's minimum valid times.
+     */
+    public boolean isTokenValidForTenant(UUID tenantId, UUID userId, long tokenIssuedAtMs) {
+        long tenantMinValidTime = getTenantMinValidTokenIssuedTime(tenantId);
+        long userMinValidTime = getUserMinValidTokenIssuedTime(userId);
+        
+        return tokenIssuedAtMs >= tenantMinValidTime && tokenIssuedAtMs >= userMinValidTime;
+    }
+
+    /**
+     * Invalidates all tokens for a tenant by setting the minimum valid issued-at time to now.
+     * Called when role permissions change (affects all users).
+     */
+    public void invalidateAllTenantTokens(UUID tenantId) {
+        recordTenantMinValidTokenIssuedTime(tenantId, System.currentTimeMillis());
+    }
+
+    /**
+     * Invalidates all tokens for a specific user by setting the minimum valid issued-at time to now.
+     * Called when user is deactivated or logs out.
+     */
+    public void invalidateUserTokens(UUID userId) {
+        recordUserMinValidTokenIssuedTime(userId, System.currentTimeMillis());
     }
 }

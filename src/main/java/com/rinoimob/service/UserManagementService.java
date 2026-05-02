@@ -11,6 +11,7 @@ import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRoleRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
+import com.rinoimob.exception.ForbiddenException;
 import com.rinoimob.service.auth.PasswordEncoderService;
 import com.rinoimob.service.auth.TokenService;
 import org.springframework.http.HttpStatus;
@@ -100,13 +101,17 @@ public class UserManagementService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if ("TENANT_OWNER".equals(user.getSystemRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot change role of TENANT_OWNER");
+            throw new ForbiddenException("Cannot change role of TENANT_OWNER", "Proprietário do workspace não pode ter sua função alterada");
         }
         tenantRoleRepository.findByTenantIdAndId(tenantId, roleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found"));
         user.setTenantRoleId(roleId);
         User saved = userRepository.save(user);
-        tokenService.revokeAllForUser(userId);
+
+        // Invalidate only THIS user's tokens — their role changed, so their JWT permissions are stale.
+        // Use tenant-level invalidation only when role permissions themselves change (see TenantRoleService).
+        tokenService.invalidateUserTokens(userId);
+
         return toResponse(saved);
     }
 
@@ -115,11 +120,13 @@ public class UserManagementService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if ("TENANT_OWNER".equals(user.getSystemRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot deactivate TENANT_OWNER");
+            throw new ForbiddenException("Cannot deactivate TENANT_OWNER", "Proprietário do workspace não pode ser desativado");
         }
         user.setActive(false);
         userRepository.save(user);
-        tokenService.revokeAllForUser(userId);
+        
+        // Invalidate tokens for this SPECIFIC USER only
+        tokenService.invalidateUserTokens(userId);
     }
 
     private UserManagementResponse toResponse(User user) {

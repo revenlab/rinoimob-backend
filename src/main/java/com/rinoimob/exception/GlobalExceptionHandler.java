@@ -1,6 +1,7 @@
 package com.rinoimob.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -40,8 +41,33 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request, ex);
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnauthorizedException(
+            UnauthorizedException ex,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        response.addHeader("X-Reason", ex.getReason());
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), request, ex);
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiErrorResponse> handleForbiddenException(
+            ForbiddenException ex,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        response.addHeader("X-Reason", ex.getReason());
+        return buildErrorResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request, ex);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        response.addHeader("X-Reason", "Insufficient permissions");
         return buildErrorResponse(HttpStatus.FORBIDDEN, "Access denied", request, ex);
     }
 

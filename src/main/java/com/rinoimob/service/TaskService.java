@@ -33,6 +33,7 @@ public class TaskService {
     private final LeadRepository leadRepository;
     private final UserRepository userRepository;
     private final TaskTypeRepository taskTypeRepository;
+    private final AutomationEventDispatcher automationEventDispatcher;
 
     public Page<TaskResponse> list(UUID tenantId, Boolean pending, UUID leadId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("dueAt").ascending().and(Sort.by("createdAt").descending()));
@@ -64,7 +65,9 @@ public class TaskService {
                 .dueAt(req.dueAt())
                 .taskTypeId(req.taskTypeId())
                 .build();
-        return toResponse(taskRepository.save(task));
+        task = taskRepository.save(task);
+        automationEventDispatcher.dispatchTaskCreated(task);
+        return toResponse(task);
     }
 
     public TaskResponse update(UUID id, UUID tenantId, UpdateTaskRequest req) {
@@ -81,7 +84,11 @@ public class TaskService {
     public TaskResponse complete(UUID id, UUID tenantId) {
         Task task = findTask(id, tenantId);
         task.setCompletedAt(task.getCompletedAt() == null ? LocalDateTime.now() : null);
-        return toResponse(taskRepository.save(task));
+        task = taskRepository.save(task);
+        if (task.getCompletedAt() != null) {
+            automationEventDispatcher.dispatchTaskCompleted(task);
+        }
+        return toResponse(task);
     }
 
     public void delete(UUID id, UUID tenantId) {

@@ -34,6 +34,9 @@ public class Tenant {
     @Column(nullable = false)
     private Boolean active = true;
 
+    @Column(name = "min_valid_token_issued_at")
+    private Long minValidTokenIssuedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

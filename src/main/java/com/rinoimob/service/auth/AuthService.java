@@ -225,10 +225,6 @@ public class AuthService {
         String roleStr = user.getSystemRole();
 
         String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), roleStr, user.getTenantId(), permissions);
-        String jti = tokenProvider.getJtiFromToken(accessToken);
-        if (jti != null) {
-            tokenService.store(jti, user.getId(), tokenProvider.getAccessTokenTtlSeconds());
-        }
         String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail());
 
         log.info("User logged in: {} in tenant {}", user.getEmail(), tenantId);
@@ -261,10 +257,6 @@ public class AuthService {
         String roleStr = user.getSystemRole();
 
         String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), roleStr, user.getTenantId(), permissions);
-        String jti = tokenProvider.getJtiFromToken(accessToken);
-        if (jti != null) {
-            tokenService.store(jti, user.getId(), tokenProvider.getAccessTokenTtlSeconds());
-        }
         String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail());
 
         log.info("User logged in (host-resolved): {}", user.getEmail());
@@ -273,10 +265,8 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(UUID userId, String jti) {
-        if (jti != null) {
-            tokenService.revoke(jti);
-        }
+    public void logout(UUID userId) {
+        tokenService.invalidateUserTokens(userId);
         log.info("User logged out: {}", userId);
     }
 

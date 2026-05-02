@@ -1,6 +1,7 @@
 package com.rinoimob.config.security;
 
 import com.rinoimob.context.TenantContext;
+import com.rinoimob.exception.UnauthorizedException;
 import com.rinoimob.service.auth.TokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -36,18 +37,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
 
             if (StringUtils.hasText(jwt) && tokenProvider.isAccessToken(jwt) && tokenProvider.isTokenValid(jwt)) {
-                String jti = tokenProvider.getJtiFromToken(jwt);
-
-                if (jti != null && !tokenService.isValid(jti)) {
-                    filterChain.doFilter(request, response);
-                    return;
-                }
-
                 var userId = tokenProvider.getUserIdFromToken(jwt);
                 var email = tokenProvider.getEmailFromToken(jwt);
                 var role = tokenProvider.getRoleFromToken(jwt);
                 var tenantId = tokenProvider.getTenantIdFromToken(jwt);
                 var permissions = tokenProvider.getPermissionsFromToken(jwt);
+                long tokenIssuedAt = tokenProvider.getIssuedAtFromToken(jwt);
+
+                // Validate token is still valid for this user AND tenant
+                // (not invalidated after role/permission changes or user logout)
+                if (!tokenService.isTokenValidForTenant(tenantId, userId, tokenIssuedAt)) {
+                    log.warn("Token rejected: invalidated for user {} in tenant {}", userId, tenantId);
+                    throw new UnauthorizedException("Token is invalid or expired", "Token inválido ou expirado");
+                }
 
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
                 if (role != null) {
@@ -65,14 +67,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 request.setAttribute("userId", userId);
                 request.setAttribute("email", email);
                 request.setAttribute("role", role);
-                if (jti != null) {
-                    request.setAttribute("jti", jti);
-                }
 
                 if (tenantId != null) {
                     TenantContext.setTenantId(tenantId.toString());
                 }
             }
+        } catch (UnauthorizedException ex) {
+            throw ex;
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);
         }
