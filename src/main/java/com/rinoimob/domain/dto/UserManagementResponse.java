@@ -8,6 +8,7 @@ public record UserManagementResponse(
     String email,
     String firstName,
     String lastName,
+    String phone,
     boolean active,
     String systemRole,
     UUID tenantRoleId,

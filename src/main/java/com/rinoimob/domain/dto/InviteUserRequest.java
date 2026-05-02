@@ -6,5 +6,6 @@ public record InviteUserRequest(
     String email,
     String firstName,
     String lastName,
+    String phone,
     UUID roleId
 ) {}

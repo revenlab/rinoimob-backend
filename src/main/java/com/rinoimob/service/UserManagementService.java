@@ -79,6 +79,7 @@ public class UserManagementService {
         user.setEmail(normalizedEmail);
         user.setFirstName(request.firstName());
         user.setLastName(request.lastName());
+        user.setPhone(request.phone());
         user.setTenantRoleId(request.roleId());
         user.setVerificationStatus(VerificationStatus.PENDING);
         user.setActive(true);
@@ -141,6 +142,7 @@ public class UserManagementService {
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
+                user.getPhone(),
                 Boolean.TRUE.equals(user.getActive()),
                 user.getSystemRole(),
                 user.getTenantRoleId(),

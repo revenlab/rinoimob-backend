@@ -2,7 +2,9 @@ package com.rinoimob.service.automation.handler;
 
 import com.rinoimob.domain.dto.SendWhatsappMessageRequest;
 import com.rinoimob.domain.entity.Lead;
+import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.repository.LeadRepository;
+import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.service.WhatsappMessageService;
 import com.rinoimob.service.automation.ActionHandler;
 import com.rinoimob.context.TenantContext;
@@ -20,6 +22,7 @@ public class SendWhatsappActionHandler implements ActionHandler {
 
     private final WhatsappMessageService whatsappMessageService;
     private final LeadRepository leadRepository;
+    private final UserRepository userRepository;
 
     @Override
     public void execute(Map<String, Object> actionData, Map<String, Object> context,
@@ -88,12 +91,19 @@ public class SendWhatsappActionHandler implements ActionHandler {
                         log.warn("Lead {} has no assigned user", leadId);
                         return;
                     }
-                    phoneNumber = actionData.get("recipientPhone") != null ? 
-                        actionData.get("recipientPhone").toString() : null;
+                    
+                    // Try to get phone from assigned user first
+                    phoneNumber = getAssignedUserPhone(lead.getAssignedTo(), tenantId);
+                    
+                    // Fallback to explicitly provided phone if not found in user
+                    if (phoneNumber == null && actionData.get("recipientPhone") != null) {
+                        phoneNumber = actionData.get("recipientPhone").toString();
+                    }
+                    
                     if (phoneNumber == null) {
                         resultData.put("whatsapp_sent", false);
-                        resultData.put("whatsapp_error", "Assigned user phone number not provided");
-                        log.warn("Assigned user phone for lead {} not found", leadId);
+                        resultData.put("whatsapp_error", "Assigned user has no phone number configured");
+                        log.warn("Assigned user {} for lead {} has no phone", lead.getAssignedTo(), leadId);
                         return;
                     }
                     break;
@@ -151,6 +161,18 @@ public class SendWhatsappActionHandler implements ActionHandler {
         } catch (Exception e) {
             log.warn("Could not retrieve lead {}: {}", leadId, e.getMessage());
             throw new RuntimeException("Lead not found", e);
+        }
+    }
+
+    private String getAssignedUserPhone(UUID userId, UUID tenantId) {
+        try {
+            User user = userRepository.findById(userId)
+                .filter(u -> tenantId.equals(u.getTenantId()))
+                .orElse(null);
+            return user != null ? user.getPhone() : null;
+        } catch (Exception e) {
+            log.warn("Could not retrieve user {} phone: {}", userId, e.getMessage());
+            return null;
         }
     }
 

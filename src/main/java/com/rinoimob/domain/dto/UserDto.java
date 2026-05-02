@@ -8,6 +8,7 @@ public record UserDto(
     String email,
     String firstName,
     String lastName,
+    String phone,
     Boolean active,
     LocalDateTime createdAt
 ) {

@@ -395,12 +395,13 @@ public class AuthService {
     }
 
     @Transactional
-    public UserDto updateUserProfile(UUID userId, String firstName, String lastName) {
+    public UserDto updateUserProfile(UUID userId, String firstName, String lastName, String phone) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         user.setFirstName(firstName);
         user.setLastName(lastName);
+        user.setPhone(phone);
         User updatedUser = userRepository.save(user);
 
         log.info("User profile updated: {}", user.getEmail());
@@ -435,6 +436,7 @@ public class AuthService {
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
+                user.getPhone(),
                 user.getActive(),
                 user.getCreatedAt()
         );

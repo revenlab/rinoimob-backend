@@ -41,7 +41,7 @@ public class UserController {
         if (tenantId == null) tenantId = UUID.fromString(TenantContext.getTenantId());
         List<User> users = userRepository.findByTenantIdAndActive(tenantId, true);
         List<UserDto> dtos = users.stream()
-                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(), u.getActive(), u.getCreatedAt()))
+                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(), u.getPhone(), u.getActive(), u.getCreatedAt()))
                 .toList();
         return ResponseEntity.ok(dtos);
     }
@@ -66,7 +66,7 @@ public class UserController {
         if (userId == null) {
             throw unauthorized();
         }
-        UserDto updated = authService.updateUserProfile(userId, body.firstName(), body.lastName());
+        UserDto updated = authService.updateUserProfile(userId, body.firstName(), body.lastName(), body.phone());
         return ResponseEntity.ok(updated);
     }
 
