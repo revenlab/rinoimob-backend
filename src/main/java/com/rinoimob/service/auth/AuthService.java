@@ -265,9 +265,9 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(UUID tenantId) {
-        tokenService.invalidateTenantTokens(tenantId);
-        log.info("User logged out from tenant {}", tenantId);
+    public void logout(UUID userId) {
+        tokenService.invalidateUserTokens(userId);
+        log.info("User logged out: {}", userId);
     }
 
     @Transactional

@@ -26,10 +26,12 @@ public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenService tokenService;
+    private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
-    public SecurityConfig(JwtTokenProvider jwtTokenProvider, TokenService tokenService) {
+    public SecurityConfig(JwtTokenProvider jwtTokenProvider, TokenService tokenService, CustomAuthenticationEntryPoint customAuthenticationEntryPoint) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.tokenService = tokenService;
+        this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
     }
 
     @Bean
@@ -38,6 +40,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(customAuthenticationEntryPoint))
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup").permitAll()
@@ -72,7 +75,7 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setExposedHeaders(List.of("Authorization", "X-Reason"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

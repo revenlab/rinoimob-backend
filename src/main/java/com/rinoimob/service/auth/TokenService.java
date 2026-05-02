@@ -13,46 +13,83 @@ public class TokenService {
     }
 
     /**
-     * Records the issued-at time for tokens of a tenant.
-     * Used for immediate invalidation of all tokens when permissions change.
+     * Records the minimum valid token issued-at time for a tenant.
+     * All tokens issued BEFORE this time are invalid for the tenant.
+     * Used when: role permissions change, affects all users in tenant.
      */
-    public void recordTenantTokenIssueTime(UUID tenantId, long issuedAtMs) {
-        String key = "tenant:" + tenantId + ":last_valid_token_issued_at";
+    public void recordTenantMinValidTokenIssuedTime(UUID tenantId, long issuedAtMs) {
+        String key = "tenant:" + tenantId + ":min_valid_token_issued_at";
         stringRedisTemplate.opsForValue().set(key, String.valueOf(issuedAtMs));
     }
 
     /**
-     * Gets the last valid token issued time for a tenant.
-     * Tokens issued before this time are invalid.
-     * Returns current time if never set (all tokens become invalid).
+     * Records the minimum valid token issued-at time for a specific user.
+     * All tokens issued BEFORE this time are invalid for this user.
+     * Used when: user is deactivated, user logs out, user permissions change.
      */
-    public long getLastValidTokenIssuedTime(UUID tenantId) {
-        String key = "tenant:" + tenantId + ":last_valid_token_issued_at";
+    public void recordUserMinValidTokenIssuedTime(UUID userId, long issuedAtMs) {
+        String key = "user:" + userId + ":min_valid_token_issued_at";
+        stringRedisTemplate.opsForValue().set(key, String.valueOf(issuedAtMs));
+    }
+
+    /**
+     * Gets the minimum valid token issued-at time for a tenant.
+     * Returns 0 if never set (all tokens are valid).
+     */
+    public long getTenantMinValidTokenIssuedTime(UUID tenantId) {
+        String key = "tenant:" + tenantId + ":min_valid_token_issued_at";
         String value = stringRedisTemplate.opsForValue().get(key);
         if (value == null) {
-            return System.currentTimeMillis();
+            return 0L;
         }
         try {
             return Long.parseLong(value);
         } catch (NumberFormatException e) {
-            return System.currentTimeMillis();
+            return 0L;
         }
     }
 
     /**
-     * Validates if a token is valid for a tenant.
-     * Token is valid if issued AFTER the last valid issue time.
+     * Gets the minimum valid token issued-at time for a specific user.
+     * Returns 0 if never set (all tokens are valid).
      */
-    public boolean isTokenValidForTenant(UUID tenantId, long tokenIssuedAtMs) {
-        long lastValidTime = getLastValidTokenIssuedTime(tenantId);
-        return tokenIssuedAtMs >= lastValidTime;
+    public long getUserMinValidTokenIssuedTime(UUID userId) {
+        String key = "user:" + userId + ":min_valid_token_issued_at";
+        String value = stringRedisTemplate.opsForValue().get(key);
+        if (value == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 
     /**
-     * Invalidates all tokens for a tenant by setting the last valid issue time to now.
-     * Called when role changes or user is deactivated.
+     * Validates if a token is valid for a user in a tenant.
+     * Token is valid if issued AFTER both tenant's and user's minimum valid times.
      */
-    public void invalidateTenantTokens(UUID tenantId) {
-        recordTenantTokenIssueTime(tenantId, System.currentTimeMillis());
+    public boolean isTokenValidForTenant(UUID tenantId, UUID userId, long tokenIssuedAtMs) {
+        long tenantMinValidTime = getTenantMinValidTokenIssuedTime(tenantId);
+        long userMinValidTime = getUserMinValidTokenIssuedTime(userId);
+        
+        return tokenIssuedAtMs >= tenantMinValidTime && tokenIssuedAtMs >= userMinValidTime;
+    }
+
+    /**
+     * Invalidates all tokens for a tenant by setting the minimum valid issued-at time to now.
+     * Called when role permissions change (affects all users).
+     */
+    public void invalidateAllTenantTokens(UUID tenantId) {
+        recordTenantMinValidTokenIssuedTime(tenantId, System.currentTimeMillis());
+    }
+
+    /**
+     * Invalidates all tokens for a specific user by setting the minimum valid issued-at time to now.
+     * Called when user is deactivated or logs out.
+     */
+    public void invalidateUserTokens(UUID userId) {
+        recordUserMinValidTokenIssuedTime(userId, System.currentTimeMillis());
     }
 }

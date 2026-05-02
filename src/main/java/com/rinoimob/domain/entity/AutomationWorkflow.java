@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Type;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -31,6 +33,7 @@ public class AutomationWorkflow {
     @Column(nullable = false)
     private Boolean isActive = true;
 
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb", nullable = false)
     private String workflowConfig;
 

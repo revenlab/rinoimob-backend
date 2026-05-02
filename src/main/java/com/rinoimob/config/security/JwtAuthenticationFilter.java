@@ -1,6 +1,7 @@
 package com.rinoimob.config.security;
 
 import com.rinoimob.context.TenantContext;
+import com.rinoimob.exception.UnauthorizedException;
 import com.rinoimob.service.auth.TokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -43,11 +44,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 var permissions = tokenProvider.getPermissionsFromToken(jwt);
                 long tokenIssuedAt = tokenProvider.getIssuedAtFromToken(jwt);
 
-                // Validate token is still valid for this tenant (not invalidated after role change)
-                if (!tokenService.isTokenValidForTenant(tenantId, tokenIssuedAt)) {
-                    log.warn("Token rejected: issued before tenant's last valid issue time for tenant {}", tenantId);
-                    filterChain.doFilter(request, response);
-                    return;
+                // Validate token is still valid for this user AND tenant
+                // (not invalidated after role/permission changes or user logout)
+                if (!tokenService.isTokenValidForTenant(tenantId, userId, tokenIssuedAt)) {
+                    log.warn("Token rejected: invalidated for user {} in tenant {}", userId, tenantId);
+                    throw new UnauthorizedException("Token is invalid or expired", "Token inválido ou expirado");
                 }
 
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
@@ -71,6 +72,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     TenantContext.setTenantId(tenantId.toString());
                 }
             }
+        } catch (UnauthorizedException ex) {
+            throw ex;
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);
         }

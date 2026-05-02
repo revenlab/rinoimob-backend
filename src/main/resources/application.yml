@@ -51,7 +51,7 @@ server:
 
 jwt:
   secret: ${JWT_SECRET:rinoimob-dev-secret-key-change-in-production-must-be-at-least-512-bits-long!!}
-  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:28800000}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
 
 app:

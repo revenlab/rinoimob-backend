@@ -10,6 +10,7 @@ import com.rinoimob.domain.enums.Permission;
 import com.rinoimob.domain.repository.RolePermissionRepository;
 import com.rinoimob.domain.repository.TenantRoleRepository;
 import com.rinoimob.domain.repository.UserRepository;
+import com.rinoimob.service.auth.TokenService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,13 +25,16 @@ public class TenantRoleService {
     private final TenantRoleRepository tenantRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final UserRepository userRepository;
+    private final TokenService tokenService;
 
     public TenantRoleService(TenantRoleRepository tenantRoleRepository,
                               RolePermissionRepository rolePermissionRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              TokenService tokenService) {
         this.tenantRoleRepository = tenantRoleRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.userRepository = userRepository;
+        this.tokenService = tokenService;
     }
 
     public List<TenantRoleResponse> listRoles(UUID tenantId) {
@@ -73,6 +77,11 @@ public class TenantRoleService {
         TenantRole saved = tenantRoleRepository.save(role);
         rolePermissionRepository.deleteByRoleId(roleId);
         savePermissions(roleId, request.permissions());
+
+        // Role permissions changed — all users in this tenant with this role have stale JWT tokens.
+        // Invalidate at tenant level since we can't efficiently target only users with this specific role.
+        tokenService.invalidateAllTenantTokens(tenantId);
+
         return toResponse(saved, request.permissions() != null ? request.permissions() : List.of());
     }
 

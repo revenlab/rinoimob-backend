@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Type;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -29,9 +31,11 @@ public class AutomationExecution {
     @Column
     private String triggerEvent;
 
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
     private String triggerData;
 
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
     private String executionPath;
 
@@ -42,6 +46,7 @@ public class AutomationExecution {
     @Column(columnDefinition = "TEXT")
     private String errorMessage;
 
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
     private String resultData;
 
