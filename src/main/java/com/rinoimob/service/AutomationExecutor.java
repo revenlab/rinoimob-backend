@@ -42,8 +42,12 @@ public class AutomationExecutor {
 
             List<String> executionPath = new ArrayList<>();
             Map<String, Object> resultData = new HashMap<>();
+            
+            // Add tenantId to context so handlers can access it
+            Map<String, Object> context = new HashMap<>(triggerData);
+            context.put("_tenantId", workflow.getTenantId().toString());
 
-            executeGraph(config, triggerData, executionPath, resultData);
+            executeGraph(config, context, executionPath, resultData);
 
             execution.setExecutionPath(objectMapper.writeValueAsString(executionPath));
             execution.setResultData(objectMapper.writeValueAsString(resultData));
@@ -177,9 +181,16 @@ public class AutomationExecutor {
             return;
         }
 
+        // Flatten parameters into data if they exist (for backward compatibility)
+        Map<String, Object> actionData = new HashMap<>(data);
+        Object parameters = data.get("parameters");
+        if (parameters instanceof Map) {
+            actionData.putAll((Map<String, Object>) parameters);
+        }
+
         try {
             ActionType type = ActionType.valueOf(actionType);
-            executeActionByType(type, data, context, resultData);
+            executeActionByType(type, actionData, context, resultData);
         } catch (IllegalArgumentException e) {
             log.warn("Unknown action type: {}", actionType);
         }
@@ -188,6 +199,7 @@ public class AutomationExecutor {
     private void executeActionByType(ActionType type, Map<String, Object> data, Map<String, Object> context,
                                      Map<String, Object> resultData) {
         try {
+            log.debug("Executing action type: {}, with data keys: {}", type, data.keySet());
             ActionHandler handler = actionHandlerRegistry.getHandler(type);
             handler.execute(data, context, resultData);
             log.info("Action {} executed successfully", type);

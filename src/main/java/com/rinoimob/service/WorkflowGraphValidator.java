@@ -104,6 +104,42 @@ public class WorkflowGraphValidator {
 
             validateEdgeCompatibility(sourceNode, targetNode);
         }
+        
+        // Validate action nodes have required data
+        for (WorkflowNodeDto node : config.getNodes()) {
+            if (NodeType.ACTION.equals(node.getType())) {
+                validateActionNodeData(node);
+            }
+        }
+    }
+
+    private void validateActionNodeData(WorkflowNodeDto node) {
+        Map<String, Object> data = node.getData();
+        if (data == null || data.isEmpty()) {
+            throw new IllegalArgumentException("ACTION node '" + node.getId() + "' must have configuration data");
+        }
+
+        String actionType = (String) data.get("actionType");
+        if (actionType == null) {
+            throw new IllegalArgumentException("ACTION node '" + node.getId() + "' must have an actionType specified");
+        }
+
+        // Validate SEND_WHATSAPP actions have required fields
+        if ("SEND_WHATSAPP".equals(actionType)) {
+            // Check in both locations: direct and within parameters object
+            Object instanceId = data.get("instanceId");
+            
+            // If not found directly, check in parameters object
+            if (instanceId == null && data.get("parameters") instanceof Map) {
+                Map<String, Object> params = (Map<String, Object>) data.get("parameters");
+                instanceId = params.get("instanceId");
+            }
+            
+            if (instanceId == null) {
+                throw new IllegalArgumentException("SEND_WHATSAPP action in node '" + node.getId() + 
+                        "' must have an instanceId configured");
+            }
+        }
     }
 
     private void validateEdgeCompatibility(WorkflowNodeDto source, WorkflowNodeDto target) {

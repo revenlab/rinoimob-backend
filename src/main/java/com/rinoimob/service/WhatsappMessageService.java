@@ -72,11 +72,13 @@ public class WhatsappMessageService {
         return toResponse(message);
     }
 
-    public WhatsappMessageResponse sendToNumber(String phoneNumber, UUID instanceId, String text, UUID userId) {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-
+    public WhatsappMessageResponse sendToNumber(String phoneNumber, UUID instanceId, String text, UUID userId, UUID tenantId) {
         if (phoneNumber == null || phoneNumber.isBlank()) {
             throw new RuntimeException("Phone number is required");
+        }
+
+        if (tenantId == null) {
+            throw new RuntimeException("Tenant ID is required");
         }
 
         WhatsappInstance instance = instanceRepo.findByIdAndTenantId(instanceId, tenantId)
