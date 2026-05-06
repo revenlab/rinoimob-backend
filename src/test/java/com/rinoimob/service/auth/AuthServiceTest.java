@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
 @DisplayName("AuthService Tests")
@@ -138,12 +139,13 @@ class AuthServiceTest {
         user.setEmail(request.email());
         user.setActive(true);
         user.setTenantId(tenantId);
+        user.setSystemRole(null);
 
         when(globalCredentialRepository.findByEmail(request.email())).thenReturn(Optional.of(credential));
         when(passwordEncoderService.verifyPassword(request.password(), credential.getPasswordHash())).thenReturn(true);
         when(userRepository.findByEmailAndTenantId(request.email(), tenantId)).thenReturn(Optional.of(user));
         when(tenantRoleService.getPermissionsForUser(user)).thenReturn(List.of());
-        when(tokenProvider.generateAccessToken(any(), anyString(), anyString(), any(), any()))
+        when(tokenProvider.generateAccessToken(any(UUID.class), anyString(), nullable(String.class), any(UUID.class), any(List.class)))
                 .thenReturn("access_token");
         when(tokenProvider.getJtiFromToken("access_token")).thenReturn("test-jti");
         when(tokenProvider.getAccessTokenTtlSeconds()).thenReturn(900L);
