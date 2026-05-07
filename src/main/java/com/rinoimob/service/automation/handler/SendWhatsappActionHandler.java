@@ -66,9 +66,10 @@ public class SendWhatsappActionHandler implements ActionHandler {
         String recipientType = recipientTypeObj != null ? recipientTypeObj.toString() : "LEAD";
 
         UUID leadId = leadIdObj instanceof String ? UUID.fromString((String) leadIdObj) : (UUID) leadIdObj;
-        UUID instanceId = instanceIdStr.length() > 0 ? UUID.fromString(instanceIdStr) : null;
-        
-        if (instanceId == null) {
+        UUID instanceId = null;
+        try {
+            instanceId = UUID.fromString(instanceIdStr);
+        } catch (IllegalArgumentException e) {
             log.warn("Failed to parse instance ID as UUID: {}", instanceIdStr);
             resultData.put("whatsapp_sent", false);
             resultData.put("whatsapp_error", "Invalid Instance ID format");
@@ -247,7 +248,12 @@ public class SendWhatsappActionHandler implements ActionHandler {
         }
 
         // Try to build from context (for lead info)
-        String leadName = (String) context.get("name");
+        // First try "leadName" (from automation context), then "name" (legacy)
+        String leadName = (String) context.get("leadName");
+        if (leadName == null) {
+            leadName = (String) context.get("name");
+        }
+        
         if (leadName != null && !leadName.isEmpty()) {
             return "Hi " + leadName + ", thanks for your interest in our service!";
         }
