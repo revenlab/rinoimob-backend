@@ -1,6 +1,7 @@
 package com.rinoimob.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.*;
 import com.rinoimob.domain.entity.AutomationExecution;
 import com.rinoimob.domain.entity.AutomationWorkflow;
@@ -34,6 +35,13 @@ public class AutomationExecutor {
         execution.setTriggerEvent(triggerEvent);
         execution.setStatus(WorkflowExecutionStatus.RUNNING);
 
+        // Explicitly set TenantContext for this async thread.
+        // Automations run on SimpleAsyncTaskExecutor where ThreadLocal is NOT
+        // propagated from the caller. Setting it here ensures all downstream
+        // services and repositories that rely on TenantContext get the correct
+        // tenant. The finally block guarantees cleanup to prevent context leakage
+        // if the thread is reused by the pool.
+        TenantContext.setTenantId(workflow.getTenantId().toString());
         try {
             execution.setTriggerData(objectMapper.writeValueAsString(triggerData));
 
@@ -42,8 +50,7 @@ public class AutomationExecutor {
 
             List<String> executionPath = new ArrayList<>();
             Map<String, Object> resultData = new HashMap<>();
-            
-            // Add tenantId to context so handlers can access it
+
             Map<String, Object> context = new HashMap<>(triggerData);
             context.put("_tenantId", workflow.getTenantId().toString());
 
@@ -59,6 +66,8 @@ public class AutomationExecutor {
             execution.setStatus(WorkflowExecutionStatus.FAILED);
             execution.setErrorMessage(e.getMessage());
             execution.setCompletedAt(LocalDateTime.now());
+        } finally {
+            TenantContext.clear();
         }
 
         AutomationExecution savedExecution = automationExecutionRepository.save(execution);
