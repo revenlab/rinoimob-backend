@@ -44,7 +44,24 @@ public class SendNotificationActionHandler implements ActionHandler {
         }
 
         try {
-            UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+            // In async execution threads, TenantContext (ThreadLocal) is not propagated.
+            // AutomationExecutor stores the tenantId in context under "_tenantId" as a fallback.
+            String tenantIdStr = null;
+            Object tenantIdObj = context.get("_tenantId");
+            if (tenantIdObj != null) {
+                tenantIdStr = tenantIdObj.toString();
+            } else {
+                tenantIdStr = TenantContext.getTenantId();
+            }
+
+            if (tenantIdStr == null || tenantIdStr.isEmpty()) {
+                log.error("Tenant ID not available — cannot send notification. Context keys: {}", context.keySet());
+                resultData.put("notification_sent", false);
+                resultData.put("notification_error", "Tenant context is missing");
+                return;
+            }
+
+            UUID tenantId = UUID.fromString(tenantIdStr);
 
             // Collect notification metadata from action data and context
             Map<String, Object> metadata = buildMetadata(actionData, context);
