@@ -117,4 +117,18 @@ public class InAppNotificationController {
 
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Delete all notifications for the current user.
+     */
+    @DeleteMapping
+    public ResponseEntity<Void> deleteAllNotifications(HttpServletRequest request) {
+
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID userId = (UUID) request.getAttribute("userId");
+
+        inAppNotificationService.deleteAllForUser(tenantId, userId);
+
+        return ResponseEntity.noContent().build();
+    }
 }

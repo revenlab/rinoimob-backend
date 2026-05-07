@@ -8,6 +8,10 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.hibernate.annotations.Type;
+
+import io.hypersistence.utils.hibernate.type.json.JsonType;
+
 @Entity
 @Table(name = "in_app_notifications", indexes = {
     @Index(name = "idx_tenant_id", columnList = "tenant_id"),
@@ -46,6 +50,7 @@ public class InAppNotification {
     @Column(name = "read_at")
     private LocalDateTime readAt;
 
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb", name = "metadata")
     private String metadata;
 

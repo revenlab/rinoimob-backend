@@ -53,10 +53,7 @@ public class InAppNotificationService implements NotificationService {
             notification.setCreatedAt(LocalDateTime.now());
 
             if (metadata != null) {
-                String metadataJson = (String) metadata.getOrDefault("metadata", null);
-                if (metadataJson != null) {
-                    notification.setMetadata(metadataJson);
-                }
+                notification.setMetadata(objectMapper.writeValueAsString(metadata));
 
                 String actionUrl = (String) metadata.get("actionUrl");
                 if (actionUrl != null) {
@@ -177,13 +174,22 @@ public class InAppNotificationService implements NotificationService {
     }
 
     /**
+     * Delete all notifications for a user.
+     */
+    @Transactional
+    public void deleteAllForUser(UUID tenantId, UUID userId) {
+        notificationRepository.deleteAllByTenantIdAndRecipientId(tenantId, userId);
+        log.info("All notifications deleted for user {} in tenant {}", userId, tenantId);
+    }
+
+    /**
      * Broadcast notification to user via WebSocket.
+     * Uses convertAndSendToUser so Spring resolves the correct session by principal name (userId).
      */
     private void broadcastToUser(UUID userId, InAppNotification notification) {
         try {
-            String destination = "/user/" + userId + "/queue/notifications";
             InAppNotificationResponse response = toResponse(notification);
-            messagingTemplate.convertAndSend(destination, response);
+            messagingTemplate.convertAndSendToUser(userId.toString(), "/queue/notifications", response);
             log.debug("Notification broadcasted to user {} via WebSocket", userId);
         } catch (Exception e) {
             log.warn("Failed to broadcast notification via WebSocket: {}", e.getMessage());

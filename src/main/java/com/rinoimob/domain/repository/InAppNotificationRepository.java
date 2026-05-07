@@ -4,6 +4,7 @@ import com.rinoimob.domain.entity.InAppNotification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -54,8 +55,19 @@ public interface InAppNotificationRepository extends JpaRepository<InAppNotifica
     /**
      * Mark all notifications as read for a user in a tenant.
      */
+    @Modifying
     @Query("UPDATE InAppNotification n SET n.isRead = true, n.readAt = CURRENT_TIMESTAMP WHERE n.tenantId = :tenantId AND n.recipientId = :recipientId AND n.isRead = false")
     void markAllAsRead(
+            @Param("tenantId") UUID tenantId,
+            @Param("recipientId") UUID recipientId
+    );
+
+    /**
+     * Delete all notifications for a user in a tenant.
+     */
+    @Modifying
+    @Query("DELETE FROM InAppNotification n WHERE n.tenantId = :tenantId AND n.recipientId = :recipientId")
+    void deleteAllByTenantIdAndRecipientId(
             @Param("tenantId") UUID tenantId,
             @Param("recipientId") UUID recipientId
     );

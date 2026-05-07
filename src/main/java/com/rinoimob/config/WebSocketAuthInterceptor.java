@@ -48,11 +48,11 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         String role = jwtTokenProvider.getRoleFromToken(token);
 
         UsernamePasswordAuthenticationToken auth =
-            new UsernamePasswordAuthenticationToken(email, null, List.of(() -> role));
+            new UsernamePasswordAuthenticationToken(userId.toString(), null, List.of(() -> role));
         auth.setDetails(userId);
         accessor.setUser(auth);
 
-        log.debug("[WS] CONNECT accepted for user {}", email);
+        log.debug("[WS] CONNECT accepted for user {} ({})", email, userId);
         return message;
     }
 }

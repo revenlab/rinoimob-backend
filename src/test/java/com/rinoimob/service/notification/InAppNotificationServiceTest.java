@@ -1,5 +1,6 @@
 package com.rinoimob.service.notification;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rinoimob.domain.dto.InAppNotificationResponse;
 import com.rinoimob.domain.entity.InAppNotification;
 import com.rinoimob.domain.repository.InAppNotificationRepository;
@@ -27,6 +28,9 @@ class InAppNotificationServiceTest {
 
     @Mock
     private SimpMessagingTemplate messagingTemplate;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private InAppNotificationService service;
@@ -58,7 +62,7 @@ class InAppNotificationServiceTest {
         service.sendNotification(TENANT_ID, USER_ID, "Test", "Message", NotificationService.NotificationType.INFO, metadata);
 
         verify(repository, times(1)).save(any(InAppNotification.class));
-        verify(messagingTemplate, times(1)).convertAndSend(anyString(), any(InAppNotificationResponse.class));
+        verify(messagingTemplate, times(1)).convertAndSendToUser(anyString(), anyString(), any(InAppNotificationResponse.class));
     }
 
     @Test
