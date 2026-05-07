@@ -43,35 +43,36 @@ class SendNotificationActionHandlerTest {
     }
 
     @Test
-    void shouldThrowExceptionWhenTitleIsMissing() {
+    void shouldGenerateDefaultTitleWhenMissing() throws Exception {
         Map<String, Object> actionData = new HashMap<>();
         actionData.put("message", "Test message");
-        actionData.put("channel", "email");
+        actionData.put("channel", "in-app");
+        actionData.put("userId", TEST_USER_ID);
 
         Map<String, Object> context = new HashMap<>();
         Map<String, Object> resultData = new HashMap<>();
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> handler.execute(actionData, context, resultData),
-                "Should throw exception when title is missing"
-        );
+        handler.execute(actionData, context, resultData);
+
+        assertTrue((Boolean) resultData.get("notification_sent"));
+        assertNotNull(resultData.get("notification_title"));
+        assertEquals("Notification", resultData.get("notification_title"));
     }
 
     @Test
-    void shouldThrowExceptionWhenMessageIsMissing() {
+    void shouldGenerateDefaultMessageWhenMissing() throws Exception {
         Map<String, Object> actionData = new HashMap<>();
         actionData.put("title", "Test Title");
-        actionData.put("channel", "email");
+        actionData.put("channel", "in-app");
+        actionData.put("userId", TEST_USER_ID);
 
         Map<String, Object> context = new HashMap<>();
         Map<String, Object> resultData = new HashMap<>();
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> handler.execute(actionData, context, resultData),
-                "Should throw exception when message is missing"
-        );
+        handler.execute(actionData, context, resultData);
+
+        assertTrue((Boolean) resultData.get("notification_sent"));
+        assertNotNull(resultData.get("notification_title"));
     }
 
     @Test
@@ -119,15 +120,14 @@ class SendNotificationActionHandlerTest {
     }
 
     @Test
-    void shouldDefaultToEmailChannelWhenNotSpecified() throws Exception {
-        String email = "test@example.com";
+    void shouldDefaultToInAppChannelWhenNotSpecified() throws Exception {
         String title = "Test Notification";
         String message = "Default channel test";
 
         Map<String, Object> actionData = new HashMap<>();
         actionData.put("title", title);
         actionData.put("message", message);
-        actionData.put("email", email);
+        actionData.put("userId", TEST_USER_ID);
 
         Map<String, Object> context = new HashMap<>();
         Map<String, Object> resultData = new HashMap<>();
@@ -135,7 +135,7 @@ class SendNotificationActionHandlerTest {
         handler.execute(actionData, context, resultData);
 
         assertTrue((Boolean) resultData.get("notification_sent"));
-        assertEquals("email", resultData.get("notification_channel"));
+        assertEquals("in-app", resultData.get("notification_channel"));
     }
 
     @Test

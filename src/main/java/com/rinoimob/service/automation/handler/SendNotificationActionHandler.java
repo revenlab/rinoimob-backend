@@ -30,14 +30,17 @@ public class SendNotificationActionHandler implements ActionHandler {
                         Map<String, Object> resultData) throws Exception {
         String title = (String) actionData.get("title");
         String message = (String) actionData.get("message");
-        String channel = (String) actionData.getOrDefault("channel", "email");
+        String channel = (String) actionData.getOrDefault("channel", "in-app");
         String type = (String) actionData.getOrDefault("type", "INFO");
 
+        // Provide sensible defaults if not configured
         if (title == null || title.isEmpty()) {
-            throw new IllegalArgumentException("Notification title is required");
+            title = generateDefaultTitle(context);
+            log.debug("Using generated title for notification: {}", title);
         }
         if (message == null || message.isEmpty()) {
-            throw new IllegalArgumentException("Notification message is required");
+            message = generateDefaultMessage(context);
+            log.debug("Using generated message for notification: {}", message);
         }
 
         try {
@@ -145,5 +148,19 @@ public class SendNotificationActionHandler implements ActionHandler {
         }
 
         return metadata;
+    }
+
+    private String generateDefaultTitle(Map<String, Object> context) {
+        if (context != null && context.containsKey("leadName")) {
+            return "New Lead: " + context.get("leadName");
+        }
+        return "Notification";
+    }
+
+    private String generateDefaultMessage(Map<String, Object> context) {
+        if (context != null && context.containsKey("event")) {
+            return "Automation action triggered for event: " + context.get("event");
+        }
+        return "You have a new notification from an automation";
     }
 }
