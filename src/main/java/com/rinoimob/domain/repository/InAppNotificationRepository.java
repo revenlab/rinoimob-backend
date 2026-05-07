@@ -63,6 +63,6 @@ public interface InAppNotificationRepository extends JpaRepository<InAppNotifica
     /**
      * Delete old read notifications (older than 30 days).
      */
-    @Query("DELETE FROM InAppNotification n WHERE n.tenantId = :tenantId AND n.isRead = true AND n.readAt < DATE_SUB(CURRENT_TIMESTAMP, 30 DAY)")
+    @Query("DELETE FROM InAppNotification n WHERE n.tenantId = :tenantId AND n.isRead = true AND n.readAt < CURRENT_TIMESTAMP - INTERVAL '30 days'")
     void deleteOldReadNotifications(@Param("tenantId") UUID tenantId);
 }
