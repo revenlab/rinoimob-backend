@@ -122,12 +122,24 @@ public class SendNotificationActionHandler implements ActionHandler {
             NotificationService.NotificationType type,
             Map<String, Object> resultData
     ) throws Exception {
-        Object userIdObj = metadata.get("userId");
+        String recipientType = (String) metadata.getOrDefault("recipientType", "ASSIGNED_USER");
+
+        Object userIdObj;
+        if ("SPECIFIC_USER".equalsIgnoreCase(recipientType)) {
+            userIdObj = metadata.get("userId");
+        } else {
+            // ASSIGNED_USER (default): use the lead's assigned user, fallback to explicit userId
+            userIdObj = metadata.get("assignedTo");
+            if (userIdObj == null) {
+                userIdObj = metadata.get("userId");
+            }
+        }
 
         if (userIdObj == null) {
-            log.warn("User ID is missing. Cannot send in-app notification.");
+            log.warn("No recipient found for in-app notification (recipientType={}, assignedTo=null, userId=null).", recipientType);
             resultData.put("notification_sent", false);
-            resultData.put("notification_error", "User ID is required for in-app channel");
+            resultData.put("notification_error",
+                "No recipient configured: ensure lead has an assigned user, or choose 'Usuário específico' and provide a userId");
             return;
         }
 
@@ -147,12 +159,18 @@ public class SendNotificationActionHandler implements ActionHandler {
         if (actionData.containsKey("userId")) {
             metadata.put("userId", actionData.get("userId"));
         }
+        if (actionData.containsKey("recipientType")) {
+            metadata.put("recipientType", actionData.get("recipientType"));
+        }
         if (actionData.containsKey("metadata")) {
             metadata.putAll((Map<String, Object>) actionData.get("metadata"));
         }
 
         // Add context information
         if (context != null) {
+            if (context.containsKey("name")) {
+                metadata.put("leadName", context.get("name"));
+            }
             if (context.containsKey("leadName")) {
                 metadata.put("leadName", context.get("leadName"));
             }
@@ -162,22 +180,31 @@ public class SendNotificationActionHandler implements ActionHandler {
             if (context.containsKey("email")) {
                 metadata.put("email", context.get("email"));
             }
+            // assignedTo is the natural default recipient for lead-triggered automations
+            if (context.containsKey("assignedTo")) {
+                metadata.put("assignedTo", context.get("assignedTo"));
+            }
         }
 
         return metadata;
     }
 
     private String generateDefaultTitle(Map<String, Object> context) {
-        if (context != null && context.containsKey("leadName")) {
-            return "New Lead: " + context.get("leadName");
+        if (context != null) {
+            // EventDispatcher sets the lead name under "name", not "leadName"
+            String leadName = context.containsKey("name") ? (String) context.get("name")
+                    : (String) context.get("leadName");
+            if (leadName != null && !leadName.isEmpty()) {
+                return "Novo lead: " + leadName;
+            }
         }
-        return "Notification";
+        return "Notificação";
     }
 
     private String generateDefaultMessage(Map<String, Object> context) {
         if (context != null && context.containsKey("event")) {
-            return "Automation action triggered for event: " + context.get("event");
+            return "Ação de automação disparada para o evento: " + context.get("event");
         }
-        return "You have a new notification from an automation";
+        return "Você tem uma nova notificação de automação";
     }
 }

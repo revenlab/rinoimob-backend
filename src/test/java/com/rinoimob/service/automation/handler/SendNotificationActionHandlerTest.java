@@ -56,7 +56,7 @@ class SendNotificationActionHandlerTest {
 
         assertTrue((Boolean) resultData.get("notification_sent"));
         assertNotNull(resultData.get("notification_title"));
-        assertEquals("Notification", resultData.get("notification_title"));
+        assertEquals("Notificação", resultData.get("notification_title"));
     }
 
     @Test
@@ -173,6 +173,6 @@ class SendNotificationActionHandlerTest {
         handler.execute(actionData, context, resultData);
 
         assertFalse((Boolean) resultData.get("notification_sent"));
-        assertEquals("User ID is required for in-app channel", resultData.get("notification_error"));
+        assertTrue(((String) resultData.get("notification_error")).contains("No recipient configured"));
     }
 }
