@@ -1,6 +1,7 @@
 package com.rinoimob.domain.dto;
 
 import com.rinoimob.domain.enums.VerificationStatus;
+import com.rinoimob.domain.enums.SystemRole;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -12,7 +13,7 @@ public record UserManagementResponse(
     String lastName,
     String phone,
     boolean active,
-    String systemRole,
+    SystemRole systemRole,
     UUID tenantRoleId,
     String tenantRoleName,
     LocalDateTime createdAt,

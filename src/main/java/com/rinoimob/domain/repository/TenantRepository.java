@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 
 @Repository
 public interface TenantRepository extends JpaRepository<Tenant, UUID> {
@@ -13,5 +14,7 @@ public interface TenantRepository extends JpaRepository<Tenant, UUID> {
     Optional<Tenant> findBySubdomain(String subdomain);
 
     Optional<Tenant> findByName(String name);
+
+    List<Tenant> findAllByOrderByCreatedAtDesc();
 
 }

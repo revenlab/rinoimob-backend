@@ -7,6 +7,7 @@ import com.rinoimob.domain.entity.GlobalCredential;
 import com.rinoimob.domain.entity.TenantRole;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
+import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRoleRepository;
@@ -160,7 +161,7 @@ class UserManagementServiceTest {
     @Test
     void deactivateUser_throwsForbidden_whenUserIsTenantOwner() {
         User owner = buildPendingUser();
-        owner.setSystemRole("TENANT_OWNER");
+        owner.setSystemRole(SystemRole.TENANT_OWNER);
 
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(owner));
 

@@ -56,6 +56,9 @@ public class AutomationExecution {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    @Column(name = "resume_at")
+    private LocalDateTime resumeAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

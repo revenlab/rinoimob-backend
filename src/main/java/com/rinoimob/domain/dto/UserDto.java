@@ -3,6 +3,8 @@ package com.rinoimob.domain.dto;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.rinoimob.domain.enums.SystemRole;
+
 public record UserDto(
     UUID id,
     String email,
@@ -10,6 +12,7 @@ public record UserDto(
     String lastName,
     String phone,
     Boolean active,
+    SystemRole systemRole,
     LocalDateTime createdAt
 ) {
 }

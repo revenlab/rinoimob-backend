@@ -1,6 +1,7 @@
 package com.rinoimob.domain.entity;
 
 import com.rinoimob.domain.enums.VerificationStatus;
+import com.rinoimob.domain.enums.SystemRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -41,7 +42,8 @@ public class User {
     private Boolean active = true;
 
     @Column(name = "system_role")
-    private String systemRole;
+    @Enumerated(EnumType.STRING)
+    private SystemRole systemRole;
 
     @Column(name = "tenant_role_id")
     private UUID tenantRoleId;
@@ -58,6 +60,9 @@ public class User {
 
     @Column(name = "min_valid_token_issued_at")
     private Long minValidTokenIssuedAt;
+
+    @Column(name = "force_password_reset", nullable = false)
+    private Boolean forcePasswordReset = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

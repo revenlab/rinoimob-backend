@@ -15,6 +15,7 @@ import com.rinoimob.domain.entity.GlobalCredential;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
+import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRepository;
@@ -107,7 +108,7 @@ public class AuthService {
         user.setEmail(normalizedEmail);
         user.setFirstName(request.firstName());
         user.setLastName(request.lastName());
-        user.setSystemRole("TENANT_OWNER");
+        user.setSystemRole(SystemRole.TENANT_OWNER);
         user.setVerificationStatus(VerificationStatus.PENDING);
         user.setActive(true);
 
@@ -222,14 +223,15 @@ public class AuthService {
         userRepository.save(user);
 
         List<String> permissions = tenantRoleService.getPermissionsForUser(user);
-        String roleStr = user.getSystemRole();
+        String roleStr = user.getSystemRole() != null ? user.getSystemRole().name() : null;
 
         String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), roleStr, user.getTenantId(), permissions);
         String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail());
 
         log.info("User logged in: {} in tenant {}", user.getEmail(), tenantId);
 
-        return new LoginResponse(accessToken, refreshToken, tokenProvider.getAccessTokenTtlSeconds(), mapToUserDto(user));
+        return new LoginResponse(accessToken, refreshToken, tokenProvider.getAccessTokenTtlSeconds(), mapToUserDto(user),
+                Boolean.TRUE.equals(user.getForcePasswordReset()));
     }
 
     @Transactional
@@ -254,14 +256,15 @@ public class AuthService {
         userRepository.save(user);
 
         List<String> permissions = tenantRoleService.getPermissionsForUser(user);
-        String roleStr = user.getSystemRole();
+        String roleStr = user.getSystemRole() != null ? user.getSystemRole().name() : null;
 
         String accessToken = tokenProvider.generateAccessToken(user.getId(), user.getEmail(), roleStr, user.getTenantId(), permissions);
         String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail());
 
         log.info("User logged in (host-resolved): {}", user.getEmail());
 
-        return new LoginResponse(accessToken, refreshToken, tokenProvider.getAccessTokenTtlSeconds(), mapToUserDto(user));
+        return new LoginResponse(accessToken, refreshToken, tokenProvider.getAccessTokenTtlSeconds(), mapToUserDto(user),
+                Boolean.TRUE.equals(user.getForcePasswordReset()));
     }
 
     @Transactional
@@ -381,6 +384,7 @@ public class AuthService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getActive(),
+                user.getSystemRole(),
                 user.getCreatedAt(),
                 tenantId,
                 tenantName,
@@ -427,6 +431,11 @@ public class AuthService {
         credential.setPasswordHash(passwordEncoderService.encodePassword(newPassword));
         globalCredentialRepository.save(credential);
 
+        if (Boolean.TRUE.equals(user.getForcePasswordReset())) {
+            user.setForcePasswordReset(false);
+            userRepository.save(user);
+        }
+
         log.info("Password changed for: {}", user.getEmail());
     }
 
@@ -438,6 +447,7 @@ public class AuthService {
                 user.getLastName(),
                 user.getPhone(),
                 user.getActive(),
+                user.getSystemRole(),
                 user.getCreatedAt()
         );
     }

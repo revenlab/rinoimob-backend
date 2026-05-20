@@ -7,6 +7,7 @@ import com.rinoimob.domain.entity.GlobalCredential;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
+import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRepository;
@@ -300,7 +301,7 @@ class AuthServiceTest {
 
         verify(tenantRepository, times(1)).save(any(Tenant.class));
         verify(globalCredentialRepository, times(1)).save(any(GlobalCredential.class));
-        verify(userRepository, times(1)).save(argThat(u -> "TENANT_OWNER".equals(u.getSystemRole())));
+        verify(userRepository, times(1)).save(argThat(u -> SystemRole.TENANT_OWNER.equals(u.getSystemRole())));
         verify(tokenRepository, times(1)).save(any(VerificationToken.class));
         verify(emailService, times(1)).sendVerificationEmail(eq(request.email()), anyString());
     }

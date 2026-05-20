@@ -209,6 +209,7 @@ public class AutomationWorkflowService {
         response.setErrorMessage(execution.getErrorMessage());
         response.setCreatedAt(execution.getCreatedAt());
         response.setCompletedAt(execution.getCompletedAt());
+        response.setResumeAt(execution.getResumeAt());
 
         try {
             if (execution.getExecutionPath() != null) {

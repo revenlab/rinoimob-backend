@@ -4,6 +4,7 @@ public record LoginResponse(
     String accessToken,
     String refreshToken,
     Long expiresIn,
-    UserDto user
+    UserDto user,
+    boolean forcePasswordReset
 ) {
 }

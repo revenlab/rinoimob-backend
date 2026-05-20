@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.rinoimob.domain.enums.SystemRole;
+
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
 
@@ -21,9 +23,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     List<User> findByTenantId(UUID tenantId);
 
+    List<User> findByTenantIdOrderByCreatedAtDesc(UUID tenantId);
+
     List<User> findByTenantIdAndActive(UUID tenantId, Boolean active);
+
+    List<User> findBySystemRoleInOrderByCreatedAtDesc(List<SystemRole> systemRoles);
 
     Optional<User> findByIdAndTenantId(UUID id, UUID tenantId);
 
     boolean existsByTenantRoleId(UUID tenantRoleId);
+
+    long countByTenantId(UUID tenantId);
 }

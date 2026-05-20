@@ -6,6 +6,7 @@ import com.rinoimob.domain.entity.GlobalCredential;
 import com.rinoimob.domain.entity.TenantRole;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
+import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.TenantRoleRepository;
@@ -106,7 +107,7 @@ public class UserManagementService {
     public UserManagementResponse assignRole(UUID tenantId, UUID userId, UUID roleId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        if ("TENANT_OWNER".equals(user.getSystemRole())) {
+        if (SystemRole.TENANT_OWNER.equals(user.getSystemRole())) {
             throw new ForbiddenException("Cannot change role of TENANT_OWNER", "Proprietário do workspace não pode ter sua função alterada");
         }
         tenantRoleRepository.findByTenantIdAndId(tenantId, roleId)
@@ -125,7 +126,7 @@ public class UserManagementService {
     public void deactivateUser(UUID tenantId, UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        if ("TENANT_OWNER".equals(user.getSystemRole())) {
+        if (SystemRole.TENANT_OWNER.equals(user.getSystemRole())) {
             throw new ForbiddenException("Cannot deactivate TENANT_OWNER", "Proprietário do workspace não pode ser desativado");
         }
         user.setActive(false);

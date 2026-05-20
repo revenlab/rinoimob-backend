@@ -2,13 +2,17 @@ package com.rinoimob.domain.repository;
 
 import com.rinoimob.domain.entity.AuditLog;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
-public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+public interface AuditLogRepository extends JpaRepository<AuditLog, Long>, JpaSpecificationExecutor<AuditLog> {
 
     List<AuditLog> findByTenantId(String tenantId);
 
@@ -19,4 +23,12 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findByTenantIdAndResource(String tenantId, String resource);
 
     List<AuditLog> findByTenantIdAndCreatedAtBetween(String tenantId, LocalDateTime start, LocalDateTime end);
+
+    List<AuditLog> findAllByOrderByCreatedAtDesc();
+
+    List<AuditLog> findByTenantIdOrderByCreatedAtDesc(String tenantId);
+
+    @Modifying
+    @Query("delete from AuditLog auditLog where auditLog.createdAt < :cutoff")
+    int deleteAllByCreatedAtBefore(@Param("cutoff") LocalDateTime cutoff);
 }

@@ -7,6 +7,7 @@ import com.rinoimob.domain.entity.AutomationExecution;
 import com.rinoimob.domain.entity.AutomationWorkflow;
 import com.rinoimob.domain.enums.*;
 import com.rinoimob.domain.repository.AutomationExecutionRepository;
+import com.rinoimob.domain.repository.AutomationWorkflowRepository;
 import com.rinoimob.service.automation.ActionHandler;
 import com.rinoimob.service.automation.ActionHandlerRegistry;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,27 +28,23 @@ import java.util.*;
 public class AutomationExecutor {
 
     private final AutomationExecutionRepository automationExecutionRepository;
+    private final AutomationWorkflowRepository workflowRepository;
     private final ObjectMapper objectMapper;
     private final ActionHandlerRegistry actionHandlerRegistry;
 
     @Transactional
     public AutomationExecutionResponse executeWorkflow(AutomationWorkflow workflow, String triggerEvent,
-                                                        Map<String, Object> triggerData) {
+                                                       Map<String, Object> triggerData) {
         AutomationExecution execution = new AutomationExecution();
         execution.setWorkflowId(workflow.getId());
         execution.setTenantId(workflow.getTenantId());
         execution.setTriggerEvent(triggerEvent);
         execution.setStatus(WorkflowExecutionStatus.RUNNING);
 
-        // Explicitly set TenantContext for this async thread.
-        // Automations run on SimpleAsyncTaskExecutor where ThreadLocal is NOT
-        // propagated from the caller. Setting it here ensures all downstream
-        // services and repositories that rely on TenantContext get the correct
-        // tenant. The finally block guarantees cleanup to prevent context leakage
-        // if the thread is reused by the pool.
         TenantContext.setTenantId(workflow.getTenantId().toString());
         try {
             execution.setTriggerData(objectMapper.writeValueAsString(triggerData));
+            execution = automationExecutionRepository.saveAndFlush(execution);
 
             WorkflowConfigDto config = objectMapper.readValue(workflow.getWorkflowConfig(),
                     WorkflowConfigDto.class);
@@ -54,18 +55,24 @@ public class AutomationExecutor {
             Map<String, Object> context = new HashMap<>(triggerData);
             context.put("_tenantId", workflow.getTenantId().toString());
 
-            executeGraph(config, context, executionPath, resultData);
+            boolean paused = executeGraph(config, context, executionPath, resultData, execution);
 
             execution.setExecutionPath(objectMapper.writeValueAsString(executionPath));
             execution.setResultData(objectMapper.writeValueAsString(resultData));
-            execution.setStatus(WorkflowExecutionStatus.COMPLETED);
-            execution.setCompletedAt(LocalDateTime.now());
-
+            if (paused) {
+                execution.setStatus(WorkflowExecutionStatus.WAITING);
+                execution.setResumeAt(resolveResumeAt(resultData));
+            } else {
+                execution.setStatus(WorkflowExecutionStatus.COMPLETED);
+                execution.setCompletedAt(LocalDateTime.now());
+                execution.setResumeAt(null);
+            }
         } catch (Exception e) {
             log.error("Error executing workflow {}: {}", workflow.getId(), e.getMessage(), e);
             execution.setStatus(WorkflowExecutionStatus.FAILED);
             execution.setErrorMessage(e.getMessage());
             execution.setCompletedAt(LocalDateTime.now());
+            execution.setResumeAt(null);
         } finally {
             TenantContext.clear();
         }
@@ -74,8 +81,70 @@ public class AutomationExecutor {
         return mapToResponse(savedExecution);
     }
 
-    private void executeGraph(WorkflowConfigDto config, Map<String, Object> context, List<String> executionPath,
-                              Map<String, Object> resultData) {
+    @Transactional
+    public AutomationExecutionResponse resumeWaitingExecution(UUID executionId) {
+        AutomationExecution execution = automationExecutionRepository.findById(executionId)
+                .orElseThrow(() -> new IllegalArgumentException("Automation execution not found: " + executionId));
+
+        if (!WorkflowExecutionStatus.WAITING.equals(execution.getStatus())) {
+            return mapToResponse(execution);
+        }
+
+        TenantContext.setTenantId(execution.getTenantId().toString());
+        try {
+            execution.setStatus(WorkflowExecutionStatus.RUNNING);
+            automationExecutionRepository.save(execution);
+
+            AutomationWorkflow workflow = workflowRepository.findByTenantIdAndId(execution.getTenantId(),
+                            execution.getWorkflowId())
+                    .orElseThrow(() -> new IllegalArgumentException("Workflow not found: " + execution.getWorkflowId()));
+
+            WorkflowConfigDto config = objectMapper.readValue(workflow.getWorkflowConfig(),
+                    WorkflowConfigDto.class);
+
+            Map<String, Object> context = readMap(execution.getTriggerData());
+            context.put("_tenantId", execution.getTenantId().toString());
+
+            List<String> executionPath = readPath(execution.getExecutionPath());
+            Map<String, Object> resultData = readMap(execution.getResultData());
+
+            if (executionPath.isEmpty()) {
+                throw new IllegalStateException("Cannot resume execution without a recorded path");
+            }
+
+            Map<String, WorkflowNodeDto> nodeMap = new HashMap<>();
+            config.getNodes().forEach(n -> nodeMap.put(n.getId(), n));
+
+            String lastNodeId = executionPath.get(executionPath.size() - 1);
+            boolean paused = findAndExecuteNextNodes(lastNodeId, config, nodeMap, context, executionPath, resultData,
+                    execution);
+
+            execution.setExecutionPath(objectMapper.writeValueAsString(executionPath));
+            execution.setResultData(objectMapper.writeValueAsString(resultData));
+            if (paused) {
+                execution.setStatus(WorkflowExecutionStatus.WAITING);
+                execution.setResumeAt(resolveResumeAt(resultData));
+            } else {
+                execution.setStatus(WorkflowExecutionStatus.COMPLETED);
+                execution.setCompletedAt(LocalDateTime.now());
+                execution.setResumeAt(null);
+            }
+        } catch (Exception e) {
+            log.error("Error resuming workflow execution {}: {}", executionId, e.getMessage(), e);
+            execution.setStatus(WorkflowExecutionStatus.FAILED);
+            execution.setErrorMessage(e.getMessage());
+            execution.setCompletedAt(LocalDateTime.now());
+            execution.setResumeAt(null);
+        } finally {
+            TenantContext.clear();
+        }
+
+        AutomationExecution savedExecution = automationExecutionRepository.save(execution);
+        return mapToResponse(savedExecution);
+    }
+
+    private boolean executeGraph(WorkflowConfigDto config, Map<String, Object> context, List<String> executionPath,
+                                 Map<String, Object> resultData, AutomationExecution execution) {
         Map<String, WorkflowNodeDto> nodeMap = new HashMap<>();
         config.getNodes().forEach(n -> nodeMap.put(n.getId(), n));
 
@@ -86,52 +155,66 @@ public class AutomationExecutor {
                 .orElse(null);
 
         if (triggerId != null) {
-            executeNode(triggerId, config, nodeMap, context, executionPath, resultData);
+            return executeNode(triggerId, config, nodeMap, context, executionPath, resultData, execution);
         }
+        return false;
     }
 
-    private void executeNode(String nodeId, WorkflowConfigDto config, Map<String, WorkflowNodeDto> nodeMap,
-                             Map<String, Object> context, List<String> executionPath,
-                             Map<String, Object> resultData) {
+    private boolean executeNode(String nodeId, WorkflowConfigDto config, Map<String, WorkflowNodeDto> nodeMap,
+                                Map<String, Object> context, List<String> executionPath,
+                                Map<String, Object> resultData, AutomationExecution execution) {
         if (!nodeMap.containsKey(nodeId)) {
-            return;
+            return false;
         }
 
         WorkflowNodeDto node = nodeMap.get(nodeId);
         executionPath.add(nodeId);
 
         if (NodeType.TRIGGER.equals(node.getType())) {
-            findAndExecuteNextNodes(nodeId, config, nodeMap, context, executionPath, resultData);
+            return findAndExecuteNextNodes(nodeId, config, nodeMap, context, executionPath, resultData, execution);
         } else if (NodeType.CONDITION.equals(node.getType())) {
             boolean conditionMet = evaluateCondition(node, context);
             String nextBranch = conditionMet ? "yes" : "no";
-            findAndExecuteNextNodes(nodeId, config, nodeMap, context, executionPath, resultData, nextBranch);
+            return findAndExecuteNextNodes(nodeId, config, nodeMap, context, executionPath, resultData, execution,
+                    nextBranch);
         } else if (NodeType.ACTION.equals(node.getType())) {
-            executeAction(node, context, resultData);
-            findAndExecuteNextNodes(nodeId, config, nodeMap, context, executionPath, resultData);
+            boolean paused = executeAction(node, context, resultData, execution);
+            if (paused) {
+                return true;
+            }
+            return findAndExecuteNextNodes(nodeId, config, nodeMap, context, executionPath, resultData, execution);
         }
+
+        return false;
     }
 
-    private void findAndExecuteNextNodes(String nodeId, WorkflowConfigDto config,
-                                        Map<String, WorkflowNodeDto> nodeMap,
-                                        Map<String, Object> context, List<String> executionPath,
-                                        Map<String, Object> resultData) {
+    private boolean findAndExecuteNextNodes(String nodeId, WorkflowConfigDto config,
+                                            Map<String, WorkflowNodeDto> nodeMap,
+                                            Map<String, Object> context, List<String> executionPath,
+                                            Map<String, Object> resultData, AutomationExecution execution) {
         for (WorkflowEdgeDto edge : config.getEdges()) {
             if (edge.getSource().equals(nodeId) && (edge.getLabel() == null || edge.getLabel().isEmpty())) {
-                executeNode(edge.getTarget(), config, nodeMap, context, executionPath, resultData);
+                if (executeNode(edge.getTarget(), config, nodeMap, context, executionPath, resultData, execution)) {
+                    return true;
+                }
             }
         }
+        return false;
     }
 
-    private void findAndExecuteNextNodes(String nodeId, WorkflowConfigDto config,
-                                        Map<String, WorkflowNodeDto> nodeMap,
-                                        Map<String, Object> context, List<String> executionPath,
-                                        Map<String, Object> resultData, String label) {
+    private boolean findAndExecuteNextNodes(String nodeId, WorkflowConfigDto config,
+                                            Map<String, WorkflowNodeDto> nodeMap,
+                                            Map<String, Object> context, List<String> executionPath,
+                                            Map<String, Object> resultData, AutomationExecution execution,
+                                            String label) {
         for (WorkflowEdgeDto edge : config.getEdges()) {
             if (edge.getSource().equals(nodeId) && label.equals(edge.getLabel())) {
-                executeNode(edge.getTarget(), config, nodeMap, context, executionPath, resultData);
+                if (executeNode(edge.getTarget(), config, nodeMap, context, executionPath, resultData, execution)) {
+                    return true;
+                }
             }
         }
+        return false;
     }
 
     private boolean evaluateCondition(WorkflowNodeDto node, Map<String, Object> context) {
@@ -178,19 +261,18 @@ public class AutomationExecutor {
         }
     }
 
-    private void executeAction(WorkflowNodeDto node, Map<String, Object> context,
-                               Map<String, Object> resultData) {
+    private boolean executeAction(WorkflowNodeDto node, Map<String, Object> context,
+                                  Map<String, Object> resultData, AutomationExecution execution) {
         Map<String, Object> data = node.getData();
         if (data == null || data.isEmpty()) {
-            return;
+            return false;
         }
 
         String actionType = (String) data.get("actionType");
         if (actionType == null) {
-            return;
+            return false;
         }
 
-        // Flatten parameters into data if they exist (for backward compatibility)
         Map<String, Object> actionData = new HashMap<>(data);
         Object parameters = data.get("parameters");
         if (parameters instanceof Map) {
@@ -199,9 +281,12 @@ public class AutomationExecutor {
 
         try {
             ActionType type = ActionType.valueOf(actionType);
+            actionData.put("_executionId", execution.getId());
             executeActionByType(type, actionData, context, resultData);
+            return ActionType.WAIT.equals(type) && Boolean.TRUE.equals(resultData.get("wait_scheduled"));
         } catch (IllegalArgumentException e) {
             log.warn("Unknown action type: {}", actionType);
+            return false;
         }
     }
 
@@ -229,23 +314,43 @@ public class AutomationExecutor {
         response.setErrorMessage(execution.getErrorMessage());
         response.setCreatedAt(execution.getCreatedAt());
         response.setCompletedAt(execution.getCompletedAt());
+        response.setResumeAt(execution.getResumeAt());
 
         try {
             if (execution.getExecutionPath() != null) {
-                List<String> path = objectMapper.readValue(execution.getExecutionPath(),
-                        objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
-                response.setExecutionPath(path);
+                response.setExecutionPath(readPath(execution.getExecutionPath()));
             }
 
             if (execution.getResultData() != null) {
-                Map<String, Object> result = objectMapper.readValue(execution.getResultData(),
-                        objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Object.class));
-                response.setResultData(result);
+                response.setResultData(readMap(execution.getResultData()));
             }
         } catch (Exception e) {
             log.warn("Error deserializing execution data: {}", e.getMessage());
         }
 
         return response;
+    }
+
+    private List<String> readPath(String json) throws Exception {
+        if (json == null) {
+            return new ArrayList<>();
+        }
+        return objectMapper.readValue(json, objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
+    }
+
+    private Map<String, Object> readMap(String json) throws Exception {
+        if (json == null) {
+            return new HashMap<>();
+        }
+        return objectMapper.readValue(json, objectMapper.getTypeFactory().constructMapType(Map.class, String.class,
+                Object.class));
+    }
+
+    private LocalDateTime resolveResumeAt(Map<String, Object> resultData) {
+        Object value = resultData.get("wait_resume_at");
+        if (value == null) {
+            return null;
+        }
+        return LocalDateTime.parse(value.toString());
     }
 }

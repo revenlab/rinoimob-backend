@@ -23,4 +23,5 @@ public class AutomationExecutionResponse {
     private Map<String, Object> resultData;
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;
+    private LocalDateTime resumeAt;
 }

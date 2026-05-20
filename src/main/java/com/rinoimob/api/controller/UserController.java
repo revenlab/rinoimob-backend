@@ -41,7 +41,15 @@ public class UserController {
         if (tenantId == null) tenantId = UUID.fromString(TenantContext.getTenantId());
         List<User> users = userRepository.findByTenantIdAndActive(tenantId, true);
         List<UserDto> dtos = users.stream()
-                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(), u.getPhone(), u.getActive(), u.getCreatedAt()))
+                .map(u -> new UserDto(
+                        u.getId(),
+                        u.getEmail(),
+                        u.getFirstName(),
+                        u.getLastName(),
+                        u.getPhone(),
+                        u.getActive(),
+                        u.getSystemRole(),
+                        u.getCreatedAt()))
                 .toList();
         return ResponseEntity.ok(dtos);
     }
