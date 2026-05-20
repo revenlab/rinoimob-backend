@@ -73,17 +73,6 @@ public class InAppNotificationService implements NotificationService {
         }
     }
 
-    @Override
-    public void sendNotificationToEmail(
-            String email,
-            String title,
-            String message,
-            Map<String, Object> metadata
-    ) throws Exception {
-        log.warn("In-app notification service does not support email. Use EmailNotificationService instead.");
-        throw new UnsupportedOperationException("In-app notifications cannot be sent via email");
-    }
-
     /**
      * Get paginated notifications for a user.
      */

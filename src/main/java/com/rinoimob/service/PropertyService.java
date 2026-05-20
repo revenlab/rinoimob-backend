@@ -219,6 +219,40 @@ public class PropertyService {
         return toFloorPlanPhotoResponse(photo);
     }
 
+    @Transactional
+    public void setFloorPlanPhotoCover(UUID propertyId, UUID planId, UUID photoId) {
+        findOwnedProperty(propertyId);
+        FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan not found"));
+        List<FloorPlanPhoto> photos = floorPlanPhotoRepository.findByFloorPlanIdOrderByPositionAsc(plan.getId());
+        FloorPlanPhoto selected = photos.stream()
+                .filter(photo -> photo.getId().equals(photoId))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan photo not found"));
+
+        photos.remove(selected);
+        photos.add(0, selected);
+        renumberFloorPlanPhotos(photos);
+        floorPlanPhotoRepository.saveAll(photos);
+        log.info("Floor plan cover photo set to={} on plan={} property={}", photoId, planId, propertyId);
+    }
+
+    @Transactional
+    public void deleteFloorPlanPhoto(UUID propertyId, UUID planId, UUID photoId) {
+        findOwnedProperty(propertyId);
+        FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan not found"));
+        FloorPlanPhoto photo = floorPlanPhotoRepository.findByIdAndFloorPlanId(photoId, plan.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan photo not found"));
+
+        fileStorageService.delete(photo.getSeaweedFid(), photo.getUrl());
+        floorPlanPhotoRepository.delete(photo);
+        List<FloorPlanPhoto> remaining = floorPlanPhotoRepository.findByFloorPlanIdOrderByPositionAsc(plan.getId());
+        renumberFloorPlanPhotos(remaining);
+        floorPlanPhotoRepository.saveAll(remaining);
+        log.info("Floor plan photo deleted id={} from plan={} property={}", photoId, planId, propertyId);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private Property findOwnedProperty(UUID id) {
@@ -362,6 +396,13 @@ public class PropertyService {
     }
 
     private FloorPlanPhotoResponse toFloorPlanPhotoResponse(FloorPlanPhoto fpp) {
-        return new FloorPlanPhotoResponse(fpp.getId(), fpp.getUrl(), fpp.getPosition(), fpp.getCreatedAt());
+        return new FloorPlanPhotoResponse(fpp.getId(), fpp.getUrl(), fpp.getPosition(),
+                fpp.getPosition() != null && fpp.getPosition() == 0, fpp.getCreatedAt());
+    }
+
+    private void renumberFloorPlanPhotos(List<FloorPlanPhoto> photos) {
+        for (int i = 0; i < photos.size(); i++) {
+            photos.get(i).setPosition(i);
+        }
     }
 }

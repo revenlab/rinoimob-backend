@@ -156,6 +156,7 @@ public class AutomationEventDispatcher {
         }
         data.put("status", task.getCompletedAt() != null ? "COMPLETED" : "PENDING");
         data.put("leadId", task.getLeadId() != null ? task.getLeadId().toString() : null);
+        data.put("assignedTo", task.getAssignedTo() != null ? task.getAssignedTo().toString() : null);
         return data;
     }
 }

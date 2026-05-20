@@ -12,6 +12,7 @@ import com.rinoimob.domain.repository.TenantRoleRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
 import com.rinoimob.exception.ForbiddenException;
+import com.rinoimob.service.email.EmailService;
 import com.rinoimob.service.auth.PasswordEncoderService;
 import com.rinoimob.service.auth.TokenService;
 import org.springframework.http.HttpStatus;
@@ -32,6 +33,7 @@ public class UserManagementService {
     private final GlobalCredentialRepository globalCredentialRepository;
     private final PasswordEncoderService passwordEncoderService;
     private final VerificationTokenRepository verificationTokenRepository;
+    private final EmailService emailService;
 
     public UserManagementService(UserRepository userRepository,
                                   TenantRoleRepository tenantRoleRepository,
@@ -39,7 +41,8 @@ public class UserManagementService {
                                   TenantRoleService tenantRoleService,
                                   GlobalCredentialRepository globalCredentialRepository,
                                   PasswordEncoderService passwordEncoderService,
-                                  VerificationTokenRepository verificationTokenRepository) {
+                                  VerificationTokenRepository verificationTokenRepository,
+                                  EmailService emailService) {
         this.userRepository = userRepository;
         this.tenantRoleRepository = tenantRoleRepository;
         this.tokenService = tokenService;
@@ -47,6 +50,7 @@ public class UserManagementService {
         this.globalCredentialRepository = globalCredentialRepository;
         this.passwordEncoderService = passwordEncoderService;
         this.verificationTokenRepository = verificationTokenRepository;
+        this.emailService = emailService;
     }
 
     public List<UserManagementResponse> listUsers(UUID tenantId) {
@@ -93,6 +97,7 @@ public class UserManagementService {
         token.setTokenType("VERIFICATION");
         token.setExpiresAt(LocalDateTime.now().plusDays(7));
         verificationTokenRepository.save(token);
+        emailService.sendInvitationEmail(saved.getEmail(), token.getToken(), saved.getFirstName());
 
         return toResponse(saved);
     }
@@ -130,6 +135,27 @@ public class UserManagementService {
         tokenService.invalidateUserTokens(userId);
     }
 
+    @Transactional
+    public void resendInvitation(UUID tenantId, UUID userId) {
+        User user = userRepository.findByIdAndTenantId(userId, tenantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (VerificationStatus.VERIFIED.equals(user.getVerificationStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "User has already accepted the invitation");
+        }
+
+        verificationTokenRepository.findByUserIdAndTokenType(userId, "VERIFICATION")
+                .forEach(verificationTokenRepository::delete);
+
+        VerificationToken token = new VerificationToken();
+        token.setToken(UUID.randomUUID().toString());
+        token.setUserId(userId);
+        token.setTokenType("VERIFICATION");
+        token.setExpiresAt(LocalDateTime.now().plusDays(7));
+        verificationTokenRepository.save(token);
+        emailService.sendInvitationEmail(user.getEmail(), token.getToken(), user.getFirstName());
+    }
+
     private UserManagementResponse toResponse(User user) {
         String roleName = null;
         if (user.getTenantRoleId() != null) {
@@ -147,7 +173,8 @@ public class UserManagementService {
                 user.getSystemRole(),
                 user.getTenantRoleId(),
                 roleName,
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                user.getVerificationStatus()
         );
     }
 }

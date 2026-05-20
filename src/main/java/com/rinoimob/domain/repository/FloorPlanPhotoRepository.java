@@ -13,4 +13,6 @@ public interface FloorPlanPhotoRepository extends JpaRepository<FloorPlanPhoto, 
     List<FloorPlanPhoto> findByFloorPlanIdOrderByPositionAsc(UUID floorPlanId);
 
     int countByFloorPlanId(UUID floorPlanId);
+
+    java.util.Optional<FloorPlanPhoto> findByIdAndFloorPlanId(UUID id, UUID floorPlanId);
 }

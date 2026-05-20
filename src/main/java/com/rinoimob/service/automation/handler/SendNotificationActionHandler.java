@@ -71,7 +71,7 @@ public class SendNotificationActionHandler implements ActionHandler {
 
             // Determine recipient and send via specified channel
             if ("email".equalsIgnoreCase(channel)) {
-                handleEmailNotification(title, message, metadata, notificationType, resultData);
+                handleEmailNotification(tenantId, title, message, metadata, notificationType, resultData);
             } else if ("in-app".equalsIgnoreCase(channel)) {
                 handleInAppNotification(tenantId, title, message, metadata, notificationType, resultData);
             } else {
@@ -95,6 +95,7 @@ public class SendNotificationActionHandler implements ActionHandler {
     }
 
     private void handleEmailNotification(
+            UUID tenantId,
             String title,
             String message,
             Map<String, Object> metadata,
@@ -110,7 +111,7 @@ public class SendNotificationActionHandler implements ActionHandler {
             return;
         }
 
-        emailNotificationService.sendNotificationToEmail(email, title, message, metadata);
+        emailNotificationService.sendNotification(tenantId, null, title, message, type, metadata);
         resultData.put("notification_recipient_email", email);
     }
 
@@ -163,7 +164,14 @@ public class SendNotificationActionHandler implements ActionHandler {
             metadata.put("recipientType", actionData.get("recipientType"));
         }
         if (actionData.containsKey("metadata")) {
-            metadata.putAll((Map<String, Object>) actionData.get("metadata"));
+            Object metadataObj = actionData.get("metadata");
+            if (metadataObj instanceof Map<?, ?> metadataMap) {
+                metadataMap.forEach((key, value) -> {
+                    if (key instanceof String stringKey) {
+                        metadata.put(stringKey, value);
+                    }
+                });
+            }
         }
 
         // Add context information

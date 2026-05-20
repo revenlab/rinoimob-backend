@@ -44,6 +44,14 @@ public class UserManagementController {
         return ResponseEntity.ok(userManagementService.assignRole(tenantId, id, request.roleId()));
     }
 
+    @PostMapping("/{id}/resend-invitation")
+    @PreAuthorize("hasAuthority('PERMISSION_users:write')")
+    public ResponseEntity<Void> resendInvitation(@PathVariable UUID id) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        userManagementService.resendInvitation(tenantId, id);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('PERMISSION_users:write')")
     public ResponseEntity<Void> deactivateUser(@PathVariable UUID id) {

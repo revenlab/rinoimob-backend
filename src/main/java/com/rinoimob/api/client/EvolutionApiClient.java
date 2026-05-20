@@ -1,6 +1,5 @@
 package com.rinoimob.api.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -20,7 +19,6 @@ public class EvolutionApiClient {
     private String apiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private HttpHeaders headers() {
         HttpHeaders h = new HttpHeaders();

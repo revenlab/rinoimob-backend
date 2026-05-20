@@ -28,22 +28,6 @@ public interface NotificationService {
             java.util.Map<String, Object> metadata
     ) throws Exception;
 
-    /**
-     * Send a notification to an email address.
-     *
-     * @param email The recipient email address
-     * @param title The notification title
-     * @param message The notification message
-     * @param metadata Additional metadata for the notification
-     * @throws Exception if notification fails to send
-     */
-    void sendNotificationToEmail(
-            String email,
-            String title,
-            String message,
-            java.util.Map<String, Object> metadata
-    ) throws Exception;
-
     enum NotificationType {
         INFO, WARNING, ERROR, SUCCESS
     }

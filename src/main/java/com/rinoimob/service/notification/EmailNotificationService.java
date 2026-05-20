@@ -35,11 +35,10 @@ public class EmailNotificationService implements NotificationService {
             return;
         }
 
-        sendNotificationToEmail(email, title, message, metadata);
+        sendEmailNotification(email, title, message, metadata);
     }
 
-    @Override
-    public void sendNotificationToEmail(
+    private void sendEmailNotification(
             String email,
             String title,
             String message,

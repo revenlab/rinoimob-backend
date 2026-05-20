@@ -120,4 +120,24 @@ public class PropertyController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(propertyService.addFloorPlanPhoto(id, planId, file));
     }
+
+    @PatchMapping("/{id}/floor-plans/{planId}/photos/{photoId}/cover")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
+    public ResponseEntity<Void> setFloorPlanPhotoCover(
+            @PathVariable UUID id,
+            @PathVariable UUID planId,
+            @PathVariable UUID photoId) {
+        propertyService.setFloorPlanPhotoCover(id, planId, photoId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/floor-plans/{planId}/photos/{photoId}")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
+    public ResponseEntity<Void> deleteFloorPlanPhoto(
+            @PathVariable UUID id,
+            @PathVariable UUID planId,
+            @PathVariable UUID photoId) {
+        propertyService.deleteFloorPlanPhoto(id, planId, photoId);
+        return ResponseEntity.noContent().build();
+    }
 }

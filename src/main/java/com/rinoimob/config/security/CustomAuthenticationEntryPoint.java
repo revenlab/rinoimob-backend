@@ -17,6 +17,11 @@ import java.util.UUID;
 @Component
 @Slf4j
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
+    private final ObjectMapper objectMapper;
+
+    public CustomAuthenticationEntryPoint(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
@@ -36,8 +41,6 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
                 request.getRequestURI(),
                 Instant.now()
         );
-        
-        ObjectMapper objectMapper = new ObjectMapper();
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

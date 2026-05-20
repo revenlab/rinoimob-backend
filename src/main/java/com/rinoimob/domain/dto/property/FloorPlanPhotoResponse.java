@@ -7,5 +7,6 @@ public record FloorPlanPhotoResponse(
         UUID id,
         String url,
         Integer position,
+        Boolean isCover,
         LocalDateTime createdAt
 ) {}
