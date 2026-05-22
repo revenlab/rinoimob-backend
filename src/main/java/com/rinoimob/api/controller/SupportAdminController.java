@@ -7,14 +7,18 @@ import com.rinoimob.domain.dto.SupportDashboardResponse;
 import com.rinoimob.domain.dto.SupportTenantHealthResponse;
 import com.rinoimob.domain.dto.SupportTenantSummaryResponse;
 import com.rinoimob.domain.dto.SupportUserSummaryResponse;
+import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
 import com.rinoimob.domain.dto.UpdateSupportTenantRequest;
 import com.rinoimob.domain.dto.UpdateSupportUserRequest;
+import com.rinoimob.domain.dto.UpdateTenantWebsiteConfigRequest;
 import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.service.SupportAdminService;
+import com.rinoimob.service.TenantWebsiteConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.security.access.prepost.PreAuthorize;
+import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,13 +30,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/support")
 @Tag(name = "Support Admin", description = "System admin endpoints for Rino support team")
+@RequiredArgsConstructor
 public class SupportAdminController {
 
     private final SupportAdminService supportAdminService;
-
-    public SupportAdminController(SupportAdminService supportAdminService) {
-        this.supportAdminService = supportAdminService;
-    }
+    private final TenantWebsiteConfigService tenantWebsiteConfigService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasAuthority('PERMISSION_support:tenants:read')")
@@ -171,6 +173,20 @@ public class SupportAdminController {
     @Operation(summary = "Get tenant health summary")
     public SupportTenantHealthResponse getTenantHealth(@PathVariable UUID tenantId, HttpServletRequest request) {
         return supportAdminService.getTenantHealth(requireActorTenantId(request), requireActorUserId(request), tenantId);
+    }
+
+    @GetMapping("/tenants/{tenantId}/website-config")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:read')")
+    public TenantWebsiteConfigResponse getTenantWebsiteConfig(@PathVariable UUID tenantId) {
+        return tenantWebsiteConfigService.getConfig(tenantId);
+    }
+
+    @PutMapping("/tenants/{tenantId}/website-config")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:write')")
+    public TenantWebsiteConfigResponse updateTenantWebsiteConfig(
+            @PathVariable UUID tenantId,
+            @RequestBody UpdateTenantWebsiteConfigRequest request) {
+        return tenantWebsiteConfigService.updateConfig(tenantId, request);
     }
 
     @PostMapping("/tenants/{tenantId}/users/{userId}/resend-invitation")

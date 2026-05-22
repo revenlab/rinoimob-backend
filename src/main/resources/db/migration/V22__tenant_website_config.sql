@@ -1,0 +1,20 @@
+CREATE TABLE tenant_website_config (
+    tenant_id UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+    company_name VARCHAR(255),
+    logo_fid VARCHAR(255),
+    logo_url VARCHAR(500),
+    favicon_fid VARCHAR(255),
+    favicon_url VARCHAR(500),
+    primary_color VARCHAR(7),
+    secondary_color VARCHAR(7),
+    description TEXT,
+    hero_title VARCHAR(255),
+    hero_subtitle VARCHAR(255),
+    phone VARCHAR(50),
+    email VARCHAR(255),
+    address VARCHAR(500),
+    instagram_url VARCHAR(500),
+    whatsapp_number VARCHAR(20),
+    facebook_url VARCHAR(500),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

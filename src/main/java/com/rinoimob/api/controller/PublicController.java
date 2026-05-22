@@ -1,19 +1,18 @@
 package com.rinoimob.api.controller;
 
 import com.rinoimob.context.TenantContext;
-import com.rinoimob.domain.dto.LeadResponse;
 import com.rinoimob.domain.dto.PublicCreateLeadRequest;
 import com.rinoimob.domain.dto.property.PropertySummaryResponse;
 import com.rinoimob.domain.dto.property.PropertyResponse;
-import com.rinoimob.domain.entity.Lead;
+import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
 import com.rinoimob.domain.entity.Tenant;
-import com.rinoimob.domain.enums.LeadStatus;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.service.LeadService;
 import com.rinoimob.service.PropertyService;
+import com.rinoimob.service.TenantWebsiteConfigService;
 import com.rinoimob.domain.dto.CreateLeadRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +35,7 @@ public class PublicController {
     private final TenantRepository tenantRepository;
     private final PropertyService propertyService;
     private final LeadService leadService;
+    private final TenantWebsiteConfigService tenantWebsiteConfigService;
 
     @GetMapping("/properties")
     public ResponseEntity<Page<PropertySummaryResponse>> listProperties(
@@ -64,6 +64,18 @@ public class PublicController {
         TenantContext.setTenantId(tenantId.toString());
         try {
             return ResponseEntity.ok(propertyService.getProperty(id));
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    @GetMapping("/config")
+    public ResponseEntity<TenantWebsiteConfigResponse> getWebsiteConfig(
+            @RequestHeader("X-Tenant-Slug") String tenantSlug) {
+        UUID tenantId = resolveTenant(tenantSlug);
+        TenantContext.setTenantId(tenantId.toString());
+        try {
+            return ResponseEntity.ok(tenantWebsiteConfigService.getConfig(tenantId));
         } finally {
             TenantContext.clear();
         }
