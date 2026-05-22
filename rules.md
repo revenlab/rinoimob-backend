@@ -4,10 +4,11 @@ Arquivo de histórico de mudanças e crumbs para reduzir tokens em contextos fut
 
 ---
 
-## Última migration: V21
+## Última migration: V22
 
 ```
 V21__support_permissions.sql — tabela support_user_permissions com UNIQUE(user_id, permission)
+V22__tenant_website_config.sql — tabela tenant_website_config (tenant_id como PK, 1:1 com Tenant)
 ```
 
 ---
@@ -87,9 +88,38 @@ support:health:read
 
 ---
 
+## Módulo Website Config (`/api/v1/website-config`)
+
+### Entidade: `TenantWebsiteConfig`
+
+- PK = `tenant_id` (UUID, 1:1 com `Tenant`)
+- Campos: `companyName`, `logo`, `favicon`, `primaryColor`, `secondaryColor`, `description`, `heroTitle`, `heroSubtitle`, `phone`, `email`, `address`, `facebookUrl`, `instagramUrl`, `whatsappNumber`
+
+### Endpoints
+
+| Método | Path | Auth |
+|--------|------|------|
+| GET | `/api/v1/website-config` | tenant auth |
+| PUT | `/api/v1/website-config` | tenant auth |
+| POST | `/api/v1/website-config/logo` | tenant auth (multipart) |
+| POST | `/api/v1/website-config/favicon` | tenant auth (multipart) |
+| DELETE | `/api/v1/website-config/logo` | tenant auth |
+| DELETE | `/api/v1/website-config/favicon` | tenant auth |
+| GET | `/api/v1/public/config` | sem auth (header `X-Tenant-Slug`) |
+| GET | `/api/v1/support/tenants/{id}/website-config` | `support:tenants:read` |
+| PUT | `/api/v1/support/tenants/{id}/website-config` | `support:tenants:write` |
+
+### Serviço: `TenantWebsiteConfigService`
+
+- Upload de logo/favicon via SeaweedFS
+- `getOrCreateByTenantId()` — nunca retorna nulo, cria registro vazio se necessário
+- DTOs: `TenantWebsiteConfigResponse`, `UpdateTenantWebsiteConfigRequest`
+
+---
+
 ## Convenções deste projeto
 
 - K&R, 4 espaços, sem tabs.
 - Repos SEMPRE escopados por `tenantId` — nunca `findById()` solo em entidade de tenant.
 - Auditoria em toda ação de suporte via `AuditLogRepository`.
-- Flyway para migrations — próxima será `V22__...`.
+- Flyway para migrations — próxima será `V23__...`.
