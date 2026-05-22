@@ -1,11 +1,14 @@
 package com.rinoimob.config;
 
 import com.rinoimob.domain.entity.GlobalCredential;
+import com.rinoimob.domain.entity.SupportUserPermission;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
+import com.rinoimob.domain.enums.SupportPermission;
 import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
+import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.service.TenantRoleService;
@@ -19,7 +22,10 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @Profile("dev")
@@ -34,6 +40,7 @@ public class DevDataSeeder implements ApplicationRunner {
     private final GlobalCredentialRepository globalCredentialRepository;
     private final PasswordEncoderService passwordEncoderService;
     private final TenantRoleService tenantRoleService;
+    private final SupportUserPermissionRepository supportUserPermissionRepository;
 
     @Override
     @Transactional
@@ -48,9 +55,21 @@ public class DevDataSeeder implements ApplicationRunner {
         tenant = tenantRepository.save(tenant);
         tenantRoleService.seedDefaultRoles(tenant.getId());
 
-        ensureUser(tenant.getId(), "suporte@rinoimob.com", "Rino", "Support", SystemRole.TENANT_ADMIN, null);
-        ensureUser(tenant.getId(), "gestor.suporte@rinoimob.com", "Rino", "Manager", SystemRole.SUPPORT_MANAGER, null);
-        ensureUser(tenant.getId(), "agente.suporte@rinoimob.com", "Rino", "Agent", SystemRole.SUPPORT_AGENT, null);
+        User tenantAdmin = ensureUser(tenant.getId(), "suporte@rinoimob.com", "Rino", "Support", SystemRole.TENANT_ADMIN, null);
+        ensureAllSupportPermissions(tenantAdmin);
+
+        User manager = ensureUser(tenant.getId(), "gestor.suporte@rinoimob.com", "Rino", "Manager", SystemRole.SUPPORT_MANAGER, null);
+        ensureAllSupportPermissions(manager);
+
+        User agent = ensureUser(tenant.getId(), "agente.suporte@rinoimob.com", "Rino", "Agent", SystemRole.SUPPORT_AGENT, null);
+        ensureSupportPermissions(agent, List.of(
+            SupportPermission.TENANTS_READ,
+            SupportPermission.TENANT_USERS_READ,
+            SupportPermission.TENANT_USERS_WRITE,
+            SupportPermission.OPERATORS_READ,
+            SupportPermission.HEALTH_READ,
+            SupportPermission.AUDIT_READ
+        ));
     }
 
     private void seedDemoWorkspace() {
@@ -96,6 +115,29 @@ public class DevDataSeeder implements ApplicationRunner {
                     user.setActive(true);
                     return userRepository.save(user);
                 });
+    }
+
+    private void ensureAllSupportPermissions(User user) {
+        ensureSupportPermissions(user, List.of(SupportPermission.values()));
+    }
+
+    private void ensureSupportPermissions(User user, List<SupportPermission> permissions) {
+        Set<String> existing = new HashSet<>(supportUserPermissionRepository.findPermissionValuesByUserId(user.getId()));
+        List<SupportUserPermission> toAdd = new ArrayList<>();
+
+        for (SupportPermission permission : permissions) {
+            if (existing.contains(permission.getValue())) {
+                continue;
+            }
+            SupportUserPermission entry = new SupportUserPermission();
+            entry.setUserId(user.getId());
+            entry.setPermission(permission.getValue());
+            toAdd.add(entry);
+        }
+
+        if (!toAdd.isEmpty()) {
+            supportUserPermissionRepository.saveAll(toAdd);
+        }
     }
 
     private void ensureCredential(String email) {

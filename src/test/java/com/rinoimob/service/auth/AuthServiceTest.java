@@ -1,5 +1,6 @@
 package com.rinoimob.service.auth;
 
+import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.LoginRequest;
 import com.rinoimob.domain.dto.RegisterRequest;
 import com.rinoimob.domain.dto.TenantRegistrationRequest;
@@ -10,6 +11,7 @@ import com.rinoimob.domain.entity.VerificationToken;
 import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
+import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
@@ -26,6 +28,7 @@ import com.rinoimob.config.security.JwtTokenProvider;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -66,6 +69,9 @@ class AuthServiceTest {
 
     @Mock
     private TokenService tokenService;
+
+    @Mock
+    private SupportUserPermissionRepository supportUserPermissionRepository;
 
     @InjectMocks
     private AuthService authService;
@@ -370,4 +376,48 @@ class AuthServiceTest {
         assertThrows(IllegalArgumentException.class, () -> authService.signup(request));
         verify(tenantRepository, never()).save(any(Tenant.class));
     }
+    @Test
+    @DisplayName("Should include support permissions in me response for internal staff")
+    void testGetMeIncludesSupportPermissionsForInternalStaff() {
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("support@test.com");
+        user.setSystemRole(SystemRole.SUPPORT_AGENT);
+
+        Tenant tenant = new Tenant();
+        tenant.setId(tenantId);
+        tenant.setName("Support");
+        tenant.setSubdomain("support");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(supportUserPermissionRepository.findPermissionValuesByUserId(userId))
+                .thenReturn(List.of("support:health:read", "support:audit:read"));
+
+        TenantContext.setTenantId(tenantId.toString());
+        try {
+            var response = authService.getMe(userId);
+
+            assertEquals(Set.of("support:health:read", "support:audit:read"), response.supportPermissions());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("Should return empty support permissions for tenant owner")
+    void testGetMeReturnsEmptySupportPermissionsForTenantOwner() {
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("owner@test.com");
+        user.setSystemRole(SystemRole.TENANT_OWNER);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        var response = authService.getMe(userId);
+
+        assertTrue(response.supportPermissions().isEmpty());
+        verifyNoInteractions(supportUserPermissionRepository);
+    }
+
 }

@@ -2,10 +2,13 @@ package com.rinoimob.config;
 
 import com.rinoimob.domain.dto.TenantRoleResponse;
 import com.rinoimob.domain.entity.GlobalCredential;
+import com.rinoimob.domain.entity.SupportUserPermission;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
+import com.rinoimob.domain.enums.SupportPermission;
 import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
+import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.service.TenantRoleService;
@@ -19,6 +22,7 @@ import org.springframework.boot.ApplicationArguments;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +36,7 @@ class DevDataSeederTest {
     @Mock private TenantRepository tenantRepository;
     @Mock private UserRepository userRepository;
     @Mock private GlobalCredentialRepository globalCredentialRepository;
+    @Mock private SupportUserPermissionRepository supportUserPermissionRepository;
     @Mock private PasswordEncoderService passwordEncoderService;
     @Mock private TenantRoleService tenantRoleService;
 
@@ -47,6 +52,7 @@ class DevDataSeederTest {
         when(userRepository.findByEmailAndTenantId(any(), any())).thenReturn(Optional.empty());
         when(globalCredentialRepository.findByEmail(any())).thenReturn(Optional.empty());
         when(passwordEncoderService.encodePassword(any())).thenReturn("hashed");
+        when(supportUserPermissionRepository.findPermissionValuesByUserId(any())).thenReturn(List.of());
         when(tenantRoleService.listRoles(any())).thenReturn(List.of(
                 new TenantRoleResponse(UUID.randomUUID(), UUID.randomUUID(), "Corretor", null, false, List.of())
         ));
@@ -58,7 +64,8 @@ class DevDataSeederTest {
                 userRepository,
                 globalCredentialRepository,
                 passwordEncoderService,
-                tenantRoleService);
+                tenantRoleService,
+                supportUserPermissionRepository);
 
         seeder.run(mock(ApplicationArguments.class));
 
@@ -70,6 +77,22 @@ class DevDataSeederTest {
                 .contains(SystemRole.TENANT_ADMIN, SystemRole.TENANT_OWNER);
 
         verify(globalCredentialRepository, atLeastOnce()).save(any(GlobalCredential.class));
+        ArgumentCaptor<List<SupportUserPermission>> permissionCaptor = ArgumentCaptor.forClass(List.class);
+        verify(supportUserPermissionRepository).saveAll(permissionCaptor.capture());
+        assertThat(permissionCaptor.getValue())
+                .extracting(SupportUserPermission::getPermission)
+                .containsExactlyInAnyOrderElementsOf(
+                        Set.of(
+                                SupportPermission.TENANTS_READ.getValue(),
+                                SupportPermission.TENANTS_WRITE.getValue(),
+                                SupportPermission.TENANT_USERS_READ.getValue(),
+                                SupportPermission.TENANT_USERS_WRITE.getValue(),
+                                SupportPermission.OPERATORS_READ.getValue(),
+                                SupportPermission.OPERATORS_WRITE.getValue(),
+                                SupportPermission.AUDIT_READ.getValue(),
+                                SupportPermission.HEALTH_READ.getValue()
+                        )
+                );
         verify(tenantRoleService, atLeast(2)).seedDefaultRoles(any());
     }
 }

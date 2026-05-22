@@ -1,6 +1,7 @@
 package com.rinoimob.domain.dto;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 import com.rinoimob.domain.enums.SystemRole;
@@ -13,6 +14,7 @@ public record UserDto(
     String phone,
     Boolean active,
     SystemRole systemRole,
-    LocalDateTime createdAt
+    LocalDateTime createdAt,
+    Set<String> supportPermissions
 ) {
 }

@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -49,7 +50,8 @@ public class UserController {
                         u.getPhone(),
                         u.getActive(),
                         u.getSystemRole(),
-                        u.getCreatedAt()))
+                        u.getCreatedAt(),
+                        Set.of()))
                 .toList();
         return ResponseEntity.ok(dtos);
     }

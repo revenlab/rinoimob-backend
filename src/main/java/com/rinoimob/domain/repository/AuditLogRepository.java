@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long>, JpaSpecificationExecutor<AuditLog> {
@@ -27,6 +28,9 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long>, JpaSp
     List<AuditLog> findAllByOrderByCreatedAtDesc();
 
     List<AuditLog> findByTenantIdOrderByCreatedAtDesc(String tenantId);
+
+    @Query(value = "SELECT * FROM audit_logs WHERE user_id = CAST(:userId AS text) ORDER BY created_at DESC LIMIT 10", nativeQuery = true)
+    List<AuditLog> findTop10ByUserIdOrderByCreatedAtDesc(@Param("userId") UUID userId);
 
     @Modifying
     @Query("delete from AuditLog auditLog where auditLog.createdAt < :cutoff")

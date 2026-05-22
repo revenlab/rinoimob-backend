@@ -1,9 +1,10 @@
 package com.rinoimob.domain.dto;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-
 import com.rinoimob.domain.enums.SystemRole;
+
+import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.UUID;
 
 public record MeResponse(
     UUID id,
@@ -15,5 +16,6 @@ public record MeResponse(
     LocalDateTime createdAt,
     UUID tenantId,
     String tenantName,
-    String tenantSubdomain
+    String tenantSubdomain,
+    Set<String> supportPermissions
 ) {}

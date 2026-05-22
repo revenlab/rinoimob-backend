@@ -18,6 +18,7 @@ import com.rinoimob.domain.entity.VerificationToken;
 import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
+import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
@@ -30,8 +31,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -47,6 +50,7 @@ public class AuthService {
     private final EmailService emailService;
     private final TenantRoleService tenantRoleService;
     private final TokenService tokenService;
+    private final SupportUserPermissionRepository supportUserPermissionRepository;
 
     @Value("${app.verification-token-expiration:86400}")
     private long verificationTokenExpiration;
@@ -62,7 +66,8 @@ public class AuthService {
                        PasswordEncoderService passwordEncoderService,
                        EmailService emailService,
                        TenantRoleService tenantRoleService,
-                       TokenService tokenService) {
+                       TokenService tokenService,
+                       SupportUserPermissionRepository supportUserPermissionRepository) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.globalCredentialRepository = globalCredentialRepository;
@@ -72,6 +77,7 @@ public class AuthService {
         this.emailService = emailService;
         this.tenantRoleService = tenantRoleService;
         this.tokenService = tokenService;
+        this.supportUserPermissionRepository = supportUserPermissionRepository;
     }
 
     @Transactional
@@ -378,6 +384,11 @@ public class AuthService {
             }
         }
 
+        Set<String> supportPermissions = Set.of();
+        if (user.getSystemRole() != null && user.getSystemRole().isInternalStaff()) {
+            supportPermissions = new LinkedHashSet<>(supportUserPermissionRepository.findPermissionValuesByUserId(userId));
+        }
+
         return new MeResponse(
                 user.getId(),
                 user.getEmail(),
@@ -388,7 +399,8 @@ public class AuthService {
                 user.getCreatedAt(),
                 tenantId,
                 tenantName,
-                tenantSubdomain
+                tenantSubdomain,
+                supportPermissions
         );
     }
 
@@ -440,6 +452,10 @@ public class AuthService {
     }
 
     private UserDto mapToUserDto(User user) {
+        Set<String> supportPermissions = Set.of();
+        if (user.getSystemRole() != null && user.getSystemRole().isInternalStaff()) {
+            supportPermissions = new LinkedHashSet<>(supportUserPermissionRepository.findPermissionValuesByUserId(user.getId()));
+        }
         return new UserDto(
                 user.getId(),
                 user.getEmail(),
@@ -448,7 +464,8 @@ public class AuthService {
                 user.getPhone(),
                 user.getActive(),
                 user.getSystemRole(),
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                supportPermissions
         );
     }
 }

@@ -2,15 +2,21 @@ package com.rinoimob.service;
 
 import com.rinoimob.domain.dto.SupportTenantSummaryResponse;
 import com.rinoimob.domain.dto.SupportAuditLogResponse;
+import com.rinoimob.domain.dto.SupportDashboardResponse;
 import com.rinoimob.domain.dto.SupportTenantHealthFailureResponse;
 import com.rinoimob.domain.dto.SupportTenantHealthResponse;
 import com.rinoimob.domain.dto.SupportUserSummaryResponse;
+import com.rinoimob.domain.dto.UpdateSupportTenantRequest;
+import com.rinoimob.domain.dto.UpdateSupportUserRequest;
 import com.rinoimob.domain.entity.AuditLog;
 import com.rinoimob.domain.entity.AutomationExecution;
 import com.rinoimob.domain.entity.EmailSenderConfig;
+import com.rinoimob.domain.entity.GlobalCredential;
+import com.rinoimob.domain.entity.SupportUserPermission;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.TenantRole;
 import com.rinoimob.domain.entity.User;
+import com.rinoimob.domain.enums.SupportPermission;
 import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.enums.WorkflowExecutionStatus;
@@ -18,6 +24,8 @@ import com.rinoimob.domain.repository.AuditLogRepository;
 import com.rinoimob.domain.repository.AutomationExecutionRepository;
 import com.rinoimob.domain.repository.AutomationWorkflowRepository;
 import com.rinoimob.domain.repository.EmailSenderConfigRepository;
+import com.rinoimob.domain.repository.GlobalCredentialRepository;
+import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.TenantRoleRepository;
 import com.rinoimob.domain.repository.UserRepository;
@@ -32,6 +40,7 @@ import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -45,6 +54,8 @@ public class SupportAdminService {
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
     private final TenantRoleRepository tenantRoleRepository;
+    private final GlobalCredentialRepository globalCredentialRepository;
+    private final SupportUserPermissionRepository supportUserPermissionRepository;
     private final AuditLogRepository auditLogRepository;
     private final EmailSenderConfigRepository emailSenderConfigRepository;
     private final AutomationExecutionRepository automationExecutionRepository;
@@ -56,6 +67,8 @@ public class SupportAdminService {
     public SupportAdminService(TenantRepository tenantRepository,
                                UserRepository userRepository,
                                TenantRoleRepository tenantRoleRepository,
+                               GlobalCredentialRepository globalCredentialRepository,
+                               SupportUserPermissionRepository supportUserPermissionRepository,
                                AuditLogRepository auditLogRepository,
                                EmailSenderConfigRepository emailSenderConfigRepository,
                                AutomationExecutionRepository automationExecutionRepository,
@@ -66,6 +79,8 @@ public class SupportAdminService {
         this.tenantRepository = tenantRepository;
         this.userRepository = userRepository;
         this.tenantRoleRepository = tenantRoleRepository;
+        this.globalCredentialRepository = globalCredentialRepository;
+        this.supportUserPermissionRepository = supportUserPermissionRepository;
         this.auditLogRepository = auditLogRepository;
         this.emailSenderConfigRepository = emailSenderConfigRepository;
         this.automationExecutionRepository = automationExecutionRepository;
@@ -111,6 +126,81 @@ public class SupportAdminService {
     }
 
     @Transactional
+    public SupportDashboardResponse getSupportDashboard(UUID actorTenantId, UUID actorUserId) {
+        logSupportView(actorTenantId, actorUserId, "SUPPORT_VIEW_DASHBOARD", "SUPPORT_DASHBOARD", "SELF",
+                "Viewed support dashboard");
+
+        return new SupportDashboardResponse(
+                tenantRepository.count(),
+                tenantRepository.countByActive(true),
+                tenantRepository.countByActive(false),
+                userRepository.countNonInternalUsers(),
+                auditLogRepository.findTop10ByUserIdOrderByCreatedAtDesc(actorUserId).stream()
+                        .map(this::toSupportAuditLogResponse)
+                        .toList()
+        );
+    }
+
+    @Transactional
+    public List<String> getOperatorPermissions(UUID userId) {
+        ensureInternalOperatorExists(userId);
+        return supportUserPermissionRepository.findPermissionValuesByUserId(userId);
+    }
+
+    @Transactional
+    public List<String> setOperatorPermissions(UUID userId, List<String> permissions) {
+        ensureInternalOperatorExists(userId);
+        List<String> normalizedPermissions = normalizeSupportPermissions(permissions);
+
+        supportUserPermissionRepository.deleteByUserId(userId);
+        if (!normalizedPermissions.isEmpty()) {
+            List<SupportUserPermission> supportPermissions = new ArrayList<>();
+            for (String permission : normalizedPermissions) {
+                SupportUserPermission supportPermission = new SupportUserPermission();
+                supportPermission.setUserId(userId);
+                supportPermission.setPermission(permission);
+                supportPermissions.add(supportPermission);
+            }
+            supportUserPermissionRepository.saveAll(supportPermissions);
+        }
+
+        tokenService.invalidateUserTokens(userId);
+        return supportUserPermissionRepository.findPermissionValuesByUserId(userId);
+    }
+
+    @Transactional
+    public SupportTenantSummaryResponse updateTenant(UUID actorTenantId, UUID actorUserId, UUID tenantId, UpdateSupportTenantRequest request) {
+        Tenant tenant = ensureTenantExists(tenantId);
+        String normalizedName = request.name().trim();
+        String normalizedSubdomain = request.subdomain().trim().toLowerCase();
+
+        tenantRepository.findBySubdomain(normalizedSubdomain)
+                .filter(existingTenant -> !existingTenant.getId().equals(tenantId))
+                .ifPresent(existingTenant -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Subdomain is already taken");
+                });
+
+        String previousName = tenant.getName();
+        String previousSubdomain = tenant.getSubdomain();
+
+        tenant.setName(normalizedName);
+        tenant.setSubdomain(normalizedSubdomain);
+        Tenant saved = tenantRepository.save(tenant);
+
+        auditService.log(tenantId.toString(), actorUserId != null ? actorUserId.toString() : null,
+                "TENANT_UPDATED",
+                "TENANT", tenantId.toString(),
+                "actorTenant=" + actorTenantId
+                        + ", actorUser=" + actorUserId
+                        + ", previousName=" + previousName
+                        + ", newName=" + saved.getName()
+                        + ", previousSubdomain=" + previousSubdomain
+                        + ", newSubdomain=" + saved.getSubdomain());
+
+        return toSupportTenantSummary(saved);
+    }
+
+    @Transactional
     public SupportTenantSummaryResponse setTenantActive(UUID actorTenantId, UUID actorUserId, UUID tenantId, boolean active) {
         Tenant tenant = ensureTenantExists(tenantId);
         tenant.setActive(active);
@@ -126,14 +216,73 @@ public class SupportAdminService {
                         + " (" + tenant.getSubdomain() + ")"
                         + ", active=" + active);
 
-        return new SupportTenantSummaryResponse(
-                saved.getId(),
-                saved.getName(),
-                saved.getSubdomain(),
-                saved.getActive(),
-                saved.getCreatedAt(),
-                userRepository.countByTenantId(saved.getId())
-        );
+        return toSupportTenantSummary(saved);
+    }
+
+    @Transactional
+    public SupportUserSummaryResponse updateTenantUser(UUID actorTenantId, UUID actorUserId, UUID tenantId, UUID userId, UpdateSupportUserRequest request) {
+        User user = userRepository.findByIdAndTenantId(userId, tenantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        String normalizedFirstName = request.firstName().trim();
+        String normalizedLastName = request.lastName().trim();
+        String normalizedPhone = normalizeOptionalValue(request.phone());
+        String normalizedEmail = request.email().trim().toLowerCase();
+
+        userRepository.findByTenantIdAndEmail(tenantId, normalizedEmail)
+                .filter(existingUser -> !existingUser.getId().equals(userId))
+                .ifPresent(existingUser -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered in this tenant");
+                });
+
+        String previousFirstName = user.getFirstName();
+        String previousLastName = user.getLastName();
+        String previousPhone = user.getPhone();
+        String previousEmail = user.getEmail();
+        boolean emailChanged = !previousEmail.equals(normalizedEmail);
+
+        GlobalCredential previousCredential = null;
+        if (emailChanged) {
+            previousCredential = globalCredentialRepository.findByEmail(previousEmail)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Global credential not found for user"));
+
+            if (globalCredentialRepository.findByEmail(normalizedEmail).isEmpty()) {
+                GlobalCredential newCredential = new GlobalCredential();
+                newCredential.setEmail(normalizedEmail);
+                newCredential.setPasswordHash(previousCredential.getPasswordHash());
+                globalCredentialRepository.save(newCredential);
+            }
+        }
+
+        user.setFirstName(normalizedFirstName);
+        user.setLastName(normalizedLastName);
+        user.setPhone(normalizedPhone);
+        user.setEmail(normalizedEmail);
+        User saved = userRepository.save(user);
+
+        if (emailChanged) {
+            tokenService.invalidateUserTokens(saved.getId());
+            if (userRepository.findAllByEmail(previousEmail).isEmpty()) {
+                globalCredentialRepository.deleteById(previousEmail);
+            }
+        }
+
+        auditService.log(tenantId.toString(), actorUserId != null ? actorUserId.toString() : null,
+                "USER_UPDATED",
+                "USER", userId.toString(),
+                "actorTenant=" + actorTenantId
+                        + ", actorUser=" + actorUserId
+                        + ", targetTenant=" + tenantId
+                        + ", previousFirstName=" + valueOrAll(previousFirstName)
+                        + ", newFirstName=" + saved.getFirstName()
+                        + ", previousLastName=" + valueOrAll(previousLastName)
+                        + ", newLastName=" + saved.getLastName()
+                        + ", previousPhone=" + valueOrAll(previousPhone)
+                        + ", newPhone=" + valueOrAll(saved.getPhone())
+                        + ", previousEmail=" + previousEmail
+                        + ", newEmail=" + saved.getEmail());
+
+        return toSupportUserSummary(saved);
     }
 
     @Transactional
@@ -371,6 +520,38 @@ public class SupportAdminService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tenant not found"));
     }
 
+    private User ensureInternalOperatorExists(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (user.getSystemRole() == null || !user.getSystemRole().isInternalStaff()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is not an internal operator");
+        }
+        return user;
+    }
+
+    private List<String> normalizeSupportPermissions(List<String> permissions) {
+        if (permissions == null) {
+            return List.of();
+        }
+
+        LinkedHashSet<String> normalizedPermissions = new LinkedHashSet<>();
+        for (String permission : permissions) {
+            normalizedPermissions.add(SupportPermission.fromValue(permission).getValue());
+        }
+        return new ArrayList<>(normalizedPermissions);
+    }
+
+    private SupportTenantSummaryResponse toSupportTenantSummary(Tenant tenant) {
+        return new SupportTenantSummaryResponse(
+                tenant.getId(),
+                tenant.getName(),
+                tenant.getSubdomain(),
+                tenant.getActive(),
+                tenant.getCreatedAt(),
+                userRepository.countByTenantId(tenant.getId())
+        );
+    }
+
     private SupportUserSummaryResponse toSupportUserSummary(User user) {
         String tenantRoleName = null;
         if (user.getTenantRoleId() != null) {
@@ -463,6 +644,14 @@ public class SupportAdminService {
         }
 
         return resourceId;
+    }
+
+    private String normalizeOptionalValue(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return value.trim();
     }
 
     private String normalizeFilter(String value) {

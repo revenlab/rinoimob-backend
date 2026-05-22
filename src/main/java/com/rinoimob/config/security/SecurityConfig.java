@@ -27,11 +27,16 @@ public class SecurityConfig {
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenService tokenService;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+    private final SupportPermissionFilter supportPermissionFilter;
 
-    public SecurityConfig(JwtTokenProvider jwtTokenProvider, TokenService tokenService, CustomAuthenticationEntryPoint customAuthenticationEntryPoint) {
+    public SecurityConfig(JwtTokenProvider jwtTokenProvider,
+                          TokenService tokenService,
+                          CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
+                          SupportPermissionFilter supportPermissionFilter) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.tokenService = tokenService;
         this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
+        this.supportPermissionFilter = supportPermissionFilter;
     }
 
     @Bean
@@ -56,7 +61,8 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, tokenService), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, tokenService), UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(supportPermissionFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

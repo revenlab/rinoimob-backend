@@ -1,7 +1,9 @@
 package com.rinoimob.service;
 
+import com.rinoimob.domain.entity.SupportUserPermission;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
+import com.rinoimob.domain.enums.SupportPermission;
 import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.entity.AuditLog;
 import com.rinoimob.domain.entity.AutomationExecution;
@@ -11,6 +13,8 @@ import com.rinoimob.domain.repository.AuditLogRepository;
 import com.rinoimob.domain.repository.AutomationExecutionRepository;
 import com.rinoimob.domain.repository.AutomationWorkflowRepository;
 import com.rinoimob.domain.repository.EmailSenderConfigRepository;
+import com.rinoimob.domain.repository.GlobalCredentialRepository;
+import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.TenantRoleRepository;
 import com.rinoimob.domain.repository.UserRepository;
@@ -21,6 +25,7 @@ import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.enums.WorkflowExecutionStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
@@ -44,6 +49,8 @@ class SupportAdminServiceTest {
     @Mock private TenantRepository tenantRepository;
     @Mock private UserRepository userRepository;
     @Mock private TenantRoleRepository tenantRoleRepository;
+    @Mock private GlobalCredentialRepository globalCredentialRepository;
+    @Mock private SupportUserPermissionRepository supportUserPermissionRepository;
     @Mock private AuditLogRepository auditLogRepository;
     @Mock private EmailSenderConfigRepository emailSenderConfigRepository;
     @Mock private AutomationExecutionRepository automationExecutionRepository;
@@ -67,7 +74,7 @@ class SupportAdminServiceTest {
         when(userRepository.countByTenantId(tenantId)).thenReturn(3L);
 
         SupportAdminService service = new SupportAdminService(
-                tenantRepository, userRepository, tenantRoleRepository, auditLogRepository,
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
                 emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
                 userManagementService,
                 auditService, tokenService);
@@ -96,7 +103,7 @@ class SupportAdminServiceTest {
         when(userRepository.countByTenantId(tenantId)).thenReturn(1L);
 
         SupportAdminService service = new SupportAdminService(
-                tenantRepository, userRepository, tenantRoleRepository, auditLogRepository,
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
                 emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
                 userManagementService,
                 auditService, tokenService);
@@ -107,6 +114,73 @@ class SupportAdminServiceTest {
         verify(tokenService).invalidateAllTenantTokens(tenantId);
         verify(auditService).log(eq(tenantId.toString()), eq(actorUserId.toString()),
                 eq("TENANT_DEACTIVATED"), eq("TENANT"), eq(tenantId.toString()), contains("targetTenant=Tenant B"));
+    }
+
+    @Test
+    void shouldGetOperatorPermissionsWhenUserIsInternalOperator() {
+        UUID userId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        User user = new User();
+        user.setId(userId);
+        user.setSystemRole(SystemRole.SUPPORT_MANAGER);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(supportUserPermissionRepository.findPermissionValuesByUserId(userId))
+                .thenReturn(List.of(SupportPermission.OPERATORS_READ.getValue(), SupportPermission.AUDIT_READ.getValue()));
+
+        SupportAdminService service = new SupportAdminService(
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
+                emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
+                userManagementService,
+                auditService, tokenService);
+
+        var result = service.getOperatorPermissions(userId);
+
+        assertThat(result).containsExactly(
+                SupportPermission.OPERATORS_READ.getValue(),
+                SupportPermission.AUDIT_READ.getValue()
+        );
+    }
+
+    @Test
+    void shouldReplaceOperatorPermissionsWhenValidPermissionsProvided() {
+        UUID userId = UUID.fromString("abababab-abab-abab-abab-abababababab");
+        User user = new User();
+        user.setId(userId);
+        user.setSystemRole(SystemRole.TENANT_ADMIN);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(supportUserPermissionRepository.findPermissionValuesByUserId(userId))
+                .thenReturn(List.of(
+                        SupportPermission.HEALTH_READ.getValue(),
+                        SupportPermission.TENANTS_WRITE.getValue()
+                ));
+
+        SupportAdminService service = new SupportAdminService(
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
+                emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
+                userManagementService,
+                auditService, tokenService);
+
+        var result = service.setOperatorPermissions(userId, List.of(
+                SupportPermission.HEALTH_READ.getValue(),
+                SupportPermission.HEALTH_READ.getValue(),
+                SupportPermission.TENANTS_WRITE.getValue()
+        ));
+
+        ArgumentCaptor<List<SupportUserPermission>> permissionCaptor = ArgumentCaptor.forClass(List.class);
+        verify(supportUserPermissionRepository).deleteByUserId(userId);
+        verify(supportUserPermissionRepository).saveAll(permissionCaptor.capture());
+        verify(tokenService).invalidateUserTokens(userId);
+        assertThat(permissionCaptor.getValue())
+                .extracting(SupportUserPermission::getPermission)
+                .containsExactly(
+                        SupportPermission.HEALTH_READ.getValue(),
+                        SupportPermission.TENANTS_WRITE.getValue()
+                );
+        assertThat(result).containsExactly(
+                SupportPermission.HEALTH_READ.getValue(),
+                SupportPermission.TENANTS_WRITE.getValue()
+        );
     }
 
     @Test
@@ -128,7 +202,7 @@ class SupportAdminServiceTest {
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         SupportAdminService service = new SupportAdminService(
-                tenantRepository, userRepository, tenantRoleRepository, auditLogRepository,
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
                 emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
                 userManagementService,
                 auditService, tokenService);
@@ -148,7 +222,7 @@ class SupportAdminServiceTest {
         UUID actorUserId = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
 
         SupportAdminService service = new SupportAdminService(
-                tenantRepository, userRepository, tenantRoleRepository, auditLogRepository,
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
                 emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
                 userManagementService,
                 auditService, tokenService);
@@ -172,7 +246,7 @@ class SupportAdminServiceTest {
         when(auditLogRepository.findAll(any(Specification.class))).thenReturn(List.of(log));
 
         SupportAdminService service = new SupportAdminService(
-                tenantRepository, userRepository, tenantRoleRepository, auditLogRepository,
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
                 emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
                 userManagementService,
                 auditService, tokenService);
@@ -194,7 +268,7 @@ class SupportAdminServiceTest {
         LocalDateTime to = LocalDateTime.of(2026, 5, 20, 11, 0);
 
         SupportAdminService service = new SupportAdminService(
-                tenantRepository, userRepository, tenantRoleRepository, auditLogRepository,
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
                 emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
                 userManagementService,
                 auditService, tokenService);
@@ -268,7 +342,7 @@ class SupportAdminServiceTest {
         when(automationWorkflowRepository.findByTenantIdOrderByCreatedAtDesc(tenantId)).thenReturn(List.of(workflow));
 
         SupportAdminService service = new SupportAdminService(
-                tenantRepository, userRepository, tenantRoleRepository, auditLogRepository,
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
                 emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
                 userManagementService,
                 auditService, tokenService);
@@ -304,7 +378,7 @@ class SupportAdminServiceTest {
         when(userRepository.findByIdAndTenantId(userId, tenantId)).thenReturn(Optional.of(user));
 
         SupportAdminService service = new SupportAdminService(
-                tenantRepository, userRepository, tenantRoleRepository, auditLogRepository,
+                tenantRepository, userRepository, tenantRoleRepository, globalCredentialRepository, supportUserPermissionRepository, auditLogRepository,
                 emailSenderConfigRepository, automationExecutionRepository, automationWorkflowRepository,
                 userManagementService,
                 auditService, tokenService);

@@ -17,4 +17,6 @@ public interface TenantRepository extends JpaRepository<Tenant, UUID> {
 
     List<Tenant> findAllByOrderByCreatedAtDesc();
 
+    long countByActive(boolean active);
+
 }
