@@ -16,6 +16,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -69,16 +70,28 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174,http://localhost:3000,http://127.0.0.1:3000,http://0.0.0.0:5173,http://0.0.0.0:5174,http://0.0.0.0:3000}")
+            @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174,http://localhost:3000,http://127.0.0.1:3000,http://0.0.0.0:5173,http://0.0.0.0:5174,http://0.0.0.0:3000,http://*.localhost:3000,http://*.localhost:5173,http://*.localhost:5174}")
             String allowedOrigins
     ) {
-        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+        List<String> originPatterns = new ArrayList<>(Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(origin -> !origin.isEmpty())
-                .toList();
+                .toList());
+
+        List<String> localhostWildcardPatterns = List.of(
+                "http://*.localhost:3000",
+                "http://*.localhost:5173",
+                "http://*.localhost:5174",
+                "https://*.localhost:3000",
+                "https://*.localhost:5173",
+                "https://*.localhost:5174"
+        );
+        localhostWildcardPatterns.stream()
+                .filter(pattern -> !originPatterns.contains(pattern))
+                .forEach(originPatterns::add);
 
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(origins);
+        configuration.setAllowedOriginPatterns(originPatterns);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization", "X-Reason", "X-Tenant-ID"));

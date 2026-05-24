@@ -102,6 +102,30 @@ public class TenantWebsiteConfigService {
         return toResponse(saved);
     }
 
+    @Transactional
+    public TenantWebsiteConfigResponse uploadHeroImage(UUID tenantId, MultipartFile file) {
+        TenantWebsiteConfig config = getOrCreateConfig(tenantId);
+        deleteStoredFile(config.getHeroImageFid(), config.getHeroImageUrl());
+
+        FileStorageService.UploadResult uploadResult = fileStorageService.upload(file);
+        config.setHeroImageFid(uploadResult.fid());
+        config.setHeroImageUrl(uploadResult.url());
+        TenantWebsiteConfig saved = tenantWebsiteConfigRepository.save(config);
+        log.info("Website hero image uploaded tenant={} fid={}", tenantId, uploadResult.fid());
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public TenantWebsiteConfigResponse deleteHeroImage(UUID tenantId) {
+        TenantWebsiteConfig config = getOrCreateConfig(tenantId);
+        deleteStoredFile(config.getHeroImageFid(), config.getHeroImageUrl());
+        config.setHeroImageFid(null);
+        config.setHeroImageUrl(null);
+        TenantWebsiteConfig saved = tenantWebsiteConfigRepository.save(config);
+        log.info("Website hero image deleted tenant={}", tenantId);
+        return toResponse(saved);
+    }
+
     private TenantWebsiteConfig getOrCreateConfig(UUID tenantId) {
         ensureTenantExists(tenantId);
         return tenantWebsiteConfigRepository.findById(tenantId)
@@ -139,7 +163,8 @@ public class TenantWebsiteConfigService {
                 config.getAddress(),
                 config.getInstagramUrl(),
                 config.getWhatsappNumber(),
-                config.getFacebookUrl()
+                config.getFacebookUrl(),
+                config.getHeroImageUrl()
         );
     }
 }

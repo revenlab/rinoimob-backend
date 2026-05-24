@@ -69,4 +69,18 @@ public class TenantWebsiteConfigController {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return ResponseEntity.ok(tenantWebsiteConfigService.deleteFavicon(tenantId));
     }
+
+    @PostMapping(value = "/hero-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
+    public ResponseEntity<TenantWebsiteConfigResponse> uploadHeroImage(@RequestPart("file") MultipartFile file) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(tenantWebsiteConfigService.uploadHeroImage(tenantId, file));
+    }
+
+    @DeleteMapping("/hero-image")
+    @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
+    public ResponseEntity<TenantWebsiteConfigResponse> deleteHeroImage() {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.ok(tenantWebsiteConfigService.deleteHeroImage(tenantId));
+    }
 }

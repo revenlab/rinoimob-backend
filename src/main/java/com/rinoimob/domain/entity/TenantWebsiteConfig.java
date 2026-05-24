@@ -72,6 +72,12 @@ public class TenantWebsiteConfig {
     @Column(name = "facebook_url")
     private String facebookUrl;
 
+    @Column(name = "hero_image_fid")
+    private String heroImageFid;
+
+    @Column(name = "hero_image_url")
+    private String heroImageUrl;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 

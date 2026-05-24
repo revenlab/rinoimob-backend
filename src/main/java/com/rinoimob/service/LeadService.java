@@ -45,6 +45,7 @@ public class LeadService {
     private final LeadPropertyRepository leadPropertyRepository;
     private final PropertyRepository propertyRepository;
     private final AutomationEventDispatcher automationEventDispatcher;
+    private final LeadRealtimeService leadRealtimeService;
 
     @Transactional(readOnly = true)
     public LeadStatsResponse getStats(UUID tenantId) {
@@ -102,7 +103,9 @@ public class LeadService {
         }
         log.info("Lead created id={} tenant={}", lead.getId(), tenantId);
         automationEventDispatcher.dispatchLeadCreated(lead);
-        return toResponse(lead, List.of(), null, List.of());
+        LeadResponse response = toResponse(lead, List.of(), null, List.of());
+        leadRealtimeService.publishLeadCreated(tenantId, response);
+        return response;
     }
 
     @Transactional
@@ -140,7 +143,9 @@ public class LeadService {
         List<LeadNote> notes = leadNoteRepository.findAllByLeadIdOrderByCreatedAtDesc(id);
         List<LeadProperty> leadProps = leadPropertyRepository.findAllByLeadIdOrderByCreatedAtAsc(id);
         List<LeadPropertyResponse> propResponses = leadProps.stream().map(this::toLeadPropertyResponse).toList();
-        return toResponse(lead, notes, resolveUserName(lead.getAssignedTo()), propResponses);
+        LeadResponse response = toResponse(lead, notes, resolveUserName(lead.getAssignedTo()), propResponses);
+        leadRealtimeService.publishLeadUpdated(tenantId, response);
+        return response;
     }
 
     @Transactional
@@ -149,6 +154,7 @@ public class LeadService {
         lead.setDeletedAt(LocalDateTime.now());
         leadRepository.save(lead);
         log.info("Lead soft-deleted id={}", id);
+        leadRealtimeService.publishLeadDeleted(tenantId, id);
     }
 
     @Transactional

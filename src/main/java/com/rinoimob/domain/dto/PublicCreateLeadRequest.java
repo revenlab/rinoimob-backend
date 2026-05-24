@@ -9,5 +9,6 @@ public record PublicCreateLeadRequest(
         String email,
         String phone,
         String message,
-        UUID propertyId
+        UUID propertyId,
+        String source
 ) {}

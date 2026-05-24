@@ -89,12 +89,22 @@ public class PublicController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name is required");
         }
         UUID tenantId = resolveTenant(tenantSlug);
-        CreateLeadRequest leadReq = new CreateLeadRequest(
-                request.name(), request.email(), request.phone(),
-                request.message(), request.propertyId(), "PORTAL");
-        leadService.create(tenantId, leadReq);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(Map.of("message", "Lead received successfully"));
+        TenantContext.setTenantId(tenantId.toString());
+        try {
+            CreateLeadRequest leadReq = new CreateLeadRequest(
+                    request.name(),
+                    request.email(),
+                    request.phone(),
+                    request.message(),
+                    request.propertyId(),
+                    normalizePublicLeadSource(request.source())
+            );
+            leadService.create(tenantId, leadReq);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(Map.of("message", "Lead received successfully"));
+        } finally {
+            TenantContext.clear();
+        }
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
@@ -103,5 +113,22 @@ public class PublicController {
         return tenantRepository.findBySubdomain(slug)
                 .map(Tenant::getId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tenant not found"));
+    }
+
+    private String normalizePublicLeadSource(String source) {
+        if (source == null || source.isBlank()) {
+            return "PORTAL";
+        }
+
+        String normalized = source.trim().toUpperCase().replaceAll("[^A-Z0-9_\\-]", "_");
+        if (!normalized.startsWith("PORTAL")) {
+            return "PORTAL";
+        }
+
+        if (normalized.length() > 50) {
+            return normalized.substring(0, 50);
+        }
+
+        return normalized;
     }
 }

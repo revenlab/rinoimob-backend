@@ -14,6 +14,7 @@ public record TenantWebsiteConfigResponse(
         String address,
         String instagramUrl,
         String whatsappNumber,
-        String facebookUrl
+        String facebookUrl,
+        String heroImageUrl
 ) {
 }

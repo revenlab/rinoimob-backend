@@ -4,11 +4,12 @@ Arquivo de histórico de mudanças e crumbs para reduzir tokens em contextos fut
 
 ---
 
-## Última migration: V22
+## Última migration: V23
 
 ```
 V21__support_permissions.sql — tabela support_user_permissions com UNIQUE(user_id, permission)
 V22__tenant_website_config.sql — tabela tenant_website_config (tenant_id como PK, 1:1 com Tenant)
+V23__add_hero_image_to_website_config.sql — adiciona hero_image_fid e hero_image_url em tenant_website_config
 ```
 
 ---
@@ -85,6 +86,7 @@ support:health:read
 - `UserController.GET /users` tem `@PreAuthorize("hasAuthority('PERMISSION_users:read')")`
   (adicionado — antes estava sem proteção).
 - Padrão geral: `hasAuthority('PERMISSION_{permission_name}')` — nunca `hasRole()`.
+- CORS usa `allowedOriginPatterns` em `SecurityConfig` para suportar subdomínios (ex.: `http://*.localhost:3000`) mantendo `allowCredentials=true`.
 
 ---
 
@@ -103,17 +105,24 @@ support:health:read
 | PUT | `/api/v1/website-config` | tenant auth |
 | POST | `/api/v1/website-config/logo` | tenant auth (multipart) |
 | POST | `/api/v1/website-config/favicon` | tenant auth (multipart) |
+| POST | `/api/v1/website-config/hero-image` | tenant auth (multipart) |
 | DELETE | `/api/v1/website-config/logo` | tenant auth |
 | DELETE | `/api/v1/website-config/favicon` | tenant auth |
+| DELETE | `/api/v1/website-config/hero-image` | tenant auth |
 | GET | `/api/v1/public/config` | sem auth (header `X-Tenant-Slug`) |
+| POST | `/api/v1/public/leads` | sem auth (header `X-Tenant-Slug`) |
 | GET | `/api/v1/support/tenants/{id}/website-config` | `support:tenants:read` |
 | PUT | `/api/v1/support/tenants/{id}/website-config` | `support:tenants:write` |
 
 ### Serviço: `TenantWebsiteConfigService`
 
 - Upload de logo/favicon via SeaweedFS
+- Upload de hero-image via SeaweedFS
 - `getOrCreateByTenantId()` — nunca retorna nulo, cria registro vazio se necessário
 - DTOs: `TenantWebsiteConfigResponse`, `UpdateTenantWebsiteConfigRequest`
+- `PublicController.createLead()` normaliza `source` público para rastreamento de conversão (mantendo padrão `PORTAL*`)
+- CORS hardening para website multi-tenant local: `SecurityConfig` sempre inclui padrões `*.localhost` (3000/5173/5174, http/https) além dos valores de `CORS_ALLOWED_ORIGINS`, evitando `Invalid CORS request` quando origin é `tenant.localhost`.
+- Leads em tempo real: `LeadRealtimeService` publica eventos WebSocket no tópico `/topic/{tenantId}.leads` com tipos `LEAD_CREATED`, `LEAD_UPDATED` e `LEAD_DELETED`; `LeadService` dispara esses eventos em create/update/delete.
 
 ---
 
