@@ -2,6 +2,7 @@ package com.rinoimob.domain.repository;
 
 import com.rinoimob.domain.entity.RolePermission;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -11,6 +12,8 @@ public interface RolePermissionRepository extends JpaRepository<RolePermission, 
     List<RolePermission> findByRoleId(UUID roleId);
 
     @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM RolePermission rp WHERE rp.roleId = :roleId")
     void deleteByRoleId(UUID roleId);
 
     @Query("SELECT rp.permission FROM RolePermission rp WHERE rp.roleId = :roleId")
