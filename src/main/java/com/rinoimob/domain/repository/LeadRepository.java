@@ -18,13 +18,19 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
 
     Page<Lead> findAllByTenantIdAndDeletedAtIsNull(UUID tenantId, Pageable pageable);
 
+    Page<Lead> findAllByTenantIdAndAssignedToAndDeletedAtIsNull(UUID tenantId, UUID assignedTo, Pageable pageable);
+
     Page<Lead> findAllByTenantIdAndStatusAndDeletedAtIsNull(UUID tenantId, LeadStatus status, Pageable pageable);
+
+    Page<Lead> findAllByTenantIdAndAssignedToAndStatusAndDeletedAtIsNull(UUID tenantId, UUID assignedTo, LeadStatus status, Pageable pageable);
 
     Optional<Lead> findByIdAndTenantIdAndDeletedAtIsNull(UUID id, UUID tenantId);
 
     List<Lead> findAllByTenantIdAndDeletedAtIsNullAndStatus(UUID tenantId, LeadStatus status);
 
     long countByTenantIdAndDeletedAtIsNull(UUID tenantId);
+
+    long countByTenantIdAndAssignedToAndDeletedAtIsNull(UUID tenantId, UUID assignedTo);
 
     long countByTenantIdAndStatusAndDeletedAtIsNull(UUID tenantId, LeadStatus status);
 

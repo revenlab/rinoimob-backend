@@ -44,7 +44,7 @@ public class AssignLeadActionHandler implements ActionHandler {
 
         try {
             UpdateLeadRequest request = new UpdateLeadRequest(null, null, null, null, null, userId);
-            leadService.update(tenantId, leadId, request);
+            leadService.update(tenantId, leadId, null, request);
 
             resultData.put("lead_assigned", true);
             resultData.put("lead_id", leadId);

@@ -11,8 +11,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,32 +26,53 @@ public class LeadController {
 
     private final LeadService leadService;
 
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Returns null if user can see/edit ALL leads, or the current userId
+     * if user is restricted to their own leads only.
+     */
+    private UUID resolveScopedUserId(Authentication auth, HttpServletRequest request, boolean readOperation) {
+        Collection<? extends GrantedAuthority> authorities = auth.getAuthorities();
+        boolean hasAll = authorities.stream().anyMatch(a ->
+                a.getAuthority().equals(readOperation ? "PERMISSION_leads:read_all" : "PERMISSION_leads:write_all") ||
+                a.getAuthority().equals(readOperation ? "PERMISSION_leads:read" : "PERMISSION_leads:write"));
+        if (hasAll) return null;
+        return (UUID) request.getAttribute("userId");
+    }
+
+    // ── Endpoints ─────────────────────────────────────────────────────────────
+
     @GetMapping("/stats")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
-    public LeadStatsResponse stats() {
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:read','PERMISSION_leads:read_all','PERMISSION_leads:read_own')")
+    public LeadStatsResponse stats(Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return leadService.getStats(tenantId);
+        UUID scopedUserId = resolveScopedUserId(auth, request, true);
+        return leadService.getStats(tenantId, scopedUserId);
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:read','PERMISSION_leads:read_all','PERMISSION_leads:read_own')")
     public ResponseEntity<Page<LeadResponse>> list(
             @RequestParam(required = false) LeadStatus status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return ResponseEntity.ok(leadService.list(tenantId, status, page, size));
+        UUID scopedUserId = resolveScopedUserId(auth, request, true);
+        return ResponseEntity.ok(leadService.list(tenantId, scopedUserId, status, page, size));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
-    public ResponseEntity<LeadResponse> get(@PathVariable UUID id) {
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:read','PERMISSION_leads:read_all','PERMISSION_leads:read_own')")
+    public ResponseEntity<LeadResponse> get(@PathVariable UUID id, Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return ResponseEntity.ok(leadService.get(tenantId, id));
+        UUID scopedUserId = resolveScopedUserId(auth, request, true);
+        return ResponseEntity.ok(leadService.get(tenantId, id, scopedUserId));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
     public ResponseEntity<LeadResponse> create(
             @Valid @RequestBody CreateLeadRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
@@ -56,73 +80,85 @@ public class LeadController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
     public ResponseEntity<LeadResponse> update(
             @PathVariable UUID id,
-            @RequestBody UpdateLeadRequest request) {
+            @RequestBody UpdateLeadRequest req,
+            Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return ResponseEntity.ok(leadService.update(tenantId, id, request));
+        UUID scopedUserId = resolveScopedUserId(auth, request, false);
+        return ResponseEntity.ok(leadService.update(tenantId, id, scopedUserId, req));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
+    public ResponseEntity<Void> delete(@PathVariable UUID id, Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        leadService.delete(tenantId, id);
+        UUID scopedUserId = resolveScopedUserId(auth, request, false);
+        leadService.delete(tenantId, id, scopedUserId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/notes")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
     public ResponseEntity<LeadNoteResponse> addNote(
             @PathVariable UUID id,
-            @Valid @RequestBody LeadNoteRequest request,
-            HttpServletRequest httpRequest) {
+            @Valid @RequestBody LeadNoteRequest req,
+            Authentication auth, HttpServletRequest httpRequest) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         UUID userId = (UUID) httpRequest.getAttribute("userId");
-        return ResponseEntity.status(HttpStatus.CREATED).body(leadService.addNote(tenantId, id, userId, request));
+        UUID scopedUserId = resolveScopedUserId(auth, httpRequest, false);
+        return ResponseEntity.status(HttpStatus.CREATED).body(leadService.addNote(tenantId, id, userId, scopedUserId, req));
     }
 
     @GetMapping("/{id}/events")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
-    public ResponseEntity<List<LeadEventResponse>> getEvents(@PathVariable UUID id) {
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:read','PERMISSION_leads:read_all','PERMISSION_leads:read_own')")
+    public ResponseEntity<List<LeadEventResponse>> getEvents(@PathVariable UUID id, Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return ResponseEntity.ok(leadService.getEvents(tenantId, id));
+        UUID scopedUserId = resolveScopedUserId(auth, request, true);
+        return ResponseEntity.ok(leadService.getEvents(tenantId, id, scopedUserId));
     }
 
     @GetMapping("/{id}/properties")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:read')")
-    public ResponseEntity<List<LeadPropertyResponse>> getProperties(@PathVariable UUID id) {
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:read','PERMISSION_leads:read_all','PERMISSION_leads:read_own')")
+    public ResponseEntity<List<LeadPropertyResponse>> getProperties(@PathVariable UUID id, Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return ResponseEntity.ok(leadService.getProperties(tenantId, id));
+        UUID scopedUserId = resolveScopedUserId(auth, request, true);
+        return ResponseEntity.ok(leadService.getProperties(tenantId, id, scopedUserId));
     }
 
     @PostMapping("/{id}/properties")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
     public ResponseEntity<LeadPropertyResponse> addProperty(
             @PathVariable UUID id,
-            @Valid @RequestBody AddLeadPropertyRequest request) {
+            @Valid @RequestBody AddLeadPropertyRequest req,
+            Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(leadService.addProperty(tenantId, id, request));
+        UUID scopedUserId = resolveScopedUserId(auth, request, false);
+        return ResponseEntity.status(HttpStatus.CREATED).body(leadService.addProperty(tenantId, id, scopedUserId, req));
     }
 
     @PatchMapping("/{id}/properties/{linkId}")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
     public ResponseEntity<LeadPropertyResponse> updatePropertyInterest(
             @PathVariable UUID id,
             @PathVariable UUID linkId,
-            @Valid @RequestBody UpdateLeadPropertyRequest request) {
+            @Valid @RequestBody UpdateLeadPropertyRequest req,
+            Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return ResponseEntity.ok(leadService.updatePropertyInterest(tenantId, id, linkId, request));
+        UUID scopedUserId = resolveScopedUserId(auth, request, false);
+        return ResponseEntity.ok(leadService.updatePropertyInterest(tenantId, id, linkId, scopedUserId, req));
     }
 
     @DeleteMapping("/{id}/properties/{linkId}")
-    @PreAuthorize("hasAuthority('PERMISSION_leads:write')")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
     public ResponseEntity<Void> removeProperty(
             @PathVariable UUID id,
-            @PathVariable UUID linkId) {
+            @PathVariable UUID linkId,
+            Authentication auth, HttpServletRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        leadService.removeProperty(tenantId, id, linkId);
+        UUID scopedUserId = resolveScopedUserId(auth, request, false);
+        leadService.removeProperty(tenantId, id, linkId, scopedUserId);
         return ResponseEntity.noContent().build();
     }
 }

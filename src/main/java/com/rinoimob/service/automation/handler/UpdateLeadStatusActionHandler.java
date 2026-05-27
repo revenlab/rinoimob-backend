@@ -47,7 +47,7 @@ public class UpdateLeadStatusActionHandler implements ActionHandler {
         try {
             LeadStatus newStatus = LeadStatus.valueOf(newStatusStr);
             UpdateLeadRequest request = new UpdateLeadRequest(null, null, null, null, newStatus, null);
-            leadService.update(tenantId, leadId, request);
+            leadService.update(tenantId, leadId, null, request);
 
             resultData.put("lead_status_updated", true);
             resultData.put("lead_id", leadId);

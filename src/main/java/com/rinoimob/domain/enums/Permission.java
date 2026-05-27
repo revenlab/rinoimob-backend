@@ -6,6 +6,10 @@ import java.util.List;
 public enum Permission {
     LEADS_READ("leads:read"),
     LEADS_WRITE("leads:write"),
+    LEADS_READ_OWN("leads:read_own"),
+    LEADS_WRITE_OWN("leads:write_own"),
+    LEADS_READ_ALL("leads:read_all"),
+    LEADS_WRITE_ALL("leads:write_all"),
     PROPERTIES_READ("properties:read"),
     PROPERTIES_WRITE("properties:write"),
     TASKS_READ("tasks:read"),

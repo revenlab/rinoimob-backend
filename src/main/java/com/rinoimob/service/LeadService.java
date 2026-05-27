@@ -48,8 +48,10 @@ public class LeadService {
     private final LeadRealtimeService leadRealtimeService;
 
     @Transactional(readOnly = true)
-    public LeadStatsResponse getStats(UUID tenantId) {
-        long total = leadRepository.countByTenantIdAndDeletedAtIsNull(tenantId);
+    public LeadStatsResponse getStats(UUID tenantId, UUID scopedUserId) {
+        long total = scopedUserId != null
+                ? leadRepository.countByTenantIdAndAssignedToAndDeletedAtIsNull(tenantId, scopedUserId)
+                : leadRepository.countByTenantIdAndDeletedAtIsNull(tenantId);
         long newLeads = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.NEW);
         long contacted = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.CONTACTED);
         long qualified = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.QUALIFIED);
@@ -62,8 +64,16 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
-    public Page<LeadResponse> list(UUID tenantId, LeadStatus status, int page, int size) {
+    public Page<LeadResponse> list(UUID tenantId, UUID scopedUserId, LeadStatus status, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
+        if (scopedUserId != null && status != null) {
+            return leadRepository.findAllByTenantIdAndAssignedToAndStatusAndDeletedAtIsNull(tenantId, scopedUserId, status, pageable)
+                    .map(l -> toResponse(l, List.of(), resolveUserName(l.getAssignedTo()), List.of()));
+        }
+        if (scopedUserId != null) {
+            return leadRepository.findAllByTenantIdAndAssignedToAndDeletedAtIsNull(tenantId, scopedUserId, pageable)
+                    .map(l -> toResponse(l, List.of(), resolveUserName(l.getAssignedTo()), List.of()));
+        }
         if (status != null) {
             return leadRepository.findAllByTenantIdAndStatusAndDeletedAtIsNull(tenantId, status, pageable)
                     .map(l -> toResponse(l, List.of(), resolveUserName(l.getAssignedTo()), List.of()));
@@ -73,8 +83,11 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
-    public LeadResponse get(UUID tenantId, UUID id) {
+    public LeadResponse get(UUID tenantId, UUID id, UUID scopedUserId) {
         Lead lead = findOwned(id, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        }
         List<LeadNote> notes = leadNoteRepository.findAllByLeadIdOrderByCreatedAtDesc(id);
         List<LeadProperty> leadProps = leadPropertyRepository.findAllByLeadIdOrderByCreatedAtAsc(id);
         List<LeadPropertyResponse> propResponses = leadProps.stream().map(this::toLeadPropertyResponse).toList();
@@ -109,8 +122,11 @@ public class LeadService {
     }
 
     @Transactional
-    public LeadResponse update(UUID tenantId, UUID id, UpdateLeadRequest req) {
+    public LeadResponse update(UUID tenantId, UUID id, UUID scopedUserId, UpdateLeadRequest req) {
         Lead lead = findOwned(id, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        }
         LeadStatus oldStatus = lead.getStatus();
         UUID oldAssignedTo = lead.getAssignedTo();
         
@@ -149,8 +165,11 @@ public class LeadService {
     }
 
     @Transactional
-    public void delete(UUID tenantId, UUID id) {
+    public void delete(UUID tenantId, UUID id, UUID scopedUserId) {
         Lead lead = findOwned(id, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        }
         lead.setDeletedAt(LocalDateTime.now());
         leadRepository.save(lead);
         log.info("Lead soft-deleted id={}", id);
@@ -158,8 +177,11 @@ public class LeadService {
     }
 
     @Transactional
-    public LeadNoteResponse addNote(UUID tenantId, UUID leadId, UUID userId, LeadNoteRequest req) {
-        findOwned(leadId, tenantId);
+    public LeadNoteResponse addNote(UUID tenantId, UUID leadId, UUID userId, UUID scopedUserId, LeadNoteRequest req) {
+        Lead lead = findOwned(leadId, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        }
         LeadNote note = new LeadNote();
         note.setLeadId(leadId);
         note.setUserId(userId);
@@ -171,15 +193,21 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
-    public List<LeadEventResponse> getEvents(UUID tenantId, UUID leadId) {
-        findOwned(leadId, tenantId);
+    public List<LeadEventResponse> getEvents(UUID tenantId, UUID leadId, UUID scopedUserId) {
+        Lead lead = findOwned(leadId, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        }
         return leadEventRepository.findAllByLeadIdOrderByCreatedAtDesc(leadId)
                 .stream().map(this::toEventResponse).toList();
     }
 
     @Transactional
-    public LeadPropertyResponse addProperty(UUID tenantId, UUID leadId, AddLeadPropertyRequest req) {
-        findOwned(leadId, tenantId);
+    public LeadPropertyResponse addProperty(UUID tenantId, UUID leadId, UUID scopedUserId, AddLeadPropertyRequest req) {
+        Lead lead = findOwned(leadId, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        }
         if (leadPropertyRepository.existsByLeadIdAndPropertyId(leadId, req.propertyId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Property already linked to this lead");
         }
@@ -193,8 +221,11 @@ public class LeadService {
     }
 
     @Transactional
-    public LeadPropertyResponse updatePropertyInterest(UUID tenantId, UUID leadId, UUID linkId, UpdateLeadPropertyRequest req) {
-        findOwned(leadId, tenantId);
+    public LeadPropertyResponse updatePropertyInterest(UUID tenantId, UUID leadId, UUID linkId, UUID scopedUserId, UpdateLeadPropertyRequest req) {
+        Lead lead = findOwned(leadId, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        }
         LeadProperty lp = leadPropertyRepository.findByIdAndLeadId(linkId, leadId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Link not found"));
         lp.setInterestLevel(req.interestLevel());
@@ -203,8 +234,11 @@ public class LeadService {
     }
 
     @Transactional
-    public void removeProperty(UUID tenantId, UUID leadId, UUID linkId) {
-        findOwned(leadId, tenantId);
+    public void removeProperty(UUID tenantId, UUID leadId, UUID linkId, UUID scopedUserId) {
+        Lead lead = findOwned(leadId, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        }
         LeadProperty lp = leadPropertyRepository.findByIdAndLeadId(linkId, leadId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Link not found"));
         leadPropertyRepository.delete(lp);
@@ -212,8 +246,11 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
-    public List<LeadPropertyResponse> getProperties(UUID tenantId, UUID leadId) {
-        findOwned(leadId, tenantId);
+    public List<LeadPropertyResponse> getProperties(UUID tenantId, UUID leadId, UUID scopedUserId) {
+        Lead lead = findOwned(leadId, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        }
         return leadPropertyRepository.findAllByLeadIdOrderByCreatedAtAsc(leadId).stream()
                 .map(this::toLeadPropertyResponse)
                 .toList();
