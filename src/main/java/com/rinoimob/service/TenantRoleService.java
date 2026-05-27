@@ -78,9 +78,10 @@ public class TenantRoleService {
         rolePermissionRepository.deleteByRoleId(roleId);
         savePermissions(roleId, request.permissions());
 
-        // Role permissions changed — all users in this tenant with this role have stale JWT tokens.
-        // Invalidate at tenant level since we can't efficiently target only users with this specific role.
-        tokenService.invalidateAllTenantTokens(tenantId);
+        // Invalidate tokens only for users assigned to this specific role,
+        // not all tenant users. This avoids logging out admins/owners who manage roles.
+        userRepository.findByTenantRoleId(roleId)
+                .forEach(u -> tokenService.invalidateUserTokens(u.getId()));
 
         return toResponse(saved, request.permissions() != null ? request.permissions() : List.of());
     }

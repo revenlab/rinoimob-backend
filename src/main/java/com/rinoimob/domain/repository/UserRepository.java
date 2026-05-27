@@ -34,6 +34,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByTenantRoleId(UUID tenantRoleId);
 
+    List<User> findByTenantRoleId(UUID tenantRoleId);
+
     long countByTenantId(UUID tenantId);
 
     @Query("SELECT COUNT(u) FROM User u WHERE u.systemRole IS NULL OR u.systemRole = com.rinoimob.domain.enums.SystemRole.TENANT_OWNER")
