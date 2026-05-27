@@ -32,6 +32,16 @@ public record TenantWebsiteConfigResponse(
         String blogSectionSubtitle,
         String ctaSectionTitle,
         String ctaSectionSubtitle,
-        String customDomain
+        String customDomain,
+        String aboutPageTitle,
+        String aboutPageSubtitle,
+        String aboutPageDescription,
+        String aboutImageUrl,
+        String aboutMission,
+        String aboutVision,
+        String aboutValues,
+        String aboutFoundedYear,
+        String aboutTeamCount,
+        String aboutPropertiesCount
 ) {
 }

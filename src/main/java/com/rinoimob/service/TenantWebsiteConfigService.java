@@ -64,6 +64,15 @@ public class TenantWebsiteConfigService {
         if (request.blogSectionSubtitle() != null) config.setBlogSectionSubtitle(request.blogSectionSubtitle());
         if (request.ctaSectionTitle() != null) config.setCtaSectionTitle(request.ctaSectionTitle());
         if (request.ctaSectionSubtitle() != null) config.setCtaSectionSubtitle(request.ctaSectionSubtitle());
+        if (request.aboutPageTitle() != null) config.setAboutPageTitle(request.aboutPageTitle());
+        if (request.aboutPageSubtitle() != null) config.setAboutPageSubtitle(request.aboutPageSubtitle());
+        if (request.aboutPageDescription() != null) config.setAboutPageDescription(request.aboutPageDescription());
+        if (request.aboutMission() != null) config.setAboutMission(request.aboutMission());
+        if (request.aboutVision() != null) config.setAboutVision(request.aboutVision());
+        if (request.aboutValues() != null) config.setAboutValues(request.aboutValues());
+        if (request.aboutFoundedYear() != null) config.setAboutFoundedYear(request.aboutFoundedYear());
+        if (request.aboutTeamCount() != null) config.setAboutTeamCount(request.aboutTeamCount());
+        if (request.aboutPropertiesCount() != null) config.setAboutPropertiesCount(request.aboutPropertiesCount());
 
         TenantWebsiteConfig saved = tenantWebsiteConfigRepository.save(config);
         log.info("Website config updated tenant={}", tenantId);
@@ -139,6 +148,30 @@ public class TenantWebsiteConfigService {
         config.setHeroImageUrl(null);
         TenantWebsiteConfig saved = tenantWebsiteConfigRepository.save(config);
         log.info("Website hero image deleted tenant={}", tenantId);
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public TenantWebsiteConfigResponse uploadAboutImage(UUID tenantId, MultipartFile file) {
+        TenantWebsiteConfig config = getOrCreateConfig(tenantId);
+        deleteStoredFile(config.getAboutImageFid(), config.getAboutImageUrl());
+
+        FileStorageService.UploadResult uploadResult = fileStorageService.upload(file);
+        config.setAboutImageFid(uploadResult.fid());
+        config.setAboutImageUrl(uploadResult.url());
+        TenantWebsiteConfig saved = tenantWebsiteConfigRepository.save(config);
+        log.info("Website about image uploaded tenant={} fid={}", tenantId, uploadResult.fid());
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public TenantWebsiteConfigResponse deleteAboutImage(UUID tenantId) {
+        TenantWebsiteConfig config = getOrCreateConfig(tenantId);
+        deleteStoredFile(config.getAboutImageFid(), config.getAboutImageUrl());
+        config.setAboutImageFid(null);
+        config.setAboutImageUrl(null);
+        TenantWebsiteConfig saved = tenantWebsiteConfigRepository.save(config);
+        log.info("Website about image deleted tenant={}", tenantId);
         return toResponse(saved);
     }
 
@@ -222,7 +255,17 @@ public class TenantWebsiteConfigService {
                 config.getBlogSectionSubtitle(),
                 config.getCtaSectionTitle(),
                 config.getCtaSectionSubtitle(),
-                config.getCustomDomain()
+                config.getCustomDomain(),
+                config.getAboutPageTitle(),
+                config.getAboutPageSubtitle(),
+                config.getAboutPageDescription(),
+                config.getAboutImageUrl(),
+                config.getAboutMission(),
+                config.getAboutVision(),
+                config.getAboutValues(),
+                config.getAboutFoundedYear(),
+                config.getAboutTeamCount(),
+                config.getAboutPropertiesCount()
         );
     }
 }

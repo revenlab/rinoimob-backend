@@ -126,6 +126,39 @@ public class TenantWebsiteConfig {
     @Column(name = "cta_section_subtitle")
     private String ctaSectionSubtitle;
 
+    @Column(name = "about_page_title")
+    private String aboutPageTitle;
+
+    @Column(name = "about_page_subtitle")
+    private String aboutPageSubtitle;
+
+    @Column(name = "about_page_description", columnDefinition = "TEXT")
+    private String aboutPageDescription;
+
+    @Column(name = "about_image_fid")
+    private String aboutImageFid;
+
+    @Column(name = "about_image_url")
+    private String aboutImageUrl;
+
+    @Column(name = "about_mission", columnDefinition = "TEXT")
+    private String aboutMission;
+
+    @Column(name = "about_vision", columnDefinition = "TEXT")
+    private String aboutVision;
+
+    @Column(name = "about_values", columnDefinition = "TEXT")
+    private String aboutValues;
+
+    @Column(name = "about_founded_year")
+    private String aboutFoundedYear;
+
+    @Column(name = "about_team_count")
+    private String aboutTeamCount;
+
+    @Column(name = "about_properties_count")
+    private String aboutPropertiesCount;
+
     @Column(name = "custom_domain", unique = true)
     private String customDomain;
 

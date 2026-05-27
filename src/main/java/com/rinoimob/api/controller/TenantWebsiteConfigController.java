@@ -86,6 +86,20 @@ public class TenantWebsiteConfigController {
         return ResponseEntity.ok(tenantWebsiteConfigService.deleteHeroImage(tenantId));
     }
 
+    @PostMapping(value = "/about-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
+    public ResponseEntity<TenantWebsiteConfigResponse> uploadAboutImage(@RequestPart("file") MultipartFile file) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(tenantWebsiteConfigService.uploadAboutImage(tenantId, file));
+    }
+
+    @DeleteMapping("/about-image")
+    @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
+    public ResponseEntity<TenantWebsiteConfigResponse> deleteAboutImage() {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.ok(tenantWebsiteConfigService.deleteAboutImage(tenantId));
+    }
+
     @GetMapping("/domain")
     public ResponseEntity<TenantDomainResponse> getCustomDomain() {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());

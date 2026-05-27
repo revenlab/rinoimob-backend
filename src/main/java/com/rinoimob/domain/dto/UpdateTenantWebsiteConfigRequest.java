@@ -30,6 +30,15 @@ public record UpdateTenantWebsiteConfigRequest(
         String blogSectionTitle,
         String blogSectionSubtitle,
         String ctaSectionTitle,
-        String ctaSectionSubtitle
+        String ctaSectionSubtitle,
+        String aboutPageTitle,
+        String aboutPageSubtitle,
+        String aboutPageDescription,
+        String aboutMission,
+        String aboutVision,
+        String aboutValues,
+        String aboutFoundedYear,
+        String aboutTeamCount,
+        String aboutPropertiesCount
 ) {
 }
