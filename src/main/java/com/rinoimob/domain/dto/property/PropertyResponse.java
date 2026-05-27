@@ -15,6 +15,7 @@ import java.util.UUID;
 public record PropertyResponse(
         UUID id,
         String title,
+        String slug,
         String description,
         PropertyOperation operation,
         PropertyType propertyType,

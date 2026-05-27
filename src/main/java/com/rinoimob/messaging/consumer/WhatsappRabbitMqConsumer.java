@@ -3,10 +3,13 @@ package com.rinoimob.messaging.consumer;
 import com.rinoimob.config.WhatsappRabbitMQConfig;
 import com.rinoimob.domain.dto.WhatsappMessageResponse;
 import com.rinoimob.domain.dto.WsMessageEvent;
+import com.rinoimob.domain.entity.Lead;
+import com.rinoimob.domain.entity.WhatsappInstance;
 import com.rinoimob.domain.entity.WhatsappMessage;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.domain.repository.WhatsappInstanceRepository;
 import com.rinoimob.domain.repository.WhatsappMessageRepository;
+import com.rinoimob.service.LeadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -25,6 +28,7 @@ public class WhatsappRabbitMqConsumer {
     private final WhatsappInstanceRepository instanceRepo;
     private final WhatsappMessageRepository messageRepo;
     private final LeadRepository leadRepo;
+    private final LeadService leadService;
     private final SimpMessagingTemplate messagingTemplate;
 
     @RabbitListener(queues = WhatsappRabbitMQConfig.MESSAGES_QUEUE)
@@ -69,18 +73,18 @@ public class WhatsappRabbitMqConsumer {
                 String text = extractText(data);
                 if (text == null || text.isBlank()) continue;
 
-                UUID leadId = leadRepo.findByTenantIdAndDeletedAtIsNull(instance.getTenantId()).stream()
-                    .filter(l -> l.getPhone() != null && (
-                        l.getPhone().replaceAll("\\D", "").endsWith(fromNumber) ||
-                        fromNumber.endsWith(l.getPhone().replaceAll("\\D", ""))))
-                    .findFirst()
-                    .map(l -> l.getId())
-                    .orElse(null);
+                // Find or create lead (with auto-create if enabled)
+                Lead lead = leadService.findOrCreateLeadFromWhatsAppMessage(
+                    fromNumber,
+                    text,
+                    instance.getTenantId(),
+                    instance.getAutoCreateLeadsFromUnknownNumbers()
+                );
+
+                UUID leadId = lead != null ? lead.getId() : null;
 
                 // Resolve lead name for notification display
-                String leadName = leadId != null
-                    ? leadRepo.findById(leadId).map(l -> l.getName()).orElse(null)
-                    : null;
+                String leadName = lead != null ? lead.getName() : null;
 
                 WhatsappMessage msg = new WhatsappMessage();
                 msg.setTenantId(instance.getTenantId());

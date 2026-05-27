@@ -5,11 +5,14 @@ import com.rinoimob.domain.dto.PublicCreateLeadRequest;
 import com.rinoimob.domain.dto.property.PropertySummaryResponse;
 import com.rinoimob.domain.dto.property.PropertyResponse;
 import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
+import com.rinoimob.domain.dto.blog.PublicBlogPostResponse;
+import com.rinoimob.domain.dto.blog.PublicBlogPostSummaryResponse;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import com.rinoimob.domain.repository.TenantRepository;
+import com.rinoimob.service.BlogPostService;
 import com.rinoimob.service.LeadService;
 import com.rinoimob.service.PropertyService;
 import com.rinoimob.service.TenantWebsiteConfigService;
@@ -36,6 +39,7 @@ public class PublicController {
     private final PropertyService propertyService;
     private final LeadService leadService;
     private final TenantWebsiteConfigService tenantWebsiteConfigService;
+    private final BlogPostService blogPostService;
 
     @GetMapping("/properties")
     public ResponseEntity<Page<PropertySummaryResponse>> listProperties(
@@ -76,6 +80,33 @@ public class PublicController {
         TenantContext.setTenantId(tenantId.toString());
         try {
             return ResponseEntity.ok(tenantWebsiteConfigService.getConfig(tenantId));
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    @GetMapping("/blog-posts")
+    public ResponseEntity<Page<PublicBlogPostSummaryResponse>> listBlogPosts(
+            @RequestHeader("X-Tenant-Slug") String tenantSlug,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID tenantId = resolveTenant(tenantSlug);
+        TenantContext.setTenantId(tenantId.toString());
+        try {
+            return ResponseEntity.ok(blogPostService.listPublic(tenantId, page, size));
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    @GetMapping("/blog-posts/{slug}")
+    public ResponseEntity<PublicBlogPostResponse> getBlogPost(
+            @RequestHeader("X-Tenant-Slug") String tenantSlug,
+            @PathVariable String slug) {
+        UUID tenantId = resolveTenant(tenantSlug);
+        TenantContext.setTenantId(tenantId.toString());
+        try {
+            return ResponseEntity.ok(blogPostService.getPublicBySlug(tenantId, slug));
         } finally {
             TenantContext.clear();
         }

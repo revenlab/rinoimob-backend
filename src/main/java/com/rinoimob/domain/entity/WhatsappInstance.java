@@ -40,6 +40,12 @@ public class WhatsappInstance {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "auto_create_leads_from_unknown_numbers", nullable = false)
+    private Boolean autoCreateLeadsFromUnknownNumbers = false;
+
+    @Column(name = "assigned_to_user_id")
+    private UUID assignedToUserId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = updatedAt = LocalDateTime.now();

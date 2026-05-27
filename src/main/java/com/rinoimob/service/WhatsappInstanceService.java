@@ -3,12 +3,15 @@ package com.rinoimob.service;
 import com.rinoimob.api.client.EvolutionApiClient;
 import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.CreateWhatsappInstanceRequest;
+import com.rinoimob.domain.dto.UpdateWhatsappInstanceConfigRequest;
 import com.rinoimob.domain.dto.WhatsappInstanceResponse;
 import com.rinoimob.domain.dto.WhatsappQrCodeResponse;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.WhatsappInstance;
-import com.rinoimob.domain.repository.TenantRepository;
+import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.WhatsappInstanceRepository;
+import com.rinoimob.domain.repository.TenantRepository;
+import com.rinoimob.domain.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ public class WhatsappInstanceService {
 
     private final WhatsappInstanceRepository instanceRepo;
     private final TenantRepository tenantRepo;
+    private final UserRepository userRepo;
     private final EvolutionApiClient evolutionClient;
 
     public List<WhatsappInstanceResponse> listForTenant() {
@@ -124,8 +128,44 @@ public class WhatsappInstanceService {
         instanceRepo.delete(instance);
     }
 
+    public WhatsappInstanceResponse updateConfig(UUID instanceId, UpdateWhatsappInstanceConfigRequest req) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        WhatsappInstance instance = instanceRepo.findByIdAndTenantId(instanceId, tenantId)
+            .orElseThrow(() -> new RuntimeException("Instance not found"));
+
+        if (req.getAutoCreateLeadsFromUnknownNumbers() != null) {
+            instance.setAutoCreateLeadsFromUnknownNumbers(req.getAutoCreateLeadsFromUnknownNumbers());
+        }
+
+        if (req.getAssignedToUserId() != null) {
+            // Validate user exists and belongs to tenant
+            User user = userRepo.findById(req.getAssignedToUserId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+            instance.setAssignedToUserId(req.getAssignedToUserId());
+        } else {
+            // Null means available to all users in tenant
+            instance.setAssignedToUserId(null);
+        }
+
+        instance = instanceRepo.save(instance);
+        return toResponse(instance);
+    }
+
+    private String resolveUserName(UUID userId) {
+        if (userId == null) return null;
+        return userRepo.findById(userId).map(u -> {
+            if (u.getFirstName() != null && !u.getFirstName().isBlank()) {
+                return u.getLastName() != null ? u.getFirstName() + " " + u.getLastName() : u.getFirstName();
+            }
+            return u.getEmail();
+        }).orElse(null);
+    }
+
     public WhatsappInstanceResponse toResponse(WhatsappInstance i) {
+        String assignedUserName = resolveUserName(i.getAssignedToUserId());
         return new WhatsappInstanceResponse(i.getId(), i.getInstanceName(),
-            i.getDisplayName(), i.getPhoneNumber(), i.getStatus(), i.getCreatedAt());
+            i.getDisplayName(), i.getPhoneNumber(), i.getStatus(), 
+            i.getAutoCreateLeadsFromUnknownNumbers(), i.getAssignedToUserId(), 
+            assignedUserName, i.getCreatedAt());
     }
 }

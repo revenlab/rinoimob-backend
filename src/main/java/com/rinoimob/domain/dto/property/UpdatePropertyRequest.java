@@ -12,6 +12,7 @@ import java.util.UUID;
 
 public record UpdatePropertyRequest(
         String title,
+        String slug,
         String description,
         PropertyOperation operation,
         PropertyType propertyType,

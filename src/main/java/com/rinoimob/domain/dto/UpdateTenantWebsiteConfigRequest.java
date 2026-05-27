@@ -14,6 +14,22 @@ public record UpdateTenantWebsiteConfigRequest(
         String address,
         String instagramUrl,
         String whatsappNumber,
-        String facebookUrl
+        String facebookUrl,
+        String featuredSectionTitle,
+        String featuredSectionSubtitle,
+        String launchesSectionTitle,
+        String launchesSectionSubtitle,
+        String categoriesSectionTitle,
+        String categoriesSectionSubtitle,
+        String servicesSectionTitle,
+        String servicesSectionSubtitle,
+        String servicesFormTitle,
+        String servicesFormSubtitle,
+        String statsSectionTitle,
+        String statsSectionSubtitle,
+        String blogSectionTitle,
+        String blogSectionSubtitle,
+        String ctaSectionTitle,
+        String ctaSectionSubtitle
 ) {
 }

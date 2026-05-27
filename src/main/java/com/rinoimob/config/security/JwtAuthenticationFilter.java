@@ -71,6 +71,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (tenantId != null) {
                     TenantContext.setTenantId(tenantId.toString());
                 }
+                TenantContext.setUserId(userId);
             }
         } catch (UnauthorizedException ex) {
             throw ex;

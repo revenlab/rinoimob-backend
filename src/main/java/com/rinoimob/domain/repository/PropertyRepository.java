@@ -17,4 +17,6 @@ public interface PropertyRepository extends JpaRepository<Property, UUID>, JpaSp
 
     @Query("SELECT p FROM Property p LEFT JOIN FETCH p.photos WHERE p.id = :id")
     Optional<Property> findByIdWithPhotos(@Param("id") UUID id);
+
+    boolean existsByTenantIdAndSlugAndDeletedAtIsNull(UUID tenantId, String slug);
 }

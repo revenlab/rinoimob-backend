@@ -1,0 +1,5 @@
+ALTER TABLE whatsapp_instances
+ADD COLUMN auto_create_leads_from_unknown_numbers BOOLEAN DEFAULT false;
+
+CREATE INDEX idx_whatsapp_instances_auto_create_leads
+ON whatsapp_instances(tenant_id, auto_create_leads_from_unknown_numbers);

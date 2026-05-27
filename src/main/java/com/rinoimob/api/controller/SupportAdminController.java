@@ -11,7 +11,12 @@ import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
 import com.rinoimob.domain.dto.UpdateSupportTenantRequest;
 import com.rinoimob.domain.dto.UpdateSupportUserRequest;
 import com.rinoimob.domain.dto.UpdateTenantWebsiteConfigRequest;
+import com.rinoimob.domain.dto.blog.BlogPostResponse;
+import com.rinoimob.domain.dto.blog.CreateBlogPostRequest;
+import com.rinoimob.domain.dto.blog.UpdateBlogPostRequest;
+import com.rinoimob.domain.dto.blog.UpdateBlogPostStatusRequest;
 import com.rinoimob.domain.enums.SystemRole;
+import com.rinoimob.service.BlogPostService;
 import com.rinoimob.service.SupportAdminService;
 import com.rinoimob.service.TenantWebsiteConfigService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +29,8 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
+import org.springframework.data.domain.Page;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -35,6 +42,7 @@ public class SupportAdminController {
 
     private final SupportAdminService supportAdminService;
     private final TenantWebsiteConfigService tenantWebsiteConfigService;
+    private final BlogPostService blogPostService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasAuthority('PERMISSION_support:tenants:read')")
@@ -187,6 +195,49 @@ public class SupportAdminController {
             @PathVariable UUID tenantId,
             @RequestBody UpdateTenantWebsiteConfigRequest request) {
         return tenantWebsiteConfigService.updateConfig(tenantId, request);
+    }
+
+    @GetMapping("/tenants/{tenantId}/blog-posts")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:read')")
+    public Page<BlogPostResponse> listTenantBlogPosts(
+            @PathVariable UUID tenantId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return blogPostService.list(tenantId, page, size);
+    }
+
+    @PostMapping("/tenants/{tenantId}/blog-posts")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:write')")
+    public BlogPostResponse createTenantBlogPost(
+            @PathVariable UUID tenantId,
+            @Valid @RequestBody CreateBlogPostRequest request) {
+        return blogPostService.create(tenantId, request);
+    }
+
+    @PutMapping("/tenants/{tenantId}/blog-posts/{postId}")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:write')")
+    public BlogPostResponse updateTenantBlogPost(
+            @PathVariable UUID tenantId,
+            @PathVariable UUID postId,
+            @Valid @RequestBody UpdateBlogPostRequest request) {
+        return blogPostService.update(tenantId, postId, request);
+    }
+
+    @PatchMapping("/tenants/{tenantId}/blog-posts/{postId}/status")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:write')")
+    public BlogPostResponse updateTenantBlogPostStatus(
+            @PathVariable UUID tenantId,
+            @PathVariable UUID postId,
+            @Valid @RequestBody UpdateBlogPostStatusRequest request) {
+        return blogPostService.updateStatus(tenantId, postId, request.status());
+    }
+
+    @DeleteMapping("/tenants/{tenantId}/blog-posts/{postId}")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:write')")
+    public void deleteTenantBlogPost(
+            @PathVariable UUID tenantId,
+            @PathVariable UUID postId) {
+        blogPostService.delete(tenantId, postId);
     }
 
     @PostMapping("/tenants/{tenantId}/users/{userId}/resend-invitation")

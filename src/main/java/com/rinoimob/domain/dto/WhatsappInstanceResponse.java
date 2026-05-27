@@ -16,5 +16,8 @@ public class WhatsappInstanceResponse {
     private String displayName;
     private String phoneNumber;
     private String status;
+    private Boolean autoCreateLeadsFromUnknownNumbers;
+    private UUID assignedToUserId;
+    private String assignedToUserName;
     private LocalDateTime createdAt;
 }

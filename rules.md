@@ -4,12 +4,14 @@ Arquivo de histórico de mudanças e crumbs para reduzir tokens em contextos fut
 
 ---
 
-## Última migration: V23
+## Última migration: V25
 
 ```
 V21__support_permissions.sql — tabela support_user_permissions com UNIQUE(user_id, permission)
 V22__tenant_website_config.sql — tabela tenant_website_config (tenant_id como PK, 1:1 com Tenant)
 V23__add_hero_image_to_website_config.sql — adiciona hero_image_fid e hero_image_url em tenant_website_config
+V24__expand_tenant_website_config_cms.sql — adiciona campos CMS da home (destaques, lançamentos, categorias, serviços, stats, blog, CTA)
+V25__create_tenant_blog_posts.sql — cria CMS real de blog por tenant (draft/publicado, slug único, conteúdo HTML)
 ```
 
 ---
@@ -95,7 +97,7 @@ support:health:read
 ### Entidade: `TenantWebsiteConfig`
 
 - PK = `tenant_id` (UUID, 1:1 com `Tenant`)
-- Campos: `companyName`, `logo`, `favicon`, `primaryColor`, `secondaryColor`, `description`, `heroTitle`, `heroSubtitle`, `phone`, `email`, `address`, `facebookUrl`, `instagramUrl`, `whatsappNumber`
+- Campos: `companyName`, `logo`, `favicon`, `primaryColor`, `secondaryColor`, `description`, `heroTitle`, `heroSubtitle`, `phone`, `email`, `address`, `facebookUrl`, `instagramUrl`, `whatsappNumber`, `heroImageUrl`, `featuredSectionTitle/SubTitle`, `launchesSectionTitle/SubTitle`, `categoriesSectionTitle/SubTitle`, `servicesSectionTitle/SubTitle`, `servicesFormTitle/SubTitle`, `statsSectionTitle/SubTitle`, `blogSectionTitle/SubTitle`, `ctaSectionTitle/SubTitle`
 
 ### Endpoints
 
@@ -111,6 +113,8 @@ support:health:read
 | DELETE | `/api/v1/website-config/hero-image` | tenant auth |
 | GET | `/api/v1/public/config` | sem auth (header `X-Tenant-Slug`) |
 | POST | `/api/v1/public/leads` | sem auth (header `X-Tenant-Slug`) |
+| GET | `/api/v1/public/blog-posts` | sem auth (header `X-Tenant-Slug`) |
+| GET | `/api/v1/public/blog-posts/{slug}` | sem auth (header `X-Tenant-Slug`) |
 | GET | `/api/v1/support/tenants/{id}/website-config` | `support:tenants:read` |
 | PUT | `/api/v1/support/tenants/{id}/website-config` | `support:tenants:write` |
 
@@ -131,4 +135,15 @@ support:health:read
 - K&R, 4 espaços, sem tabs.
 - Repos SEMPRE escopados por `tenantId` — nunca `findById()` solo em entidade de tenant.
 - Auditoria em toda ação de suporte via `AuditLogRepository`.
-- Flyway para migrations — próxima será `V23__...`.
+- Flyway para migrations — próxima será `V26__...`.
+
+---
+
+## Blog CMS (`/api/v1/blog-posts`)
+
+- Gestão autenticada por tenant owner/admin com status `DRAFT` e `PUBLISHED`.
+- Conteúdo HTML sanitizado no backend com Jsoup.
+- Slug único por tenant (com geração automática e sufixo incremental).
+- Endpoints de suporte para gestão cruzada:
+  - `GET/POST /api/v1/support/tenants/{tenantId}/blog-posts`
+  - `PUT/PATCH(status)/DELETE /api/v1/support/tenants/{tenantId}/blog-posts/{postId}`

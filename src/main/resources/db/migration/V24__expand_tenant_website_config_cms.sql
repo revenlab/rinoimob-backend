@@ -1,0 +1,17 @@
+ALTER TABLE tenant_website_config
+    ADD COLUMN IF NOT EXISTS featured_section_title VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS featured_section_subtitle VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS launches_section_title VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS launches_section_subtitle VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS categories_section_title VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS categories_section_subtitle VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS services_section_title VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS services_section_subtitle VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS services_form_title VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS services_form_subtitle VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS stats_section_title VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS stats_section_subtitle VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS blog_section_title VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS blog_section_subtitle VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS cta_section_title VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS cta_section_subtitle VARCHAR(255);

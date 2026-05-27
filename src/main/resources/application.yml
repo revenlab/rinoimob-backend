@@ -76,3 +76,14 @@ evolution:
   api:
     url: ${EVOLUTION_API_URL:http://localhost:8081}
     key: ${EVOLUTION_API_KEY:changeme-evolution-apikey}
+
+# AI Language Model Configuration
+ai:
+  # Provider: gemini, mock
+  provider: ${AI_PROVIDER:gemini}
+  gemini:
+    # API Key obtida em https://ai.google.dev/
+    api-key: ${AI_GEMINI_API_KEY:}
+    # Modelo Gemini a usar: gemini-2.5-flash (recomendado), gemini-2.5-pro
+    # Ver: https://ai.google.dev/gemini-api/docs/models
+    model: ${AI_GEMINI_MODEL:gemini-2.5-flash}

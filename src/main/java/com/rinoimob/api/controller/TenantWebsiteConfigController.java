@@ -3,6 +3,8 @@ package com.rinoimob.api.controller;
 import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
 import com.rinoimob.domain.dto.UpdateTenantWebsiteConfigRequest;
+import com.rinoimob.domain.dto.tenant.UpdateTenantDomainRequest;
+import com.rinoimob.domain.dto.tenant.TenantDomainResponse;
 import com.rinoimob.service.TenantWebsiteConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -82,5 +84,21 @@ public class TenantWebsiteConfigController {
     public ResponseEntity<TenantWebsiteConfigResponse> deleteHeroImage() {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return ResponseEntity.ok(tenantWebsiteConfigService.deleteHeroImage(tenantId));
+    }
+
+    @GetMapping("/domain")
+    public ResponseEntity<TenantDomainResponse> getCustomDomain() {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        TenantWebsiteConfigResponse config = tenantWebsiteConfigService.getConfig(tenantId);
+        return ResponseEntity.ok(new TenantDomainResponse(config.customDomain()));
+    }
+
+    @PutMapping("/domain")
+    @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
+    public ResponseEntity<TenantDomainResponse> updateCustomDomain(
+            @RequestBody UpdateTenantDomainRequest request) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        TenantWebsiteConfigResponse config = tenantWebsiteConfigService.updateCustomDomain(tenantId, request.customDomain());
+        return ResponseEntity.ok(new TenantDomainResponse(config.customDomain()));
     }
 }

@@ -219,6 +219,62 @@ public class LeadService {
                 .toList();
     }
 
+    /**
+     * Find existing lead by phone, or create new one if auto-create is enabled.
+     * Used for WhatsApp message ingestion.
+     * @param phoneNumber The incoming message phone number (digits only)
+     * @param messageContent The message text content
+     * @param tenantId The tenant context
+     * @param autoCreateLeadsEnabled Whether to create new leads from unknown numbers
+     * @return The Lead entity (existing or newly created), or null if not found and auto-create disabled
+     */
+    @Transactional
+    public Lead findOrCreateLeadFromWhatsAppMessage(String phoneNumber, String messageContent, UUID tenantId, Boolean autoCreateLeadsEnabled) {
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            return null;
+        }
+
+        // Normalize phone for comparison
+        String normalizedPhone = phoneNumber.replaceAll("\\D", "");
+
+        // Try to find existing lead by phone
+        List<Lead> allLeads = leadRepository.findByTenantIdAndDeletedAtIsNull(tenantId);
+        Lead existingLead = allLeads.stream()
+            .filter(l -> l.getPhone() != null && (
+                l.getPhone().replaceAll("\\D", "").endsWith(normalizedPhone) ||
+                normalizedPhone.endsWith(l.getPhone().replaceAll("\\D", ""))))
+            .findFirst()
+            .orElse(null);
+
+        if (existingLead != null) {
+            return existingLead;
+        }
+
+        // No existing lead found
+        if (!Boolean.TRUE.equals(autoCreateLeadsEnabled)) {
+            return null;
+        }
+
+        // Auto-create new lead from unknown number
+        Lead newLead = new Lead();
+        newLead.setTenantId(tenantId);
+        newLead.setName("Lead de " + phoneNumber);
+        newLead.setPhone(phoneNumber);
+        newLead.setMessage(messageContent);
+        newLead.setSource("WHATSAPP");
+        newLead.setStatus(LeadStatus.NEW);
+        newLead = leadRepository.save(newLead);
+
+        log.info("Auto-created lead id={} from WhatsApp number {} for tenant {}", newLead.getId(), phoneNumber, tenantId);
+        logEvent(newLead.getId(), null, LeadEventType.CREATED, "Lead criado automaticamente via WhatsApp");
+        automationEventDispatcher.dispatchLeadCreated(newLead);
+
+        LeadResponse response = toResponse(newLead, List.of(), null, List.of());
+        leadRealtimeService.publishLeadCreated(tenantId, response);
+
+        return newLead;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private Lead findOwned(UUID id, UUID tenantId) {

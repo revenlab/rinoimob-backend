@@ -14,6 +14,7 @@ import java.util.UUID;
 
 public record CreatePropertyRequest(
         @NotBlank String title,
+        String slug,
         String description,
         @NotNull PropertyOperation operation,
         @NotNull PropertyType propertyType,

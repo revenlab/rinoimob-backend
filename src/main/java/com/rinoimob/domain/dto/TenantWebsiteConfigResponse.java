@@ -15,6 +15,23 @@ public record TenantWebsiteConfigResponse(
         String instagramUrl,
         String whatsappNumber,
         String facebookUrl,
-        String heroImageUrl
+        String heroImageUrl,
+        String featuredSectionTitle,
+        String featuredSectionSubtitle,
+        String launchesSectionTitle,
+        String launchesSectionSubtitle,
+        String categoriesSectionTitle,
+        String categoriesSectionSubtitle,
+        String servicesSectionTitle,
+        String servicesSectionSubtitle,
+        String servicesFormTitle,
+        String servicesFormSubtitle,
+        String statsSectionTitle,
+        String statsSectionSubtitle,
+        String blogSectionTitle,
+        String blogSectionSubtitle,
+        String ctaSectionTitle,
+        String ctaSectionSubtitle,
+        String customDomain
 ) {
 }

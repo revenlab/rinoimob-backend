@@ -29,8 +29,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -262,8 +264,37 @@ public class PropertyService {
     }
 
     private void applyRequest(Property p, CreatePropertyRequest req) {
-        p.setTitle(req.title());
-        p.setDescription(req.description());
+        // Generate slug if not provided
+        if (req.slug() == null || req.slug().isBlank()) {
+            p.setSlug(generateSlug(req.title(), req.propertyType(), req.addressCity(), p.getTenantId()));
+        } else {
+            p.setSlug(req.slug());
+        }
+
+        // Generate title if empty (user can override)
+        if (req.title() == null || req.title().isBlank()) {
+            p.setPropertyType(req.propertyType());
+            p.setBedrooms(req.bedrooms());
+            p.setAddressCity(req.addressCity());
+            p.setOperation(req.operation());
+            p.setTitle(generateDynamicTitle(p));
+        } else {
+            p.setTitle(req.title().trim());
+        }
+
+        // Generate description if empty (user can override)
+        if (req.description() == null || req.description().isBlank()) {
+            p.setAreaTotal(req.areaTotal());
+            p.setSuites(req.suites());
+            p.setBathrooms(req.bathrooms());
+            p.setParking(req.parking());
+            p.setCondition(req.condition());
+            p.setAttributes(req.attributes() != null ? req.attributes() : new java.util.HashMap<>());
+            p.setDescription(generateDynamicDescription(p));
+        } else {
+            p.setDescription(req.description());
+        }
+
         p.setOperation(req.operation());
         p.setPropertyType(req.propertyType());
         p.setCondition(req.condition());
@@ -294,8 +325,19 @@ public class PropertyService {
     }
 
     private void applyUpdate(Property p, UpdatePropertyRequest req) {
-        if (req.title() != null) p.setTitle(req.title());
-        if (req.description() != null) p.setDescription(req.description());
+        // Update slug if provided or regenerate if emptied
+        if (req.slug() != null && !req.slug().isBlank()) {
+            p.setSlug(req.slug());
+        } else if (req.title() != null && !req.title().isBlank()) {
+            // If title is updated but slug is empty, regenerate slug from new title
+            p.setSlug(generateSlug(req.title(), req.propertyType(), req.addressCity(), p.getTenantId()));
+        }
+        if (req.title() != null && !req.title().isBlank()) {
+            p.setTitle(req.title());
+        }
+        if (req.description() != null) {
+            p.setDescription(req.description());
+        }
         if (req.operation() != null) p.setOperation(req.operation());
         if (req.propertyType() != null) p.setPropertyType(req.propertyType());
         if (req.condition() != null) p.setCondition(req.condition());
@@ -350,7 +392,7 @@ public class PropertyService {
         List<com.rinoimob.domain.dto.CategoryResponse> cats = p.getCategories().stream()
                 .map(categoryService::toResponse).toList();
         return new PropertyResponse(
-                p.getId(), p.getTitle(), p.getDescription(),
+                p.getId(), p.getTitle(), p.getSlug(), p.getDescription(),
                 p.getOperation(), p.getPropertyType(), p.getStatus(),
                 p.getCondition(), p.getReferenceCode(),
                 p.getPrice(), p.getCurrency(), p.getTaxes(), p.getCondoFee(),
@@ -404,5 +446,126 @@ public class PropertyService {
         for (int i = 0; i < photos.size(); i++) {
             photos.get(i).setPosition(i);
         }
+    }
+
+    private String generateSlug(String title, PropertyType propertyType, String city, UUID tenantId) {
+        String base = slugify(title);
+
+        if (base.isBlank()) {
+            String typeLabel = propertyType != null ? propertyType.name().toLowerCase() : "property";
+            String cityLabel = city != null ? slugify(city) : "default";
+            base = typeLabel + "-" + cityLabel;
+        }
+
+        String candidate = base;
+        int counter = 1;
+
+        while (propertyRepository.existsByTenantIdAndSlugAndDeletedAtIsNull(tenantId, candidate)) {
+            candidate = base + "-" + counter++;
+        }
+
+        return candidate;
+    }
+
+    private String generateDynamicTitle(Property p) {
+        StringBuilder sb = new StringBuilder();
+
+        if (p.getBedrooms() != null && p.getBedrooms() > 0) {
+            sb.append(p.getBedrooms()).append("q");
+        }
+
+        if (sb.length() > 0) sb.append(" - ");
+
+        if (p.getPropertyType() != null) {
+            String typeName = p.getPropertyType().name().toLowerCase();
+            typeName = typeName.substring(0, 1).toUpperCase() + typeName.substring(1);
+            sb.append(typeName);
+        }
+
+        if (p.getAddressCity() != null && !p.getAddressCity().isBlank()) {
+            sb.append(" em ").append(p.getAddressCity());
+        }
+
+        if (p.getOperation() != null) {
+            String operationLabel = p.getOperation().name().toLowerCase();
+            if (operationLabel.equals("sale")) operationLabel = "Venda";
+            else if (operationLabel.equals("rent")) operationLabel = "Aluguel";
+            else if (operationLabel.equals("seasonal")) operationLabel = "Temporada";
+            else operationLabel = operationLabel.substring(0, 1).toUpperCase() + operationLabel.substring(1);
+
+            sb.append(" - ").append(operationLabel);
+        }
+
+        return sb.toString().trim();
+    }
+
+    private String generateDynamicDescription(Property p) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Imóvel");
+
+        if (p.getAreaTotal() != null) {
+            sb.append(" com ").append(p.getAreaTotal()).append(" m²");
+        }
+
+        if (p.getBedrooms() != null && p.getBedrooms() > 0) {
+            sb.append(", ").append(p.getBedrooms()).append(" quarto(s)");
+        }
+
+        if (p.getSuites() != null && p.getSuites() > 0) {
+            sb.append(", ").append(p.getSuites()).append(" suíte(s)");
+        }
+
+        if (p.getBathrooms() != null && p.getBathrooms() > 0) {
+            sb.append(", ").append(p.getBathrooms()).append(" banheiro(s)");
+        }
+
+        if (p.getParking() != null && p.getParking() > 0) {
+            sb.append(", ").append(p.getParking()).append(" vaga(s) de garagem");
+        }
+
+        sb.append(".");
+
+        if (p.getCondition() != null) {
+            String conditionLabel = p.getCondition().name().toLowerCase();
+            if (conditionLabel.equals("new")) conditionLabel = "Novo";
+            else if (conditionLabel.equals("used")) conditionLabel = "Usado";
+            else if (conditionLabel.equals("under_construction")) conditionLabel = "Em construção";
+
+            sb.append(" Imóvel em ").append(conditionLabel).append(".");
+        }
+
+        if (p.getAttributes() != null && !p.getAttributes().isEmpty()) {
+            List<String> amenities = new ArrayList<>();
+            for (Map.Entry<String, Object> entry : p.getAttributes().entrySet()) {
+                if (entry.getValue() instanceof Boolean && (Boolean) entry.getValue()) {
+                    String amenityName = entry.getKey()
+                        .replaceAll("([a-z])([A-Z])", "$1 $2")
+                        .toLowerCase();
+                    amenities.add(amenityName);
+                }
+            }
+
+            if (!amenities.isEmpty()) {
+                sb.append(" Acesso a: ").append(String.join(", ", amenities)).append(".");
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private String slugify(String value) {
+        if (value == null || value.isBlank()) return "";
+
+        return value
+            .toLowerCase()
+            .replaceAll("[àáäâ]", "a")
+            .replaceAll("[èéëê]", "e")
+            .replaceAll("[ìíïî]", "i")
+            .replaceAll("[òóöô]", "o")
+            .replaceAll("[ùúüû]", "u")
+            .replaceAll("[ç]", "c")
+            .replaceAll("[^a-z0-9]+", "-")
+            .replaceAll("^-|-$", "");
     }
 }

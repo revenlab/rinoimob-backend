@@ -65,7 +65,7 @@ class PropertyServiceTest {
     @Test
     void createProperty_savesAndReturnsMappedResponse() {
         CreatePropertyRequest req = new CreatePropertyRequest(
-                "Casa Teste", "Descrição", PropertyOperation.SALE, PropertyType.HOUSE,
+                "Casa Teste", null, "Descrição", PropertyOperation.SALE, PropertyType.HOUSE,
                 PropertyStatus.DRAFT, null, null, new BigDecimal("500000"), "BRL", null, null,
                 new BigDecimal("120"), new BigDecimal("100"), 3, 1, 2, 2, null,
                 "Rua A", "10", null, "Bairro", "São Paulo", "SP", "BR", "01001-000",
@@ -85,7 +85,7 @@ class PropertyServiceTest {
     @Test
     void createProperty_defaultsToDraftStatus_whenStatusNull() {
         CreatePropertyRequest req = new CreatePropertyRequest(
-                "Casa", null, PropertyOperation.RENT, PropertyType.APARTMENT,
+                "Casa", null, null, PropertyOperation.RENT, PropertyType.APARTMENT,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null);
 
@@ -130,10 +130,7 @@ class PropertyServiceTest {
                 .thenReturn(Optional.of(existing));
         when(propertyRepository.save(any(Property.class))).thenReturn(existing);
 
-        UpdatePropertyRequest req = new UpdatePropertyRequest(
-                "Novo Título", null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null);
+        UpdatePropertyRequest req = buildUpdateRequest("Novo Título", null);
 
         PropertyResponse response = propertyService.updateProperty(PROPERTY_ID, req);
 
@@ -150,10 +147,7 @@ class PropertyServiceTest {
                 .thenReturn(Optional.of(existing));
         when(propertyRepository.save(any(Property.class))).thenReturn(existing);
 
-        UpdatePropertyRequest req = new UpdatePropertyRequest(
-                null, null, null, null, PropertyStatus.ACTIVE, null, null, null, null,
-                null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null);
+        UpdatePropertyRequest req = buildUpdateRequest(null, PropertyStatus.ACTIVE);
 
         propertyService.updateProperty(PROPERTY_ID, req);
 
@@ -357,5 +351,41 @@ class PropertyServiceTest {
         plan.setCreatedAt(LocalDateTime.now());
         plan.setPhotos(new ArrayList<>());
         return plan;
+    }
+
+    private UpdatePropertyRequest buildUpdateRequest(String title, PropertyStatus status) {
+        return new UpdatePropertyRequest(
+                title,           // title
+                null,            // slug
+                null,            // description
+                null,            // operation
+                null,            // propertyType
+                status,          // status
+                null,            // condition
+                null,            // referenceCode
+                null,            // price
+                null,            // currency
+                null,            // taxes
+                null,            // condoFee
+                null,            // areaTotal
+                null,            // areaUseful
+                null,            // bedrooms
+                null,            // suites
+                null,            // bathrooms
+                null,            // parking
+                null,            // floorNumber
+                null,            // addressStreet
+                null,            // addressNumber
+                null,            // addressComplement
+                null,            // addressNeighborhood
+                null,            // addressCity
+                null,            // addressState
+                null,            // addressCountry
+                null,            // addressZip
+                null,            // lat
+                null,            // lng
+                null,            // attributes
+                null             // categoryIds
+        );
     }
 }

@@ -1,6 +1,7 @@
 package com.rinoimob.api.controller;
 
 import com.rinoimob.domain.dto.CreateWhatsappInstanceRequest;
+import com.rinoimob.domain.dto.UpdateWhatsappInstanceConfigRequest;
 import com.rinoimob.domain.dto.WhatsappInstanceResponse;
 import com.rinoimob.domain.dto.WhatsappQrCodeResponse;
 import com.rinoimob.service.WhatsappInstanceService;
@@ -48,5 +49,13 @@ public class WhatsappInstanceController {
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         service.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/config")
+    @PreAuthorize("hasAuthority('PERMISSION_whatsapp:write')")
+    public ResponseEntity<WhatsappInstanceResponse> updateConfig(
+            @PathVariable UUID id,
+            @RequestBody UpdateWhatsappInstanceConfigRequest req) {
+        return ResponseEntity.ok(service.updateConfig(id, req));
     }
 }

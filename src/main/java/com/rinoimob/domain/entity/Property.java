@@ -6,6 +6,7 @@ import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -37,6 +38,10 @@ public class Property {
 
     @Column(nullable = false, length = 200)
     private String title;
+
+    @Column(name = "slug", length = 255, nullable = false)
+    @NotNull
+    private String slug;
 
     @Column(columnDefinition = "TEXT")
     private String description;

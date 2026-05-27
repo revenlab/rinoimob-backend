@@ -78,6 +78,57 @@ public class TenantWebsiteConfig {
     @Column(name = "hero_image_url")
     private String heroImageUrl;
 
+    @Column(name = "featured_section_title")
+    private String featuredSectionTitle;
+
+    @Column(name = "featured_section_subtitle")
+    private String featuredSectionSubtitle;
+
+    @Column(name = "launches_section_title")
+    private String launchesSectionTitle;
+
+    @Column(name = "launches_section_subtitle")
+    private String launchesSectionSubtitle;
+
+    @Column(name = "categories_section_title")
+    private String categoriesSectionTitle;
+
+    @Column(name = "categories_section_subtitle")
+    private String categoriesSectionSubtitle;
+
+    @Column(name = "services_section_title")
+    private String servicesSectionTitle;
+
+    @Column(name = "services_section_subtitle")
+    private String servicesSectionSubtitle;
+
+    @Column(name = "services_form_title")
+    private String servicesFormTitle;
+
+    @Column(name = "services_form_subtitle")
+    private String servicesFormSubtitle;
+
+    @Column(name = "stats_section_title")
+    private String statsSectionTitle;
+
+    @Column(name = "stats_section_subtitle")
+    private String statsSectionSubtitle;
+
+    @Column(name = "blog_section_title")
+    private String blogSectionTitle;
+
+    @Column(name = "blog_section_subtitle")
+    private String blogSectionSubtitle;
+
+    @Column(name = "cta_section_title")
+    private String ctaSectionTitle;
+
+    @Column(name = "cta_section_subtitle")
+    private String ctaSectionSubtitle;
+
+    @Column(name = "custom_domain", unique = true)
+    private String customDomain;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 

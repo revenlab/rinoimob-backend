@@ -48,6 +48,22 @@ public class TenantWebsiteConfigService {
         if (request.instagramUrl() != null) config.setInstagramUrl(request.instagramUrl());
         if (request.whatsappNumber() != null) config.setWhatsappNumber(request.whatsappNumber());
         if (request.facebookUrl() != null) config.setFacebookUrl(request.facebookUrl());
+        if (request.featuredSectionTitle() != null) config.setFeaturedSectionTitle(request.featuredSectionTitle());
+        if (request.featuredSectionSubtitle() != null) config.setFeaturedSectionSubtitle(request.featuredSectionSubtitle());
+        if (request.launchesSectionTitle() != null) config.setLaunchesSectionTitle(request.launchesSectionTitle());
+        if (request.launchesSectionSubtitle() != null) config.setLaunchesSectionSubtitle(request.launchesSectionSubtitle());
+        if (request.categoriesSectionTitle() != null) config.setCategoriesSectionTitle(request.categoriesSectionTitle());
+        if (request.categoriesSectionSubtitle() != null) config.setCategoriesSectionSubtitle(request.categoriesSectionSubtitle());
+        if (request.servicesSectionTitle() != null) config.setServicesSectionTitle(request.servicesSectionTitle());
+        if (request.servicesSectionSubtitle() != null) config.setServicesSectionSubtitle(request.servicesSectionSubtitle());
+        if (request.servicesFormTitle() != null) config.setServicesFormTitle(request.servicesFormTitle());
+        if (request.servicesFormSubtitle() != null) config.setServicesFormSubtitle(request.servicesFormSubtitle());
+        if (request.statsSectionTitle() != null) config.setStatsSectionTitle(request.statsSectionTitle());
+        if (request.statsSectionSubtitle() != null) config.setStatsSectionSubtitle(request.statsSectionSubtitle());
+        if (request.blogSectionTitle() != null) config.setBlogSectionTitle(request.blogSectionTitle());
+        if (request.blogSectionSubtitle() != null) config.setBlogSectionSubtitle(request.blogSectionSubtitle());
+        if (request.ctaSectionTitle() != null) config.setCtaSectionTitle(request.ctaSectionTitle());
+        if (request.ctaSectionSubtitle() != null) config.setCtaSectionSubtitle(request.ctaSectionSubtitle());
 
         TenantWebsiteConfig saved = tenantWebsiteConfigRepository.save(config);
         log.info("Website config updated tenant={}", tenantId);
@@ -126,6 +142,31 @@ public class TenantWebsiteConfigService {
         return toResponse(saved);
     }
 
+    @Transactional
+    public TenantWebsiteConfigResponse updateCustomDomain(UUID tenantId, String customDomain) {
+        TenantWebsiteConfig config = getOrCreateConfig(tenantId);
+        
+        if (customDomain != null && !customDomain.isBlank()) {
+            // Validar formato de domínio básico
+            if (!isValidDomain(customDomain)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de domínio inválido");
+            }
+            config.setCustomDomain(customDomain);
+        } else {
+            config.setCustomDomain(null);
+        }
+        
+        TenantWebsiteConfig saved = tenantWebsiteConfigRepository.save(config);
+        log.info("Custom domain updated tenant={} domain={}", tenantId, customDomain);
+        return toResponse(saved);
+    }
+
+    private boolean isValidDomain(String domain) {
+        // Validar domínio: apenas caracteres válidos, sem espaços, deve ter pelo menos um ponto
+        String domainRegex = "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$";
+        return domain.matches(domainRegex) && domain.length() <= 255;
+    }
+
     private TenantWebsiteConfig getOrCreateConfig(UUID tenantId) {
         ensureTenantExists(tenantId);
         return tenantWebsiteConfigRepository.findById(tenantId)
@@ -164,7 +205,24 @@ public class TenantWebsiteConfigService {
                 config.getInstagramUrl(),
                 config.getWhatsappNumber(),
                 config.getFacebookUrl(),
-                config.getHeroImageUrl()
+                config.getHeroImageUrl(),
+                config.getFeaturedSectionTitle(),
+                config.getFeaturedSectionSubtitle(),
+                config.getLaunchesSectionTitle(),
+                config.getLaunchesSectionSubtitle(),
+                config.getCategoriesSectionTitle(),
+                config.getCategoriesSectionSubtitle(),
+                config.getServicesSectionTitle(),
+                config.getServicesSectionSubtitle(),
+                config.getServicesFormTitle(),
+                config.getServicesFormSubtitle(),
+                config.getStatsSectionTitle(),
+                config.getStatsSectionSubtitle(),
+                config.getBlogSectionTitle(),
+                config.getBlogSectionSubtitle(),
+                config.getCtaSectionTitle(),
+                config.getCtaSectionSubtitle(),
+                config.getCustomDomain()
         );
     }
 }
