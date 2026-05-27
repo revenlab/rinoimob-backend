@@ -69,9 +69,6 @@ public class TenantRoleService {
     public TenantRoleResponse updateRole(UUID tenantId, UUID roleId, UpdateTenantRoleRequest request) {
         TenantRole role = tenantRoleRepository.findByTenantIdAndId(tenantId, roleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found"));
-        if (Boolean.TRUE.equals(role.getIsSystem())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot modify system roles");
-        }
         role.setName(request.name());
         role.setDescription(request.description());
         TenantRole saved = tenantRoleRepository.save(role);
