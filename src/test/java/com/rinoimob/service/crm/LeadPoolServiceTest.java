@@ -31,7 +31,7 @@ class LeadPoolServiceTest {
 
         LeadPoolService service = new LeadPoolService(leadPoolRepository);
 
-        LeadPool saved = new LeadPool(UUID.randomUUID(), tenantId, "Test", "desc", LocalDateTime.now());
+        LeadPool saved = new LeadPool(UUID.randomUUID(), tenantId, "Test", "desc", LocalDateTime.now(), null, 100, "ROUND_ROBIN");
         when(leadPoolRepository.save(any())).thenReturn(saved);
         when(leadPoolRepository.findByTenantId(tenantId)).thenReturn(List.of(saved));
         when(leadPoolRepository.findByIdAndTenantId(saved.getId(), tenantId)).thenReturn(Optional.of(saved));

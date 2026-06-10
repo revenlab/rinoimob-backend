@@ -15,6 +15,15 @@ import java.util.UUID;
 @AllArgsConstructor
 public class LeadPool {
 
+    @Column(columnDefinition = "jsonb")
+    private String criteria;
+
+    @Column
+    private Integer priority = 100;
+
+    @Column(name = "routing_strategy", length = 32)
+    private String routingStrategy = "ROUND_ROBIN";
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -35,4 +44,25 @@ public class LeadPool {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
     }
+
+    // Backwards-compatible constructors used by tests and other code
+    public LeadPool(UUID id, UUID tenantId, String name, String description, LocalDateTime createdAt) {
+        this.id = id;
+        this.tenantId = tenantId;
+        this.name = name;
+        this.description = description;
+        this.createdAt = createdAt;
+    }
+
+    public LeadPool(UUID id, UUID tenantId, String name, String description, LocalDateTime createdAt, String criteria, Integer priority, String routingStrategy) {
+        this.id = id;
+        this.tenantId = tenantId;
+        this.name = name;
+        this.description = description;
+        this.createdAt = createdAt;
+        this.criteria = criteria;
+        this.priority = priority;
+        this.routingStrategy = routingStrategy;
+    }
 }
+

@@ -19,6 +19,8 @@ import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.domain.repository.PropertyRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.service.automation.workflow.AutomationEventDispatcher;
+import com.rinoimob.service.crm.LeadPoolRuleEvaluator;
+import com.rinoimob.service.crm.BrokerAssigner;
 import com.rinoimob.service.billing.TenantQuotaEnforcementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +51,8 @@ public class LeadService {
     private final AutomationEventDispatcher automationEventDispatcher;
     private final LeadRealtimeService leadRealtimeService;
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
+    private final LeadPoolRuleEvaluator leadPoolRuleEvaluator;
+    private final BrokerAssigner brokerAssigner;
 
     @Transactional(readOnly = true)
     public LeadStatsResponse getStats(UUID tenantId, UUID scopedUserId) {
@@ -109,6 +113,15 @@ public class LeadService {
         lead.setPropertyId(req.propertyId());
         lead.setSource(req.source() != null ? req.source() : "MANUAL");
         lead.setStatus(LeadStatus.NEW);
+
+        // Evaluate pools and assign before saving
+        UUID poolId = leadPoolRuleEvaluator.evaluate(tenantId, lead);
+        if (poolId != null) {
+            lead.setPoolId(poolId);
+            UUID assigned = brokerAssigner.chooseBroker(tenantId, poolId);
+            if (assigned != null) lead.setAssignedTo(assigned);
+        }
+
         lead = leadRepository.save(lead);
         logEvent(lead.getId(), null, LeadEventType.CREATED, "Lead criado via " + lead.getSource());
         if (req.propertyId() != null && !leadPropertyRepository.existsByLeadIdAndPropertyId(lead.getId(), req.propertyId())) {
@@ -120,7 +133,7 @@ public class LeadService {
         }
         log.info("Lead created id={} tenant={}", lead.getId(), tenantId);
         automationEventDispatcher.dispatchLeadCreated(lead);
-        LeadResponse response = toResponse(lead, List.of(), null, List.of());
+        LeadResponse response = toResponse(lead, List.of(), resolveUserName(lead.getAssignedTo()), List.of());
         leadRealtimeService.publishLeadCreated(tenantId, response);
         return response;
     }
