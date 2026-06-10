@@ -11,9 +11,17 @@ ALTER TABLE leads
     ADD COLUMN IF NOT EXISTS pool_id uuid;
 
 -- Optional FK — keep nullable to avoid migration issues on existing rows
-ALTER TABLE leads
-    ADD CONSTRAINT IF NOT EXISTS fk_leads_pool
-    FOREIGN KEY (pool_id) REFERENCES lead_pools(id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_leads_pool'
+    ) THEN
+        ALTER TABLE leads
+            ADD CONSTRAINT fk_leads_pool
+            FOREIGN KEY (pool_id) REFERENCES lead_pools(id);
+    END IF;
+END
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_lead_pools_tenant_id ON lead_pools(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_leads_pool_id ON leads(pool_id);
