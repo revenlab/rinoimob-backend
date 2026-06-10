@@ -10,5 +10,6 @@ public record UpdateLeadRequest(
         String phone,
         String message,
         LeadStatus status,
-        UUID assignedTo
+        UUID assignedTo,
+        UUID poolId
 ) {}

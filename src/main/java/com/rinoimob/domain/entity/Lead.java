@@ -46,6 +46,9 @@ public class Lead {
     @Column(name = "assigned_to")
     private UUID assignedTo;
 
+    @Column(name = "pool_id")
+    private UUID poolId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

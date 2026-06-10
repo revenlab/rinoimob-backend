@@ -1,7 +1,7 @@
 package com.rinoimob.service.automation.handler;
 
 import com.rinoimob.domain.dto.UpdateLeadRequest;
-import com.rinoimob.service.LeadService;
+import com.rinoimob.service.crm.LeadService;
 import com.rinoimob.service.automation.ActionHandler;
 import com.rinoimob.context.TenantContext;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +43,7 @@ public class AssignLeadActionHandler implements ActionHandler {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
 
         try {
-            UpdateLeadRequest request = new UpdateLeadRequest(null, null, null, null, null, userId);
+            UpdateLeadRequest request = new UpdateLeadRequest(null, null, null, null, null, userId, null);
             leadService.update(tenantId, leadId, null, request);
 
             resultData.put("lead_assigned", true);
