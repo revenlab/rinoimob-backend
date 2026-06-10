@@ -6,7 +6,7 @@ import com.rinoimob.domain.entity.Lead;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.domain.repository.UserRepository;
-import com.rinoimob.service.EmailSenderConfigService;
+import com.rinoimob.service.core.EmailSenderConfigService;
 import com.rinoimob.service.email.EmailService;
 import com.rinoimob.service.automation.ActionHandler;
 import lombok.RequiredArgsConstructor;

@@ -4,7 +4,7 @@ import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.InviteUserRequest;
 import com.rinoimob.domain.dto.UpdateUserRoleRequest;
 import com.rinoimob.domain.dto.UserManagementResponse;
-import com.rinoimob.service.UserManagementService;
+import com.rinoimob.service.core.UserManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

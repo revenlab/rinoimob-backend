@@ -5,7 +5,7 @@ import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
 import com.rinoimob.domain.dto.UpdateTenantWebsiteConfigRequest;
 import com.rinoimob.domain.dto.tenant.UpdateTenantDomainRequest;
 import com.rinoimob.domain.dto.tenant.TenantDomainResponse;
-import com.rinoimob.service.TenantWebsiteConfigService;
+import com.rinoimob.service.website.TenantWebsiteConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;

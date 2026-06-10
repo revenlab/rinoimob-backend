@@ -3,7 +3,7 @@ package com.rinoimob.api.controller;
 import com.rinoimob.domain.dto.CreateEmailSenderConfigRequest;
 import com.rinoimob.domain.dto.EmailSenderConfigResponse;
 import com.rinoimob.domain.dto.UpdateEmailSenderConfigRequest;
-import com.rinoimob.service.EmailSenderConfigService;
+import com.rinoimob.service.core.EmailSenderConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

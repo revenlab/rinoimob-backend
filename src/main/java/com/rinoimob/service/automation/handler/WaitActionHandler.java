@@ -1,7 +1,7 @@
 package com.rinoimob.service.automation.handler;
 
 import com.rinoimob.service.automation.ActionHandler;
-import com.rinoimob.service.WorkflowWaitService;
+import com.rinoimob.service.automation.workflow.WorkflowWaitService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

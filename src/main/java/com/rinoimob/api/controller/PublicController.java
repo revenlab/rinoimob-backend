@@ -12,10 +12,10 @@ import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import com.rinoimob.domain.repository.TenantRepository;
-import com.rinoimob.service.BlogPostService;
-import com.rinoimob.service.LeadService;
-import com.rinoimob.service.PropertyService;
-import com.rinoimob.service.TenantWebsiteConfigService;
+import com.rinoimob.service.website.BlogPostService;
+import com.rinoimob.service.crm.LeadService;
+import com.rinoimob.service.imoveis.PropertyService;
+import com.rinoimob.service.website.TenantWebsiteConfigService;
 import com.rinoimob.domain.dto.CreateLeadRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -47,14 +47,15 @@ public class PublicController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) PropertyOperation operation,
-            @RequestParam(required = false) PropertyType propertyType) {
+            @RequestParam(required = false) PropertyType propertyType,
+            @RequestParam(required = false) String categorySlug) {
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
             Pageable pageable = PageRequest.of(page, size);
             return ResponseEntity.ok(propertyService.listProperties(
                     PropertyStatus.ACTIVE, operation, propertyType,
-                    null, null, null, null, pageable));
+                    categorySlug, null, null, null, null, pageable));
         } finally {
             TenantContext.clear();
         }

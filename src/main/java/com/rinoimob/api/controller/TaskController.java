@@ -4,7 +4,7 @@ import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.CreateTaskRequest;
 import com.rinoimob.domain.dto.TaskResponse;
 import com.rinoimob.domain.dto.UpdateTaskRequest;
-import com.rinoimob.service.TaskService;
+import com.rinoimob.service.crm.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

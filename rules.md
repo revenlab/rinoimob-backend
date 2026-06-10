@@ -127,6 +127,7 @@ support:health:read
 - `PublicController.createLead()` normaliza `source` público para rastreamento de conversão (mantendo padrão `PORTAL*`)
 - CORS hardening para website multi-tenant local: `SecurityConfig` sempre inclui padrões `*.localhost` (3000/5173/5174, http/https) além dos valores de `CORS_ALLOWED_ORIGINS`, evitando `Invalid CORS request` quando origin é `tenant.localhost`.
 - Leads em tempo real: `LeadRealtimeService` publica eventos WebSocket no tópico `/topic/{tenantId}.leads` com tipos `LEAD_CREATED`, `LEAD_UPDATED` e `LEAD_DELETED`; `LeadService` dispara esses eventos em create/update/delete.
+- `GET /api/v1/public/properties` aceita `categorySlug` além de `operation`/`propertyType`; o join em `categories` usa `distinct(true)` para evitar duplicidade em listagens filtradas por categoria.
 
 ---
 
@@ -147,3 +148,51 @@ support:health:read
 - Endpoints de suporte para gestão cruzada:
   - `GET/POST /api/v1/support/tenants/{tenantId}/blog-posts`
   - `PUT/PATCH(status)/DELETE /api/v1/support/tenants/{tenantId}/blog-posts/{postId}`
+
+---
+
+## Billing de Tenants (Planos/Assinaturas)
+
+- Migration `V33__billing_and_subscriptions.sql` adiciona:
+  - catálogo global de planos (`billing_plans` com `code` e flags de recursos),
+  - `tenant_subscriptions` (status/provedor/período),
+  - `tenant_billing_profiles` (limites e permissões efetivos por tenant).
+- Planos seeded: `FREE`, `STARTER`, `PRIME`, `ULTIMATE`.
+- Serviços de domínio criados:
+  - `BillingPlanResolverService` (resolve plano efetivo por tenant),
+  - `TenantSubscriptionService` (garante assinatura default Free),
+  - `TenantBillingProfileService` (snapshot de limites/permissões efetivos),
+  - `TenantBillingOnboardingService` (provisionamento no signup).
+- Fluxo de cadastro atualizado:
+  - `AuthService.signup()` agora chama `tenantBillingOnboardingService.provisionDefaultFreePlan(...)` após seed de roles.
+- Adapter de cobrança desacoplado:
+  - `BillingGatewayPort` + `AbacatePayBillingGateway` (REST via `RestTemplate`, configurável por `billing.abacatepay.*`).
+- Fluxo AbacatePay v2 ajustado:
+  - antes do checkout, o backend cria/reativa `customers/create` e reutiliza `customerId` no checkout.
+  - o checkout de assinatura usa `POST /v2/subscriptions/create` com 1 item e `externalId` igual ao `tenantId`.
+  - o plano só é marcado como ativo por webhook `subscription.completed` / `subscription.renewed`; `subscription.cancelled` encerra a assinatura.
+  - `providerSubscriptionId` vem do webhook (`subs_*`), não da resposta do checkout (`bill_*`).
+  - webhook público em `POST /api/v1/webhooks/abacatepay?webhookSecret=...` valida `X-Webhook-Signature` com HMAC-SHA256.
+    - a assinatura usa bytes crus do body e aceita Base64 ou hex; o segredo de URL pode ser separado do segredo de assinatura via `ABACATEPAY_WEBHOOK_SECRET` e `ABACATEPAY_WEBHOOK_SIGNING_SECRET`.
+- Convenção de ilimitado no snapshot de limites:
+  - valor `-1` (`TenantBillingLimitsSnapshot.UNLIMITED`) quando o plano global tiver limite `NULL`.
+- Suporte (Support Admin) agora possui endpoints de billing:
+  - `GET /api/v1/support/tenants/{tenantId}/billing`
+  - `PUT /api/v1/support/tenants/{tenantId}/billing`
+  - retorno inclui assinatura atual, limites efetivos e catálogo de planos (`availablePlans`).
+- Quota enforcement centralizado em `TenantQuotaEnforcementService`:
+  - `assertCanCreateUser()` aplicado em `AuthService.register()` e `UserManagementService.inviteUser()`.
+  - `assertCanCreateProperty()` aplicado em `PropertyService.createProperty()`.
+  - `assertCanCreateLead()` aplicado em `LeadService.create()` e `findOrCreateLeadFromWhatsAppMessage()`.
+- Portal de billing do tenant (novo):
+  - `GET /api/v1/billing/me` retorna plano atual, limites efetivos e catálogo de planos.
+  - `POST /api/v1/billing/checkout` inicia checkout de upgrade para plano pago.
+  - `TenantBillingPortalService` orquestra visão do tenant + início de checkout via `BillingGatewayPort`.
+  - Ao iniciar checkout, assinatura registra `provider=ABACATEPAY`, `status=PENDING` e `provider_checkout_id`.
+- Ajustes de integração AbacatePay v2:
+  - `AbacatePayBillingGateway` agora usa autenticação `Authorization: Bearer <API_KEY>` (em vez de `X-Api-Key`).
+  - Endpoint de checkout alinhado para assinatura em `POST /v2/subscriptions/create`.
+  - Checkout usa `items` com `productId` por plano (`ABACATEPAY_PRODUCT_STARTER_ID`, `...PRIME...`, `...ULTIMATE...`).
+  - Cancelamento alinhado para `POST /v2/subscriptions/cancel` com body `{ "id": "<subscriptionId>" }`.
+  - `TenantBillingPortalService.startCheckout()` agora retorna `503` quando billing não estiver configurado e `502` quando a API do provedor falhar.
+  - `AbacatePayWebhookService` resolve `tenantId`/`planCode` com fallback para `data.checkout.externalId` e `data.checkout.metadata.*` (payload v2 de `subscription.completed`), além de mapear `providerCheckoutId` por `data.checkout.id`.

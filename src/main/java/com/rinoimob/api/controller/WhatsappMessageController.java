@@ -2,7 +2,7 @@ package com.rinoimob.api.controller;
 
 import com.rinoimob.domain.dto.SendWhatsappMessageRequest;
 import com.rinoimob.domain.dto.WhatsappMessageResponse;
-import com.rinoimob.service.WhatsappMessageService;
+import com.rinoimob.service.crm.WhatsappMessageService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

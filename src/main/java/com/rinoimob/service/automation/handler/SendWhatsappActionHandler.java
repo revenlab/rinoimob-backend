@@ -5,7 +5,7 @@ import com.rinoimob.domain.entity.Lead;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.domain.repository.UserRepository;
-import com.rinoimob.service.WhatsappMessageService;
+import com.rinoimob.service.crm.WhatsappMessageService;
 import com.rinoimob.service.automation.ActionHandler;
 import com.rinoimob.context.TenantContext;
 import lombok.RequiredArgsConstructor;

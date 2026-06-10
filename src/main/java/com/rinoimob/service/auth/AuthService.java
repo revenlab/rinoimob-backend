@@ -23,7 +23,9 @@ import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
 import com.rinoimob.context.TenantContext;
-import com.rinoimob.service.TenantRoleService;
+import com.rinoimob.service.billing.TenantQuotaEnforcementService;
+import com.rinoimob.service.core.TenantRoleService;
+import com.rinoimob.service.billing.TenantBillingOnboardingService;
 import com.rinoimob.service.email.EmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,6 +51,8 @@ public class AuthService {
     private final PasswordEncoderService passwordEncoderService;
     private final EmailService emailService;
     private final TenantRoleService tenantRoleService;
+    private final TenantBillingOnboardingService tenantBillingOnboardingService;
+    private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
     private final TokenService tokenService;
     private final SupportUserPermissionRepository supportUserPermissionRepository;
 
@@ -66,6 +70,8 @@ public class AuthService {
                        PasswordEncoderService passwordEncoderService,
                        EmailService emailService,
                        TenantRoleService tenantRoleService,
+                       TenantBillingOnboardingService tenantBillingOnboardingService,
+                       TenantQuotaEnforcementService tenantQuotaEnforcementService,
                        TokenService tokenService,
                        SupportUserPermissionRepository supportUserPermissionRepository) {
         this.userRepository = userRepository;
@@ -76,6 +82,8 @@ public class AuthService {
         this.passwordEncoderService = passwordEncoderService;
         this.emailService = emailService;
         this.tenantRoleService = tenantRoleService;
+        this.tenantBillingOnboardingService = tenantBillingOnboardingService;
+        this.tenantQuotaEnforcementService = tenantQuotaEnforcementService;
         this.tokenService = tokenService;
         this.supportUserPermissionRepository = supportUserPermissionRepository;
     }
@@ -121,6 +129,7 @@ public class AuthService {
         User savedUser = userRepository.save(user);
 
         tenantRoleService.seedDefaultRoles(savedTenant.getId());
+        tenantBillingOnboardingService.provisionDefaultFreePlan(savedTenant.getId());
 
         String verificationToken = UUID.randomUUID().toString();
         VerificationToken token = new VerificationToken();
@@ -146,6 +155,8 @@ public class AuthService {
         if (userRepository.existsByEmailAndTenantId(normalizedEmail, tenantId)) {
             throw new IllegalArgumentException("Email already registered");
         }
+
+        tenantQuotaEnforcementService.assertCanCreateUser(tenantId);
 
         if (globalCredentialRepository.findByEmail(normalizedEmail).isEmpty()) {
             GlobalCredential credential = new GlobalCredential();
