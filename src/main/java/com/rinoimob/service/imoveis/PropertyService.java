@@ -20,6 +20,8 @@ import com.rinoimob.service.storage.FileStorageService;
 import com.rinoimob.context.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -54,6 +56,7 @@ public class PropertyService {
     // ── CRUD ─────────────────────────────────────────────────────────────────
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public PropertyResponse createProperty(CreatePropertyRequest req) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         tenantQuotaEnforcementService.assertCanCreateProperty(tenantId);
@@ -67,6 +70,7 @@ public class PropertyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public PropertyResponse updateProperty(UUID id, UpdatePropertyRequest req) {
         Property property = findOwnedProperty(id);
         applyUpdate(property, req);
@@ -76,6 +80,7 @@ public class PropertyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void deleteProperty(UUID id) {
         Property property = findOwnedProperty(id);
         property.setDeletedAt(LocalDateTime.now());
@@ -84,6 +89,10 @@ public class PropertyService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = "publicPropertyDetails",
+            key = "T(com.rinoimob.context.TenantContext).getTenantId() + ':' + #id"
+    )
     public PropertyResponse getProperty(UUID id) {
         return toResponse(findOwnedProperty(id));
     }
@@ -98,10 +107,30 @@ public class PropertyService {
             Integer bedrooms,
             String city,
             Pageable pageable) {
-        return listProperties(status, operation, propertyType, null, minPrice, maxPrice, bedrooms, city, null, pageable);
+        return listProperties(status, operation, propertyType, minPrice, maxPrice, bedrooms, city, null, null, null, pageable);
     }
 
     @Transactional(readOnly = true)
+    public Page<PropertySummaryResponse> listProperties(
+            PropertyStatus status,
+            PropertyOperation operation,
+            PropertyType propertyType,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Integer bedrooms,
+            String city,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            BigDecimal radiusKm,
+            Pageable pageable) {
+        return listProperties(status, operation, propertyType, null, minPrice, maxPrice, bedrooms, city, null, latitude, longitude, radiusKm, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = "publicPropertyListings",
+            key = "T(com.rinoimob.context.TenantContext).getTenantId() + ':' + #status + ':' + #operation + ':' + #propertyType + ':' + #categorySlug + ':' + #minPrice + ':' + #maxPrice + ':' + #bedrooms + ':' + #city + ':' + #queryText + ':' + #latitude + ':' + #longitude + ':' + #radiusKm + ':' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort.toString()"
+    )
     public Page<PropertySummaryResponse> listProperties(
             PropertyStatus status,
             PropertyOperation operation,
@@ -112,11 +141,15 @@ public class PropertyService {
             Integer bedrooms,
             String city,
             String queryText,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            BigDecimal radiusKm,
             Pageable pageable) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return propertyRepository.findAll(
                 PropertySpecification.withFilters(
-                        tenantId, status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, queryText),
+                        tenantId, status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, queryText,
+                        latitude, longitude, radiusKm),
                 pageable)
                 .map(this::toSummary);
     }
@@ -124,6 +157,7 @@ public class PropertyService {
     // ── PHOTOS ────────────────────────────────────────────────────────────────
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public PropertyPhotoResponse addPhoto(UUID propertyId, MultipartFile file, String altText) {
         Property property = findOwnedProperty(propertyId);
         FileStorageService.UploadResult result = fileStorageService.upload(file);
@@ -151,6 +185,7 @@ public class PropertyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void setCoverPhoto(UUID propertyId, UUID photoId) {
         Property property = findOwnedProperty(propertyId);
 
@@ -173,6 +208,7 @@ public class PropertyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void deletePhoto(UUID propertyId, UUID photoId) {
         Property property = findOwnedProperty(propertyId);
         PropertyPhoto photo = photoRepository.findByIdAndPropertyId(photoId, propertyId)
@@ -211,6 +247,7 @@ public class PropertyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void deleteFloorPlan(UUID propertyId, UUID planId) {
         findOwnedProperty(propertyId);
         FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
@@ -222,6 +259,7 @@ public class PropertyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public FloorPlanPhotoResponse addFloorPlanPhoto(UUID propertyId, UUID planId, MultipartFile file) {
         findOwnedProperty(propertyId);
         FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
@@ -240,6 +278,7 @@ public class PropertyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void setFloorPlanPhotoCover(UUID propertyId, UUID planId, UUID photoId) {
         findOwnedProperty(propertyId);
         FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
@@ -258,6 +297,7 @@ public class PropertyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void deleteFloorPlanPhoto(UUID propertyId, UUID planId, UUID photoId) {
         findOwnedProperty(propertyId);
         FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)

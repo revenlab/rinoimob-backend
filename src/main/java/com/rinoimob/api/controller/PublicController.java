@@ -54,14 +54,18 @@ public class PublicController {
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Integer bedrooms,
             @RequestParam(required = false) String city,
-            @RequestParam(required = false, name = "q") String queryText) {
+            @RequestParam(required = false, name = "q") String queryText,
+            @RequestParam(required = false) BigDecimal latitude,
+            @RequestParam(required = false) BigDecimal longitude,
+            @RequestParam(required = false) BigDecimal radiusKm) {
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
             Pageable pageable = PageRequest.of(page, size);
             return ResponseEntity.ok(propertyService.listProperties(
                     PropertyStatus.ACTIVE, operation, propertyType,
-                    categorySlug, minPrice, maxPrice, bedrooms, city, queryText, pageable));
+                    categorySlug, minPrice, maxPrice, bedrooms, city, queryText,
+                    latitude, longitude, radiusKm, pageable));
         } finally {
             TenantContext.clear();
         }

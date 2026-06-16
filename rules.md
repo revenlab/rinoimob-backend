@@ -213,3 +213,7 @@ support:health:read
    - `GET /api/v1/public/properties` agora também aceita `q`.
    - `PropertySpecification.withFilters(...)` passou a aplicar `LIKE` case-insensitive em `title`, `description`, `referenceCode`, `addressNeighborhood` e `addressCity` quando `q` for informado.
    - `PropertyController` e `PropertyService.listProperties(...)` foram ajustados para suportar o novo parâmetro `q` sem quebrar o fluxo interno.
+ - Geospatial básico e cache do catálogo público:
+   - `GET /api/v1/public/properties` também aceita `latitude`, `longitude` e `radiusKm`.
+   - `PropertySpecification.withFilters(...)` aplica um bounding box simples em `lat/lng` quando o raio é informado.
+   - `PropertyService` agora usa `@Cacheable` para listagem/detalhe públicos e `@CacheEvict(allEntries = true)` em mutações de imóvel, foto e planta para invalidar o catálogo público.

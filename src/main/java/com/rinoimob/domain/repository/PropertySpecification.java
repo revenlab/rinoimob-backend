@@ -26,7 +26,10 @@ public class PropertySpecification {
             BigDecimal maxPrice,
             Integer bedrooms,
             String city,
-            String queryText) {
+            String queryText,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            BigDecimal radiusKm) {
 
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -73,8 +76,31 @@ public class PropertySpecification {
                         cb.like(cb.lower(root.get("addressCity")), normalized)
                 ));
             }
+            if (latitude != null && longitude != null && radiusKm != null && radiusKm.signum() > 0) {
+                BigDecimal[] bounds = buildGeoBounds(latitude, longitude, radiusKm);
+                predicates.add(cb.between(root.get("lat"), bounds[0], bounds[1]));
+                predicates.add(cb.between(root.get("lng"), bounds[2], bounds[3]));
+            }
 
             return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private static BigDecimal[] buildGeoBounds(BigDecimal latitude, BigDecimal longitude, BigDecimal radiusKm) {
+        double lat = latitude.doubleValue();
+        double lng = longitude.doubleValue();
+        double radius = radiusKm.doubleValue();
+
+        double deltaLat = radius / 111.32d;
+        double cosLat = Math.cos(Math.toRadians(lat));
+        double safeCosLat = Math.max(Math.abs(cosLat), 0.01d);
+        double deltaLng = radius / (111.32d * safeCosLat);
+
+        return new BigDecimal[] {
+                BigDecimal.valueOf(lat - deltaLat),
+                BigDecimal.valueOf(lat + deltaLat),
+                BigDecimal.valueOf(lng - deltaLng),
+                BigDecimal.valueOf(lng + deltaLng)
         };
     }
 }
