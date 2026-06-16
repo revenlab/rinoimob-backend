@@ -38,6 +38,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     long countByTenantId(UUID tenantId);
 
+    long countByTenantIdAndActive(UUID tenantId, Boolean active);
+
     @Query("SELECT COUNT(u) FROM User u WHERE u.systemRole IS NULL OR u.systemRole = com.rinoimob.domain.enums.SystemRole.TENANT_OWNER")
     long countNonInternalUsers();
 }

@@ -4,11 +4,13 @@ import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.SetOperatorPermissionsRequest;
 import com.rinoimob.domain.dto.SupportAuditLogResponse;
 import com.rinoimob.domain.dto.SupportDashboardResponse;
+import com.rinoimob.domain.dto.SupportTenantBillingResponse;
 import com.rinoimob.domain.dto.SupportTenantHealthResponse;
 import com.rinoimob.domain.dto.SupportTenantSummaryResponse;
 import com.rinoimob.domain.dto.SupportUserSummaryResponse;
 import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
 import com.rinoimob.domain.dto.UpdateSupportTenantRequest;
+import com.rinoimob.domain.dto.UpdateSupportTenantBillingRequest;
 import com.rinoimob.domain.dto.UpdateSupportUserRequest;
 import com.rinoimob.domain.dto.UpdateTenantWebsiteConfigRequest;
 import com.rinoimob.domain.dto.blog.BlogPostResponse;
@@ -16,9 +18,9 @@ import com.rinoimob.domain.dto.blog.CreateBlogPostRequest;
 import com.rinoimob.domain.dto.blog.UpdateBlogPostRequest;
 import com.rinoimob.domain.dto.blog.UpdateBlogPostStatusRequest;
 import com.rinoimob.domain.enums.SystemRole;
-import com.rinoimob.service.BlogPostService;
-import com.rinoimob.service.SupportAdminService;
-import com.rinoimob.service.TenantWebsiteConfigService;
+import com.rinoimob.service.website.BlogPostService;
+import com.rinoimob.service.support.SupportAdminService;
+import com.rinoimob.service.website.TenantWebsiteConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -181,6 +183,22 @@ public class SupportAdminController {
     @Operation(summary = "Get tenant health summary")
     public SupportTenantHealthResponse getTenantHealth(@PathVariable UUID tenantId, HttpServletRequest request) {
         return supportAdminService.getTenantHealth(requireActorTenantId(request), requireActorUserId(request), tenantId);
+    }
+
+    @GetMapping("/tenants/{tenantId}/billing")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:read')")
+    @Operation(summary = "Get tenant billing plan, subscription and effective limits")
+    public SupportTenantBillingResponse getTenantBilling(@PathVariable UUID tenantId, HttpServletRequest request) {
+        return supportAdminService.getTenantBilling(requireActorTenantId(request), requireActorUserId(request), tenantId);
+    }
+
+    @PutMapping("/tenants/{tenantId}/billing")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:write')")
+    @Operation(summary = "Update tenant billing plan and limits")
+    public SupportTenantBillingResponse updateTenantBilling(@PathVariable UUID tenantId,
+                                                            @RequestBody UpdateSupportTenantBillingRequest request,
+                                                            HttpServletRequest httpRequest) {
+        return supportAdminService.updateTenantBilling(requireActorTenantId(httpRequest), requireActorUserId(httpRequest), tenantId, request);
     }
 
     @GetMapping("/tenants/{tenantId}/website-config")

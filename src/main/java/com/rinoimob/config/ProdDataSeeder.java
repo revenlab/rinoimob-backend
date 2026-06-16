@@ -11,7 +11,7 @@ import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
-import com.rinoimob.service.TenantRoleService;
+import com.rinoimob.service.core.TenantRoleService;
 import com.rinoimob.service.auth.PasswordEncoderService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

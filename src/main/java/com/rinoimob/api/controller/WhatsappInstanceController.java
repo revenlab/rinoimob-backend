@@ -4,7 +4,7 @@ import com.rinoimob.domain.dto.CreateWhatsappInstanceRequest;
 import com.rinoimob.domain.dto.UpdateWhatsappInstanceConfigRequest;
 import com.rinoimob.domain.dto.WhatsappInstanceResponse;
 import com.rinoimob.domain.dto.WhatsappQrCodeResponse;
-import com.rinoimob.service.WhatsappInstanceService;
+import com.rinoimob.service.crm.WhatsappInstanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

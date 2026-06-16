@@ -2,7 +2,7 @@ package com.rinoimob.service.automation.handler;
 
 import com.rinoimob.domain.dto.UpdateLeadRequest;
 import com.rinoimob.domain.enums.LeadStatus;
-import com.rinoimob.service.LeadService;
+import com.rinoimob.service.crm.LeadService;
 import com.rinoimob.service.automation.ActionHandler;
 import com.rinoimob.context.TenantContext;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +46,7 @@ public class UpdateLeadStatusActionHandler implements ActionHandler {
 
         try {
             LeadStatus newStatus = LeadStatus.valueOf(newStatusStr);
-            UpdateLeadRequest request = new UpdateLeadRequest(null, null, null, null, newStatus, null);
+            UpdateLeadRequest request = new UpdateLeadRequest(null, null, null, null, newStatus, null, null);
             leadService.update(tenantId, leadId, null, request);
 
             resultData.put("lead_status_updated", true);

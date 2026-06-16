@@ -1,7 +1,7 @@
 package com.rinoimob.service.automation.handler;
 
 import com.rinoimob.domain.dto.CreateTaskRequest;
-import com.rinoimob.service.TaskService;
+import com.rinoimob.service.crm.TaskService;
 import com.rinoimob.service.automation.ActionHandler;
 import com.rinoimob.context.TenantContext;
 import lombok.RequiredArgsConstructor;

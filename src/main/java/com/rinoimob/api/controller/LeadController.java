@@ -3,7 +3,7 @@ package com.rinoimob.api.controller;
 import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.*;
 import com.rinoimob.domain.enums.LeadStatus;
-import com.rinoimob.service.LeadService;
+import com.rinoimob.service.crm.LeadService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

@@ -12,7 +12,7 @@ import com.rinoimob.domain.dto.RegisterRequest;
 import com.rinoimob.domain.dto.SelectTenantRequest;
 import com.rinoimob.domain.dto.TenantRegistrationRequest;
 import com.rinoimob.domain.entity.Tenant;
-import com.rinoimob.service.TenantService;
+import com.rinoimob.service.core.TenantService;
 import com.rinoimob.service.auth.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

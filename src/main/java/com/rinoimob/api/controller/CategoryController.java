@@ -3,7 +3,7 @@ package com.rinoimob.api.controller;
 import com.rinoimob.domain.dto.CategoryResponse;
 import com.rinoimob.domain.dto.CreateCategoryRequest;
 import com.rinoimob.domain.dto.UpdateCategoryRequest;
-import com.rinoimob.service.CategoryService;
+import com.rinoimob.service.imoveis.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

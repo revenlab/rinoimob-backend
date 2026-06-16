@@ -5,7 +5,7 @@ import com.rinoimob.domain.dto.blog.BlogPostResponse;
 import com.rinoimob.domain.dto.blog.CreateBlogPostRequest;
 import com.rinoimob.domain.dto.blog.UpdateBlogPostRequest;
 import com.rinoimob.domain.dto.blog.UpdateBlogPostStatusRequest;
-import com.rinoimob.service.BlogPostService;
+import com.rinoimob.service.website.BlogPostService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

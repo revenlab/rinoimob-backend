@@ -1,6 +1,6 @@
 package com.rinoimob.service.automation.handler;
 
-import com.rinoimob.service.WorkflowWaitService;
+import com.rinoimob.service.automation.workflow.WorkflowWaitService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

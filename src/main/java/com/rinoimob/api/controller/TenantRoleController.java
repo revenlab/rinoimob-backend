@@ -4,7 +4,7 @@ import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.CreateTenantRoleRequest;
 import com.rinoimob.domain.dto.TenantRoleResponse;
 import com.rinoimob.domain.dto.UpdateTenantRoleRequest;
-import com.rinoimob.service.TenantRoleService;
+import com.rinoimob.service.core.TenantRoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

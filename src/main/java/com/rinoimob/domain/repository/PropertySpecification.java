@@ -4,6 +4,8 @@ import com.rinoimob.domain.entity.Property;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -19,6 +21,7 @@ public class PropertySpecification {
             PropertyStatus status,
             PropertyOperation operation,
             PropertyType propertyType,
+            String categorySlug,
             BigDecimal minPrice,
             BigDecimal maxPrice,
             Integer bedrooms,
@@ -38,6 +41,11 @@ public class PropertySpecification {
             }
             if (propertyType != null) {
                 predicates.add(cb.equal(root.get("propertyType"), propertyType));
+            }
+            if (categorySlug != null && !categorySlug.isBlank()) {
+                query.distinct(true);
+                Join<Object, Object> categoryJoin = root.join("categories", JoinType.INNER);
+                predicates.add(cb.equal(categoryJoin.get("slug"), categorySlug));
             }
             if (minPrice != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("price"), minPrice));

@@ -4,7 +4,7 @@ import com.rinoimob.domain.dto.property.*;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
-import com.rinoimob.service.PropertyService;
+import com.rinoimob.service.imoveis.PropertyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -33,13 +33,14 @@ public class PropertyController {
             @RequestParam(required = false) PropertyStatus status,
             @RequestParam(required = false) PropertyOperation operation,
             @RequestParam(required = false) PropertyType propertyType,
+            @RequestParam(required = false) String categorySlug,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Integer bedrooms,
             @RequestParam(required = false) String city,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         return ResponseEntity.ok(propertyService.listProperties(
-                status, operation, propertyType, minPrice, maxPrice, bedrooms, city, pageable));
+                status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, pageable));
     }
 
     @PostMapping

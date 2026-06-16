@@ -10,6 +10,7 @@ public record LeadResponse(
         UUID id,
         UUID tenantId,
         UUID propertyId,
+        UUID poolId,
         String name,
         String email,
         String phone,

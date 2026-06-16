@@ -2,7 +2,7 @@ package com.rinoimob.api.controller;
 
 import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.*;
-import com.rinoimob.service.AutomationWorkflowService;
+import com.rinoimob.service.automation.workflow.AutomationWorkflowService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

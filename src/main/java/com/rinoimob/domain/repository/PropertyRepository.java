@@ -19,4 +19,6 @@ public interface PropertyRepository extends JpaRepository<Property, UUID>, JpaSp
     Optional<Property> findByIdWithPhotos(@Param("id") UUID id);
 
     boolean existsByTenantIdAndSlugAndDeletedAtIsNull(UUID tenantId, String slug);
+
+    long countByTenantIdAndDeletedAtIsNull(UUID tenantId);
 }

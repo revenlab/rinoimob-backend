@@ -15,7 +15,7 @@ import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
-import com.rinoimob.service.TenantRoleService;
+import com.rinoimob.service.core.TenantRoleService;
 import com.rinoimob.service.email.EmailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

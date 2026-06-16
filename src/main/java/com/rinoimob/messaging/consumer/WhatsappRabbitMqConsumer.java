@@ -9,7 +9,7 @@ import com.rinoimob.domain.entity.WhatsappMessage;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.domain.repository.WhatsappInstanceRepository;
 import com.rinoimob.domain.repository.WhatsappMessageRepository;
-import com.rinoimob.service.LeadService;
+import com.rinoimob.service.crm.LeadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
