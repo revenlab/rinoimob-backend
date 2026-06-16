@@ -10,6 +10,7 @@ import java.util.UUID;
 public interface LeadPoolRepository extends JpaRepository<LeadPool, UUID> {
     List<LeadPool> findByTenantId(UUID tenantId);
     List<LeadPool> findByTenantIdOrderByPriorityAsc(UUID tenantId);
+    List<LeadPool> findByTenantIdAndTriggerAfterInactiveDaysIsNotNullOrderByPriorityAsc(UUID tenantId);
     Optional<LeadPool> findByIdAndTenantId(UUID id, UUID tenantId);
     void deleteByIdAndTenantId(UUID id, UUID tenantId);
 }

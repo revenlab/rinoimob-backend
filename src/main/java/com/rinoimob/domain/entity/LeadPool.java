@@ -1,5 +1,7 @@
 package com.rinoimob.domain.entity;
 
+import com.rinoimob.domain.enums.LeadPoolBrokerSelectionMode;
+import com.rinoimob.domain.enums.LeadPoolRoutingStrategy;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -7,6 +9,12 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.hibernate.annotations.Type;
+
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 
 @Entity
 @Table(name = "lead_pools")
@@ -15,14 +23,31 @@ import java.util.UUID;
 @AllArgsConstructor
 public class LeadPool {
 
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
     private String criteria;
 
     @Column
     private Integer priority = 100;
 
-    @Column(name = "routing_strategy", length = 32)
-    private String routingStrategy = "ROUND_ROBIN";
+    @Enumerated(EnumType.STRING)
+    @Column(name = "routing_strategy", length = 32, nullable = false)
+    private LeadPoolRoutingStrategy routingStrategy = LeadPoolRoutingStrategy.ROUND_ROBIN;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "broker_selection_mode", length = 32, nullable = false)
+    private LeadPoolBrokerSelectionMode brokerSelectionMode = LeadPoolBrokerSelectionMode.ALL_BROKERS;
+
+    @Column(name = "trigger_after_inactive_days")
+    private Integer triggerAfterInactiveDays;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "lead_pool_brokers",
+            joinColumns = @JoinColumn(name = "lead_pool_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private Set<User> brokers = new HashSet<>();
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -62,7 +87,13 @@ public class LeadPool {
         this.createdAt = createdAt;
         this.criteria = criteria;
         this.priority = priority;
-        this.routingStrategy = routingStrategy;
+        this.routingStrategy = routingStrategy == null ? LeadPoolRoutingStrategy.ROUND_ROBIN : LeadPoolRoutingStrategy.valueOf(routingStrategy);
+    }
+
+    public LeadPool(UUID id, UUID tenantId, String name, String description, LocalDateTime createdAt, String criteria, Integer priority, String routingStrategy,
+                    LeadPoolBrokerSelectionMode brokerSelectionMode, Integer triggerAfterInactiveDays) {
+        this(id, tenantId, name, description, createdAt, criteria, priority, routingStrategy);
+        this.brokerSelectionMode = brokerSelectionMode == null ? LeadPoolBrokerSelectionMode.ALL_BROKERS : brokerSelectionMode;
+        this.triggerAfterInactiveDays = triggerAfterInactiveDays;
     }
 }
-

@@ -31,10 +31,10 @@ class LeadServiceAssignmentTest {
     @Mock private UserRepository userRepository;
     @Mock private com.rinoimob.domain.repository.LeadPropertyRepository leadPropertyRepository;
     @Mock private com.rinoimob.domain.repository.PropertyRepository propertyRepository;
+    @Mock private LeadPoolRepository leadPoolRepository;
     @Mock private com.rinoimob.service.automation.workflow.AutomationEventDispatcher automationEventDispatcher;
     @Mock private LeadRealtimeService leadRealtimeService;
     @Mock private com.rinoimob.service.billing.TenantQuotaEnforcementService tenantQuotaEnforcementService;
-    @Mock private LeadPoolRepository leadPoolRepository;
 
     @Test
     void createLeadAutoAssignsPoolAndBroker() {
@@ -44,6 +44,7 @@ class LeadServiceAssignmentTest {
 
         LeadPool pool = new LeadPool(poolId, tenant, "P", null, LocalDateTime.now(), "{\"source\":\"WHATSAPP\"}", 100, "ROUND_ROBIN");
         when(leadPoolRepository.findByTenantIdOrderByPriorityAsc(tenant)).thenReturn(List.of(pool));
+        when(leadPoolRepository.findByIdAndTenantId(poolId, tenant)).thenReturn(Optional.of(pool));
 
         User broker = new User(); broker.setId(brokerId); broker.setActive(true);
         when(userRepository.findByTenantIdAndActive(tenant, Boolean.TRUE)).thenReturn(List.of(broker));
@@ -57,7 +58,7 @@ class LeadServiceAssignmentTest {
         BrokerAssigner assigner = new BrokerAssigner(userRepository);
 
         LeadService svc = new LeadService(leadRepository, leadNoteRepository, leadEventRepository, userRepository,
-                leadPropertyRepository, propertyRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
+                leadPropertyRepository, propertyRepository, leadPoolRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
                 evaluator, assigner);
 
         CreateLeadRequest req = new CreateLeadRequest("Name", "a@b.com", "123", "hello", null, "WHATSAPP");
@@ -71,4 +72,3 @@ class LeadServiceAssignmentTest {
     }
 
 }
-

@@ -5,6 +5,7 @@ import com.rinoimob.domain.dto.*;
 import com.rinoimob.domain.entity.Lead;
 import com.rinoimob.domain.entity.LeadEvent;
 import com.rinoimob.domain.entity.LeadNote;
+import com.rinoimob.domain.entity.LeadPool;
 import com.rinoimob.domain.entity.LeadProperty;
 import com.rinoimob.domain.entity.Property;
 import com.rinoimob.domain.entity.PropertyPhoto;
@@ -16,6 +17,7 @@ import com.rinoimob.domain.repository.LeadEventRepository;
 import com.rinoimob.domain.repository.LeadNoteRepository;
 import com.rinoimob.domain.repository.LeadPropertyRepository;
 import com.rinoimob.domain.repository.LeadRepository;
+import com.rinoimob.domain.repository.LeadPoolRepository;
 import com.rinoimob.domain.repository.PropertyRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.service.automation.workflow.AutomationEventDispatcher;
@@ -48,6 +50,7 @@ public class LeadService {
     private final UserRepository userRepository;
     private final LeadPropertyRepository leadPropertyRepository;
     private final PropertyRepository propertyRepository;
+    private final LeadPoolRepository leadPoolRepository;
     private final AutomationEventDispatcher automationEventDispatcher;
     private final LeadRealtimeService leadRealtimeService;
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
@@ -114,12 +117,13 @@ public class LeadService {
         lead.setSource(req.source() != null ? req.source() : "MANUAL");
         lead.setStatus(LeadStatus.NEW);
 
-        // Evaluate pools and assign before saving
         UUID poolId = leadPoolRuleEvaluator.evaluate(tenantId, lead);
         if (poolId != null) {
-            lead.setPoolId(poolId);
-            UUID assigned = brokerAssigner.chooseBroker(tenantId, poolId);
-            if (assigned != null) lead.setAssignedTo(assigned);
+            LeadPool pool = leadPoolRepository.findByIdAndTenantId(poolId, tenantId)
+                    .orElse(null);
+            if (pool != null) {
+                applyLeadPoolRouting(tenantId, lead, pool);
+            }
         }
 
         lead = leadRepository.save(lead);
@@ -163,8 +167,10 @@ public class LeadService {
                     "Atribuído a " + (userName != null ? userName : req.assignedTo()));
         }
         if (req.poolId() != null && (lead.getPoolId() == null || !req.poolId().equals(lead.getPoolId()))) {
-            lead.setPoolId(req.poolId());
-            logEvent(lead.getId(), null, LeadEventType.ASSIGNED, "Atribuído ao bolsão " + req.poolId());
+            LeadPool pool = leadPoolRepository.findByIdAndTenantId(req.poolId(), tenantId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead pool not found"));
+            applyLeadPoolRouting(tenantId, lead, pool);
+            logEvent(lead.getId(), null, LeadEventType.ASSIGNED, "Atribuído ao bolsão " + pool.getName());
         }
         lead = leadRepository.save(lead);
         log.info("Lead updated id={}", id);
@@ -208,6 +214,7 @@ public class LeadService {
         note.setUserId(userId);
         note.setContent(req.content());
         note = leadNoteRepository.save(note);
+        touchLeadActivity(lead);
         logEvent(leadId, userId, LeadEventType.NOTE_ADDED, "Nota adicionada");
         log.info("Note added to lead={} by user={}", leadId, userId);
         return toNoteResponse(note);
@@ -237,6 +244,7 @@ public class LeadService {
         lp.setPropertyId(req.propertyId());
         lp.setInterestLevel(req.interestLevel() != null ? req.interestLevel() : InterestLevel.UNDEFINED);
         lp = leadPropertyRepository.save(lp);
+        touchLeadActivity(lead);
         logEvent(leadId, null, LeadEventType.PROPERTY_LINKED, "Imóvel vinculado: " + req.propertyId());
         return toLeadPropertyResponse(lp);
     }
@@ -251,6 +259,7 @@ public class LeadService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Link not found"));
         lp.setInterestLevel(req.interestLevel());
         lp = leadPropertyRepository.save(lp);
+        touchLeadActivity(lead);
         return toLeadPropertyResponse(lp);
     }
 
@@ -263,6 +272,7 @@ public class LeadService {
         LeadProperty lp = leadPropertyRepository.findByIdAndLeadId(linkId, leadId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Link not found"));
         leadPropertyRepository.delete(lp);
+        touchLeadActivity(lead);
         logEvent(leadId, null, LeadEventType.PROPERTY_UNLINKED, "Imóvel desvinculado");
     }
 
@@ -305,6 +315,7 @@ public class LeadService {
             .orElse(null);
 
         if (existingLead != null) {
+            touchLeadActivity(existingLead);
             return existingLead;
         }
 
@@ -323,6 +334,13 @@ public class LeadService {
         newLead.setMessage(messageContent);
         newLead.setSource("WHATSAPP");
         newLead.setStatus(LeadStatus.NEW);
+        UUID newLeadPoolId = leadPoolRuleEvaluator.evaluate(tenantId, newLead);
+        if (newLeadPoolId != null) {
+            LeadPool pool = leadPoolRepository.findByIdAndTenantId(newLeadPoolId, tenantId).orElse(null);
+            if (pool != null) {
+                applyLeadPoolRouting(tenantId, newLead, pool);
+            }
+        }
         newLead = leadRepository.save(newLead);
 
         log.info("Auto-created lead id={} from WhatsApp number {} for tenant {}", newLead.getId(), phoneNumber, tenantId);
@@ -349,6 +367,20 @@ public class LeadService {
         event.setEventType(type);
         event.setDescription(description);
         leadEventRepository.save(event);
+    }
+
+    private void touchLeadActivity(Lead lead) {
+        lead.setUpdatedAt(LocalDateTime.now());
+        leadRepository.save(lead);
+    }
+
+    private void applyLeadPoolRouting(UUID tenantId, Lead lead, LeadPool pool) {
+        lead.setPoolId(pool.getId());
+        if (pool.getRoutingStrategy() == com.rinoimob.domain.enums.LeadPoolRoutingStrategy.OPEN_TO_ALL) {
+            lead.setAssignedTo(null);
+            return;
+        }
+        lead.setAssignedTo(brokerAssigner.chooseBroker(tenantId, pool));
     }
 
     private String resolveUserName(UUID userId) {

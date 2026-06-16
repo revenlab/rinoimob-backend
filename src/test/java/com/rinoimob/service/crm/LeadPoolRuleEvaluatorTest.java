@@ -59,4 +59,19 @@ class LeadPoolRuleEvaluatorTest {
         UUID matched = eval.evaluate(tenant, lead);
         assertThat(matched).isEqualTo(p.getId());
     }
+
+    @Test
+    void shouldIgnoreInactivityTriggeredPoolsDuringImmediateEvaluation() {
+        UUID tenant = UUID.randomUUID();
+        LeadPool triggerPool = new LeadPool(UUID.randomUUID(), tenant, "Trigger", null, LocalDateTime.now(), "{\"source\":\"WEB\"}", 50, "ROUND_ROBIN");
+        triggerPool.setTriggerAfterInactiveDays(7);
+        LeadPool immediatePool = new LeadPool(UUID.randomUUID(), tenant, "Immediate", null, LocalDateTime.now(), "{\"source\":\"WEB\"}", 100, "ROUND_ROBIN");
+        when(poolRepo.findByTenantIdOrderByPriorityAsc(tenant)).thenReturn(List.of(triggerPool, immediatePool));
+
+        LeadPoolRuleEvaluator eval = new LeadPoolRuleEvaluator(poolRepo, propertyRepository);
+        Lead lead = new Lead();
+        lead.setSource("WEB");
+
+        assertThat(eval.evaluate(tenant, lead)).isEqualTo(immediatePool.getId());
+    }
 }

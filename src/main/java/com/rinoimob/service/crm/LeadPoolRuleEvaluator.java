@@ -25,6 +25,9 @@ public class LeadPoolRuleEvaluator {
     public UUID evaluate(UUID tenantId, Lead lead) {
         List<LeadPool> pools = leadPoolRepository.findByTenantIdOrderByPriorityAsc(tenantId);
         for (LeadPool p : pools) {
+            if (p.getTriggerAfterInactiveDays() != null && p.getTriggerAfterInactiveDays() > 0) {
+                continue;
+            }
             if (p.getCriteria() == null || p.getCriteria().isBlank()) {
                 // empty criteria matches everything
                 return p.getId();
@@ -39,6 +42,17 @@ public class LeadPoolRuleEvaluator {
             }
         }
         return null;
+    }
+
+    boolean matches(LeadPool pool, Lead lead) {
+        if (pool.getCriteria() == null || pool.getCriteria().isBlank()) {
+            return true;
+        }
+        try {
+            return matches(objectMapper.readTree(pool.getCriteria()), lead);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private boolean matches(JsonNode node, Lead lead) {
