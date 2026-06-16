@@ -27,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 
@@ -48,14 +49,19 @@ public class PublicController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) PropertyOperation operation,
             @RequestParam(required = false) PropertyType propertyType,
-            @RequestParam(required = false) String categorySlug) {
+            @RequestParam(required = false) String categorySlug,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) Integer bedrooms,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false, name = "q") String queryText) {
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
             Pageable pageable = PageRequest.of(page, size);
             return ResponseEntity.ok(propertyService.listProperties(
                     PropertyStatus.ACTIVE, operation, propertyType,
-                    categorySlug, null, null, null, null, pageable));
+                    categorySlug, minPrice, maxPrice, bedrooms, city, queryText, pageable));
         } finally {
             TenantContext.clear();
         }

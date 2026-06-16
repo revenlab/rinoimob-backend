@@ -98,7 +98,7 @@ public class PropertyService {
             Integer bedrooms,
             String city,
             Pageable pageable) {
-        return listProperties(status, operation, propertyType, null, minPrice, maxPrice, bedrooms, city, pageable);
+        return listProperties(status, operation, propertyType, null, minPrice, maxPrice, bedrooms, city, null, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -111,11 +111,12 @@ public class PropertyService {
             BigDecimal maxPrice,
             Integer bedrooms,
             String city,
+            String queryText,
             Pageable pageable) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return propertyRepository.findAll(
                 PropertySpecification.withFilters(
-                        tenantId, status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city),
+                        tenantId, status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, queryText),
                 pageable)
                 .map(this::toSummary);
     }

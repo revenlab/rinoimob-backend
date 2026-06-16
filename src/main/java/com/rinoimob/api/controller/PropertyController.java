@@ -40,7 +40,7 @@ public class PropertyController {
             @RequestParam(required = false) String city,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         return ResponseEntity.ok(propertyService.listProperties(
-                status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, pageable));
+                status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, null, pageable));
     }
 
     @PostMapping

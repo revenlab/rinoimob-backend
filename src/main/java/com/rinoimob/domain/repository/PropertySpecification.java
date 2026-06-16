@@ -25,7 +25,8 @@ public class PropertySpecification {
             BigDecimal minPrice,
             BigDecimal maxPrice,
             Integer bedrooms,
-            String city) {
+            String city,
+            String queryText) {
 
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -60,6 +61,16 @@ public class PropertySpecification {
                 predicates.add(cb.like(
                         cb.lower(root.get("addressCity")),
                         "%" + city.toLowerCase() + "%"
+                ));
+            }
+            if (queryText != null && !queryText.isBlank()) {
+                String normalized = "%" + queryText.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("title")), normalized),
+                        cb.like(cb.lower(root.get("description")), normalized),
+                        cb.like(cb.lower(root.get("referenceCode")), normalized),
+                        cb.like(cb.lower(root.get("addressNeighborhood")), normalized),
+                        cb.like(cb.lower(root.get("addressCity")), normalized)
                 ));
             }
 
