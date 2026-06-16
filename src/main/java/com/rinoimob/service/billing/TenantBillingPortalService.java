@@ -26,11 +26,14 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class TenantBillingPortalService {
+
+    private static final int DOWNGRADE_COOLDOWN_DAYS = 31;
 
     private final TenantSubscriptionService tenantSubscriptionService;
     private final TenantSubscriptionRepository tenantSubscriptionRepository;
@@ -110,6 +113,9 @@ public class TenantBillingPortalService {
                 : "http://localhost:5173/meu-plano?billing=cancel";
 
         TenantSubscription subscription = tenantSubscriptionService.ensureFreeSubscriptionForTenant(tenantId);
+        assertDowngradeCooldownIfNeeded(subscription, targetPlan);
+
+        String previousProviderSubscriptionId = resolvePreviousProviderSubscriptionId(subscription);
         String customerId = subscription.getProviderCustomerId();
         if (customerId == null || customerId.isBlank()) {
             BillingCustomerResult customer = billingGatewayPort.createCustomer(user.getEmail(), customerName);
@@ -120,9 +126,11 @@ public class TenantBillingPortalService {
 
         BillingCheckoutResult checkout;
         try {
+            String checkoutExternalId = generateCheckoutExternalId(tenantId, request.planCode());
             checkout = billingGatewayPort.createCheckout(
                     new BillingCheckoutRequest(
                             tenantId,
+                            checkoutExternalId,
                             request.planCode(),
                             amountInCents,
                             customerName,
@@ -139,6 +147,8 @@ public class TenantBillingPortalService {
                     "Billing provider request failed with status " + e.getRawStatusCode(), e);
         }
 
+        cancelPreviousSubscriptionIfNeeded(previousProviderSubscriptionId);
+
         subscription.setProvider(BillingProvider.ABACATEPAY);
         subscription.setStatus(BillingSubscriptionStatus.PENDING);
         subscription.setProviderCheckoutId(checkout.checkoutId());
@@ -153,6 +163,88 @@ public class TenantBillingPortalService {
                 checkout.checkoutUrl(),
                 checkout.expiresAt()
         );
+    }
+
+    private String generateCheckoutExternalId(UUID tenantId, BillingPlanCode planCode) {
+        return tenantId + "-" + planCode + "-" + UUID.randomUUID();
+    }
+
+    private void assertDowngradeCooldownIfNeeded(TenantSubscription subscription, BillingPlan targetPlan) {
+        BillingPlan currentPlan = subscription.getBillingPlan();
+        if (currentPlan == null || currentPlan.getCode() == null || targetPlan.getCode() == null) {
+            return;
+        }
+
+        if (!isDowngrade(currentPlan, targetPlan)) {
+            return;
+        }
+
+        LocalDateTime lastPlanChangeAt = firstNonNull(
+                subscription.getLastPlanChangeAt(),
+                subscription.getStartedAt(),
+                subscription.getCurrentPeriodStart()
+        );
+        if (lastPlanChangeAt == null) {
+            return;
+        }
+
+        LocalDateTime availableAt = lastPlanChangeAt.plusDays(DOWNGRADE_COOLDOWN_DAYS);
+        if (LocalDateTime.now().isBefore(availableAt)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Downgrade available only after 31 days from the last plan change"
+            );
+        }
+    }
+
+    private boolean isDowngrade(BillingPlan currentPlan, BillingPlan targetPlan) {
+        return planRank(targetPlan) < planRank(currentPlan);
+    }
+
+    private int planRank(BillingPlan plan) {
+        if (plan.getSortOrder() != null) {
+            return plan.getSortOrder();
+        }
+        if (plan.getCode() != null) {
+            return plan.getCode().ordinal();
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private String resolvePreviousProviderSubscriptionId(TenantSubscription subscription) {
+        if (subscription.getProvider() != BillingProvider.ABACATEPAY) {
+            return null;
+        }
+        if (subscription.getStatus() != BillingSubscriptionStatus.ACTIVE
+                && subscription.getStatus() != BillingSubscriptionStatus.TRIAL
+                && subscription.getStatus() != BillingSubscriptionStatus.PAST_DUE) {
+            return null;
+        }
+        return subscription.getProviderSubscriptionId();
+    }
+
+    private void cancelPreviousSubscriptionIfNeeded(String previousProviderSubscriptionId) {
+        if (previousProviderSubscriptionId == null || previousProviderSubscriptionId.isBlank()) {
+            return;
+        }
+        try {
+            billingGatewayPort.cancelSubscription(previousProviderSubscriptionId);
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Billing provider is not configured", e);
+        } catch (RestClientResponseException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "Billing provider request failed with status " + e.getRawStatusCode(), e);
+        }
+    }
+
+    @SafeVarargs
+    private final <T> T firstNonNull(T... values) {
+        for (T value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private TenantBillingPlanOptionResponse toOption(BillingPlan plan) {

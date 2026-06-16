@@ -107,7 +107,11 @@ public class AbacatePayBillingGateway implements BillingGatewayPort {
         String productId = resolvePlanProductId(request.planCode());
         Map<String, Object> body = new java.util.LinkedHashMap<>();
         body.put("items", List.of(Map.of("id", productId, "quantity", 1)));
-        body.put("externalId", request.tenantId().toString());
+        String externalId = request.externalId();
+        if (externalId == null || externalId.isBlank()) {
+            externalId = request.tenantId().toString();
+        }
+        body.put("externalId", externalId);
         body.put("completionUrl", request.successUrl());
         body.put("returnUrl", request.cancelUrl());
         body.put("methods", List.of(defaultMethod));

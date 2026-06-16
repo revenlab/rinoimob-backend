@@ -196,3 +196,15 @@ support:health:read
   - Cancelamento alinhado para `POST /v2/subscriptions/cancel` com body `{ "id": "<subscriptionId>" }`.
   - `TenantBillingPortalService.startCheckout()` agora retorna `503` quando billing não estiver configurado e `502` quando a API do provedor falhar.
   - `AbacatePayWebhookService` resolve `tenantId`/`planCode` com fallback para `data.checkout.externalId` e `data.checkout.metadata.*` (payload v2 de `subscription.completed`), além de mapear `providerCheckoutId` por `data.checkout.id`.
+ - Anti-fraude na troca de plano (upgrade/downgrade):
+   - Novo campo `tenant_subscriptions.last_plan_change_at` (migration `V36__add_last_plan_change_to_tenant_subscriptions.sql`) para controlar cooldown de downgrade.
+   - `TenantBillingPortalService.startCheckout()` agora bloqueia downgrade antes de 31 dias da última troca (`409 CONFLICT`).
+   - Upgrade continua permitido a qualquer momento.
+   - Em troca permitida, o backend cancela a assinatura anterior no AbacatePay (`cancelSubscription`) antes de deixar a nova assinatura em `PENDING`.
+   - `AbacatePayWebhookService` atualiza `lastPlanChangeAt` quando detectar mudança real de plano.
+ - Fix checkout reutilizado/inválido no AbacatePay:
+   - `TenantBillingPortalService` agora gera `externalId` único por tentativa (`tenantId-planCode-UUID`) ao iniciar checkout.
+   - `AbacatePayBillingGateway` envia esse `externalId` único para `POST /v2/subscriptions/create` (com fallback para `tenantId` se vier vazio).
+   - Mantemos `metadata.tenantId` para correlação de webhook e resolução do tenant, sem depender de `externalId` fixo.
+   - `AbacatePayWebhookService` agora aceita `externalId` composto e prioriza `metadata.tenantId` para evitar `UUID string too large` no retorno do webhook.
+   - `subscription.cancelled` agora valida `subscription.id` do webhook contra `tenant_subscriptions.provider_subscription_id`; cancelamentos com id divergente (assinatura antiga) são ignorados para não rebaixar plano ativo no Rino indevidamente.

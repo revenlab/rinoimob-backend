@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public record BillingCheckoutRequest(
         UUID tenantId,
+        String externalId,
         BillingPlanCode planCode,
         long amountInCents,
         String customerName,

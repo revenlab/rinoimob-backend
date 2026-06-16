@@ -7,6 +7,8 @@ import com.rinoimob.domain.enums.BillingPlanCode;
 import com.rinoimob.domain.enums.BillingProvider;
 import com.rinoimob.domain.enums.BillingSubscriptionStatus;
 import com.rinoimob.domain.repository.TenantSubscriptionRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -18,6 +20,8 @@ import java.util.UUID;
 
 @Service
 public class AbacatePayWebhookService {
+
+    private static final Logger log = LoggerFactory.getLogger(AbacatePayWebhookService.class);
 
     private final TenantSubscriptionRepository tenantSubscriptionRepository;
     private final BillingPlanResolverService billingPlanResolverService;
@@ -64,6 +68,7 @@ public class AbacatePayWebhookService {
         JsonNode data = payload.path("data");
         JsonNode checkoutNode = data.path("checkout");
         JsonNode customerNode = data.path("customer");
+        String incomingProviderSubscriptionId = text(subscriptionNode, "id");
 
         UUID tenantId = resolveTenantId(payload, subscriptionNode);
         BillingPlanCode planCode = resolvePlanCode(payload, subscriptionNode);
@@ -71,6 +76,17 @@ public class AbacatePayWebhookService {
 
         TenantSubscription subscription = tenantSubscriptionRepository.findByTenantId(tenantId)
                 .orElseGet(() -> createPendingSubscription(tenantId));
+        if (status == BillingSubscriptionStatus.CANCELED
+                && shouldIgnoreCancellationEvent(subscription, incomingProviderSubscriptionId)) {
+            log.warn("Ignoring stale cancellation webhook for tenant={} incomingSubscriptionId={} activeSubscriptionId={}",
+                    tenantId,
+                    incomingProviderSubscriptionId,
+                    subscription.getProviderSubscriptionId());
+            return;
+        }
+        BillingPlanCode previousPlanCode = subscription.getBillingPlan() == null
+                ? null
+                : subscription.getBillingPlan().getCode();
 
         subscription.setBillingPlan(billingPlan);
         subscription.setProvider(BillingProvider.ABACATEPAY);
@@ -115,6 +131,15 @@ public class AbacatePayWebhookService {
             subscription.setEndedAt(parseDateTime(subscriptionNode, "endedAt"));
             subscription.setCancelAtPeriodEnd(false);
         }
+        if (previousPlanCode == null || !previousPlanCode.equals(billingPlan.getCode())) {
+            subscription.setLastPlanChangeAt(firstNonNull(
+                    parseDateTime(subscriptionNode, "startedAt"),
+                    parseDateTime(subscriptionNode, "currentPeriodStart"),
+                    now
+            ));
+        } else if (subscription.getLastPlanChangeAt() == null) {
+            subscription.setLastPlanChangeAt(firstNonNull(subscription.getStartedAt(), now));
+        }
 
         tenantSubscriptionRepository.save(subscription);
         BillingPlan profilePlan = status == BillingSubscriptionStatus.CANCELED
@@ -137,6 +162,7 @@ public class AbacatePayWebhookService {
         subscription.setProvider(BillingProvider.MANUAL);
         subscription.setStartedAt(LocalDateTime.now());
         subscription.setCurrentPeriodStart(LocalDateTime.now());
+        subscription.setLastPlanChangeAt(LocalDateTime.now());
         subscription.setCancelAtPeriodEnd(false);
         return subscription;
     }
@@ -145,13 +171,13 @@ public class AbacatePayWebhookService {
         JsonNode data = payload.path("data");
         JsonNode checkout = data.path("checkout");
         String tenantId = firstNonBlank(
-                text(subscriptionNode, "externalId"),
-                text(checkout, "externalId"),
-                data.path("externalId").asText(null),
-                subscriptionNode.path("metadata").path("tenantId").asText(null),
-                checkout.path("metadata").path("tenantId").asText(null),
-                data.path("metadata").path("tenantId").asText(null),
-                data.path("payment").path("externalId").asText(null)
+                text(subscriptionNode, "metadata", "tenantId"),
+                text(checkout, "metadata", "tenantId"),
+                text(data, "metadata", "tenantId"),
+                extractTenantIdFromExternalId(text(subscriptionNode, "externalId")),
+                extractTenantIdFromExternalId(text(checkout, "externalId")),
+                extractTenantIdFromExternalId(data.path("externalId").asText(null)),
+                extractTenantIdFromExternalId(data.path("payment").path("externalId").asText(null))
         );
         if (tenantId == null || tenantId.isBlank()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Missing tenantId in webhook payload");
@@ -191,6 +217,51 @@ public class AbacatePayWebhookService {
     private String text(JsonNode node, String field) {
         JsonNode value = node.get(field);
         return value == null || value.isNull() ? null : value.asText(null);
+    }
+
+    private String text(JsonNode node, String parentField, String childField) {
+        JsonNode parent = node.get(parentField);
+        if (parent == null || parent.isNull()) {
+            return null;
+        }
+        JsonNode value = parent.get(childField);
+        return value == null || value.isNull() ? null : value.asText(null);
+    }
+
+    private String extractTenantIdFromExternalId(String externalId) {
+        if (externalId == null || externalId.isBlank()) {
+            return null;
+        }
+        if (isUuid(externalId)) {
+            return externalId;
+        }
+        if (externalId.length() >= 36) {
+            String candidate = externalId.substring(0, 36);
+            if (isUuid(candidate) && externalId.length() > 36 && externalId.charAt(36) == '-') {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private boolean shouldIgnoreCancellationEvent(TenantSubscription currentSubscription, String incomingProviderSubscriptionId) {
+        String activeProviderSubscriptionId = currentSubscription.getProviderSubscriptionId();
+        if (activeProviderSubscriptionId == null || activeProviderSubscriptionId.isBlank()) {
+            return false;
+        }
+        if (incomingProviderSubscriptionId == null || incomingProviderSubscriptionId.isBlank()) {
+            return true;
+        }
+        return !activeProviderSubscriptionId.equals(incomingProviderSubscriptionId);
+    }
+
+    private boolean isUuid(String value) {
+        try {
+            UUID.fromString(value);
+            return true;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
     }
 
     private LocalDateTime parseDateTime(JsonNode node, String field) {

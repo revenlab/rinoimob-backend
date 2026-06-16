@@ -47,6 +47,7 @@ public class TenantSubscriptionService {
         subscription.setProvider(BillingProvider.MANUAL);
         subscription.setCurrentPeriodStart(now);
         subscription.setStartedAt(now);
+        subscription.setLastPlanChangeAt(now);
         subscription.setCancelAtPeriodEnd(false);
 
         return tenantSubscriptionRepository.save(subscription);

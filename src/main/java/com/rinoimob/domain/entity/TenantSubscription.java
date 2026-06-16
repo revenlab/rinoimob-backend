@@ -66,6 +66,9 @@ public class TenantSubscription {
     @Column(name = "started_at")
     private LocalDateTime startedAt;
 
+    @Column(name = "last_plan_change_at")
+    private LocalDateTime lastPlanChangeAt;
+
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
