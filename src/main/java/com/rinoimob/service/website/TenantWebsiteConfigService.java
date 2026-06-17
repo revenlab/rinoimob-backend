@@ -24,6 +24,7 @@ public class TenantWebsiteConfigService {
     private final TenantWebsiteConfigRepository tenantWebsiteConfigRepository;
     private final TenantRepository tenantRepository;
     private final FileStorageService fileStorageService;
+    private final CloudflareCustomHostnameService cloudflareCustomHostnameService;
 
     @Transactional
     public TenantWebsiteConfigResponse getConfig(UUID tenantId) {
@@ -178,26 +179,49 @@ public class TenantWebsiteConfigService {
     @Transactional
     public TenantWebsiteConfigResponse updateCustomDomain(UUID tenantId, String customDomain) {
         TenantWebsiteConfig config = getOrCreateConfig(tenantId);
-        
+
         if (customDomain != null && !customDomain.isBlank()) {
-            // Validar formato de domínio básico
-            if (!isValidDomain(customDomain)) {
+            String normalizedDomain = normalizeDomain(customDomain);
+            if (!isValidDomain(normalizedDomain)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de domínio inválido");
             }
-            config.setCustomDomain(customDomain);
+            if (!isCustomDomainAvailable(normalizedDomain, tenantId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Domínio já está em uso por outro tenant");
+            }
+            CloudflareCustomHostnameService.CloudflareHostnameResult hostnameResult =
+                    cloudflareCustomHostnameService.createOrUpdate(normalizedDomain);
+            config.setCustomDomain(normalizedDomain);
+            config.setCustomDomainProviderId(hostnameResult.providerId());
+            config.setCustomDomainStatus(hostnameResult.status());
+            config.setCustomDomainTarget(hostnameResult.targetHostname());
         } else {
+            cloudflareCustomHostnameService.delete(config.getCustomDomainProviderId());
             config.setCustomDomain(null);
+            config.setCustomDomainProviderId(null);
+            config.setCustomDomainStatus(null);
+            config.setCustomDomainTarget(null);
         }
-        
+
         TenantWebsiteConfig saved = tenantWebsiteConfigRepository.save(config);
         log.info("Custom domain updated tenant={} domain={}", tenantId, customDomain);
         return toResponse(saved);
     }
 
     private boolean isValidDomain(String domain) {
-        // Validar domínio: apenas caracteres válidos, sem espaços, deve ter pelo menos um ponto
-        String domainRegex = "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$";
+        String domainRegex = "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$";
         return domain.matches(domainRegex) && domain.length() <= 255;
+    }
+
+    private String normalizeDomain(String domain) {
+        return domain.trim().toLowerCase().replaceFirst("^https?://", "").replaceFirst("^www\\.", "");
+    }
+
+    private boolean isCustomDomainAvailable(String customDomain, UUID currentTenantId) {
+        return tenantWebsiteConfigRepository.findAll().stream()
+                .filter(config -> config.getCustomDomain() != null)
+                .filter(config -> !config.getTenantId().equals(currentTenantId))
+                .map(TenantWebsiteConfig::getCustomDomain)
+                .noneMatch(existing -> existing.equalsIgnoreCase(customDomain));
     }
 
     private TenantWebsiteConfig getOrCreateConfig(UUID tenantId) {
@@ -256,6 +280,9 @@ public class TenantWebsiteConfigService {
                 config.getCtaSectionTitle(),
                 config.getCtaSectionSubtitle(),
                 config.getCustomDomain(),
+                config.getCustomDomainStatus(),
+                config.getCustomDomainProviderId(),
+                config.getCustomDomainTarget(),
                 config.getAboutPageTitle(),
                 config.getAboutPageSubtitle(),
                 config.getAboutPageDescription(),

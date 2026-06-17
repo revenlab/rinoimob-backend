@@ -162,6 +162,15 @@ public class TenantWebsiteConfig {
     @Column(name = "custom_domain", unique = true)
     private String customDomain;
 
+    @Column(name = "custom_domain_status")
+    private String customDomainStatus;
+
+    @Column(name = "custom_domain_provider_id")
+    private String customDomainProviderId;
+
+    @Column(name = "custom_domain_target")
+    private String customDomainTarget;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 

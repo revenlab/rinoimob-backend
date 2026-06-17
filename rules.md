@@ -141,6 +141,11 @@ support:health:read
 - Auditoria em toda ação de suporte via `AuditLogRepository`.
 - Flyway para migrations — próxima será `V41__...`.
 
+## Structural Note
+
+- `V41__tenant_custom_domain_cloudflare.sql` passou a guardar `custom_domain_status`, `custom_domain_provider_id` e `custom_domain_target`; o fluxo de domínio agora provisiona custom hostname via Cloudflare quando as credenciais estão configuradas, e `PublicController` resolve tenants por subdomínio ou domínio customizado.
+- `GET /api/v1/website-config/domain` agora exige `TENANT_ADMIN` ou `TENANT_OWNER`, alinhando leitura e escrita do fluxo de domínio customizado.
+
 ## Tipos de imóveis por tenant (#40)
 
 - `tenant_property_types` guarda rótulo, ordem e ativo por tenant para os códigos fixos de `PropertyType`.

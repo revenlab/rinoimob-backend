@@ -101,10 +101,14 @@ public class TenantWebsiteConfigController {
     }
 
     @GetMapping("/domain")
+    @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
     public ResponseEntity<TenantDomainResponse> getCustomDomain() {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         TenantWebsiteConfigResponse config = tenantWebsiteConfigService.getConfig(tenantId);
-        return ResponseEntity.ok(new TenantDomainResponse(config.customDomain()));
+        return ResponseEntity.ok(new TenantDomainResponse(
+                config.customDomain(),
+                config.customDomainStatus(),
+                config.customDomainTarget()));
     }
 
     @PutMapping("/domain")
@@ -113,6 +117,9 @@ public class TenantWebsiteConfigController {
             @RequestBody UpdateTenantDomainRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         TenantWebsiteConfigResponse config = tenantWebsiteConfigService.updateCustomDomain(tenantId, request.customDomain());
-        return ResponseEntity.ok(new TenantDomainResponse(config.customDomain()));
+        return ResponseEntity.ok(new TenantDomainResponse(
+                config.customDomain(),
+                config.customDomainStatus(),
+                config.customDomainTarget()));
     }
 }

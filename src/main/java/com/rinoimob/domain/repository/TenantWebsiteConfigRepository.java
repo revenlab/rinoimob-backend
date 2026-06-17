@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.UUID;
 
 public interface TenantWebsiteConfigRepository extends JpaRepository<TenantWebsiteConfig, UUID> {
+    java.util.Optional<TenantWebsiteConfig> findByCustomDomainIgnoreCase(String customDomain);
 }

@@ -13,6 +13,7 @@ import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import com.rinoimob.domain.repository.TenantRepository;
+import com.rinoimob.domain.repository.TenantWebsiteConfigRepository;
 import com.rinoimob.service.website.BlogPostService;
 import com.rinoimob.service.crm.LeadService;
 import com.rinoimob.service.imoveis.PropertyService;
@@ -40,6 +41,7 @@ import java.util.UUID;
 public class PublicController {
 
     private final TenantRepository tenantRepository;
+    private final TenantWebsiteConfigRepository tenantWebsiteConfigRepository;
     private final PropertyService propertyService;
     private final LeadService leadService;
     private final TenantWebsiteConfigService tenantWebsiteConfigService;
@@ -167,10 +169,22 @@ public class PublicController {
 
     // ── Helper ────────────────────────────────────────────────────────────────
 
-    private UUID resolveTenant(String slug) {
-        return tenantRepository.findBySubdomain(slug)
+    private UUID resolveTenant(String tenantIdentifier) {
+        String normalizedIdentifier = normalizeTenantIdentifier(tenantIdentifier);
+        return tenantRepository.findBySubdomain(normalizedIdentifier)
+                .or(() -> tenantWebsiteConfigRepository.findByCustomDomainIgnoreCase(normalizedIdentifier)
+                        .flatMap(config -> tenantRepository.findById(config.getTenantId())))
                 .map(Tenant::getId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tenant not found"));
+    }
+
+    private String normalizeTenantIdentifier(String tenantIdentifier) {
+        if (tenantIdentifier == null) {
+            return "";
+        }
+        return tenantIdentifier.trim().toLowerCase()
+                .replaceFirst("^https?://", "")
+                .replaceFirst("^www\\.", "");
     }
 
     private String normalizePublicLeadSource(String source) {
