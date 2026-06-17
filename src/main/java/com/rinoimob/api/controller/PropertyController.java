@@ -95,6 +95,32 @@ public class PropertyController {
         return ResponseEntity.noContent().build();
     }
 
+    // ── Videos ───────────────────────────────────────────────────────────────
+
+    @PostMapping(value = "/{id}/videos/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
+    public ResponseEntity<PropertyVideoResponse> uploadVideo(
+            @PathVariable UUID id,
+            @RequestPart("file") MultipartFile file,
+            @RequestPart(value = "title", required = false) String title) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(propertyService.addUploadedVideo(id, file, title));
+    }
+
+    @PostMapping("/{id}/videos/youtube")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
+    public ResponseEntity<PropertyVideoResponse> addYoutubeVideo(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateYoutubeVideoRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(propertyService.addYoutubeVideo(id, request));
+    }
+
+    @DeleteMapping("/{id}/videos/{videoId}")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
+    public ResponseEntity<Void> deleteVideo(@PathVariable UUID id, @PathVariable UUID videoId) {
+        propertyService.deleteVideo(id, videoId);
+        return ResponseEntity.noContent().build();
+    }
+
     // ── Floor Plans ───────────────────────────────────────────────────────────
 
     @PostMapping("/{id}/floor-plans")

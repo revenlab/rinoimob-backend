@@ -6,15 +6,18 @@ import com.rinoimob.domain.entity.FloorPlanPhoto;
 import com.rinoimob.domain.entity.Property;
 import com.rinoimob.domain.entity.PropertyCategory;
 import com.rinoimob.domain.entity.PropertyPhoto;
+import com.rinoimob.domain.entity.PropertyVideo;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
+import com.rinoimob.domain.enums.PropertyVideoSource;
 import com.rinoimob.domain.repository.FloorPlanPhotoRepository;
 import com.rinoimob.domain.repository.PropertyCategoryRepository;
 import com.rinoimob.domain.repository.PropertySpecification;
 import com.rinoimob.domain.repository.FloorPlanRepository;
 import com.rinoimob.domain.repository.PropertyPhotoRepository;
 import com.rinoimob.domain.repository.PropertyRepository;
+import com.rinoimob.domain.repository.PropertyVideoRepository;
 import com.rinoimob.service.billing.TenantQuotaEnforcementService;
 import com.rinoimob.service.storage.FileStorageService;
 import com.rinoimob.context.TenantContext;
@@ -38,6 +41,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -48,10 +53,15 @@ public class PropertyService {
     private final PropertyPhotoRepository photoRepository;
     private final FloorPlanRepository floorPlanRepository;
     private final FloorPlanPhotoRepository floorPlanPhotoRepository;
+    private final PropertyVideoRepository videoRepository;
     private final PropertyCategoryRepository categoryRepository;
     private final FileStorageService fileStorageService;
     private final CategoryService categoryService;
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
+    private static final long MAX_VIDEO_UPLOAD_BYTES = 25L * 1024L * 1024L;
+    private static final Pattern YOUTUBE_VIDEO_ID_PATTERN = Pattern.compile(
+            "(?:youtube\\.com/(?:watch\\?v=|embed/|shorts/)|youtu\\.be/)([A-Za-z0-9_-]{11})"
+    );
 
     // ── CRUD ─────────────────────────────────────────────────────────────────
 
@@ -245,6 +255,70 @@ public class PropertyService {
             propertyRepository.save(property);
         }
         log.info("Photo deleted id={} from property={}", photoId, propertyId);
+    }
+
+    // ── VIDEOS ───────────────────────────────────────────────────────────────
+
+    @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
+    public PropertyVideoResponse addUploadedVideo(UUID propertyId, MultipartFile file, String title) {
+        Property property = findOwnedProperty(propertyId);
+        validateVideoUpload(file);
+
+        FileStorageService.UploadResult result = fileStorageService.upload(file);
+        PropertyVideo video = new PropertyVideo();
+        video.setProperty(property);
+        video.setTenantId(property.getTenantId());
+        video.setSource(PropertyVideoSource.UPLOAD);
+        video.setSeaweedFid(result.fid());
+        video.setUrl(result.url());
+        video.setTitle(normalizeVideoTitle(title));
+        video.setPosition(videoRepository.countByPropertyId(propertyId));
+        video = videoRepository.save(video);
+
+        log.info("Video uploaded to property={} fid={}", propertyId, result.fid());
+        return toVideoResponse(video);
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
+    public PropertyVideoResponse addYoutubeVideo(UUID propertyId, CreateYoutubeVideoRequest request) {
+        Property property = findOwnedProperty(propertyId);
+        String videoId = extractYoutubeVideoId(request.url());
+        String embedUrl = "https://www.youtube.com/embed/" + videoId;
+
+        PropertyVideo video = new PropertyVideo();
+        video.setProperty(property);
+        video.setTenantId(property.getTenantId());
+        video.setSource(PropertyVideoSource.YOUTUBE);
+        video.setUrl(embedUrl);
+        video.setYoutubeVideoId(videoId);
+        video.setTitle(normalizeVideoTitle(request.title()));
+        video.setPosition(videoRepository.countByPropertyId(propertyId));
+        video = videoRepository.save(video);
+
+        log.info("YouTube video added to property={} videoId={}", propertyId, videoId);
+        return toVideoResponse(video);
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
+    public void deleteVideo(UUID propertyId, UUID videoId) {
+        findOwnedProperty(propertyId);
+        PropertyVideo video = videoRepository.findByIdAndPropertyId(videoId, propertyId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Video not found"));
+
+        if (video.getSource() == PropertyVideoSource.UPLOAD && video.getSeaweedFid() != null) {
+            fileStorageService.delete(video.getSeaweedFid(), video.getUrl());
+        }
+
+        videoRepository.delete(video);
+        List<PropertyVideo> remaining = videoRepository.findByPropertyIdOrderByPositionAsc(propertyId);
+        for (int i = 0; i < remaining.size(); i++) {
+            remaining.get(i).setPosition(i);
+        }
+        videoRepository.saveAll(remaining);
+        log.info("Video deleted id={} from property={}", videoId, propertyId);
     }
 
     // ── FLOOR PLANS ──────────────────────────────────────────────────────────
@@ -480,7 +554,8 @@ public class PropertyService {
                 p.getAttributes(), cats,
                 p.getPublishedAt(), p.getCreatedAt(), p.getUpdatedAt(),
                 p.getPhotos().stream().map(this::toPhotoResponse).toList(),
-                p.getFloorPlans().stream().map(this::toFloorPlanResponse).toList()
+                p.getFloorPlans().stream().map(this::toFloorPlanResponse).toList(),
+                p.getVideos().stream().map(this::toVideoResponse).toList()
         );
     }
 
@@ -514,6 +589,45 @@ public class PropertyService {
     private FloorPlanPhotoResponse toFloorPlanPhotoResponse(FloorPlanPhoto fpp) {
         return new FloorPlanPhotoResponse(fpp.getId(), fpp.getUrl(), fpp.getPosition(),
                 fpp.getPosition() != null && fpp.getPosition() == 0, fpp.getCreatedAt());
+    }
+
+    private PropertyVideoResponse toVideoResponse(PropertyVideo video) {
+        return new PropertyVideoResponse(video.getId(), video.getSource(), video.getUrl(),
+                video.getYoutubeVideoId(), video.getTitle(), video.getPosition(), video.getCreatedAt());
+    }
+
+    private void validateVideoUpload(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Video file is required");
+        }
+        if (file.getSize() > MAX_VIDEO_UPLOAD_BYTES) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Video file must be at most 25MB");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.toLowerCase().startsWith("video/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File must be a video");
+        }
+    }
+
+    private String extractYoutubeVideoId(String url) {
+        if (url == null || url.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "YouTube URL is required");
+        }
+
+        Matcher matcher = YOUTUBE_VIDEO_ID_PATTERN.matcher(url.trim());
+        if (!matcher.find()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid YouTube URL");
+        }
+
+        return matcher.group(1);
+    }
+
+    private String normalizeVideoTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return null;
+        }
+        String trimmed = title.trim();
+        return trimmed.length() <= 120 ? trimmed : trimmed.substring(0, 120);
     }
 
     private void renumberFloorPlanPhotos(List<FloorPlanPhoto> photos) {

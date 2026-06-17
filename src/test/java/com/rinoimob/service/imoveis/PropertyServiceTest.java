@@ -5,10 +5,12 @@ import com.rinoimob.domain.dto.property.*;
 import com.rinoimob.domain.entity.FloorPlan;
 import com.rinoimob.domain.entity.Property;
 import com.rinoimob.domain.entity.PropertyPhoto;
+import com.rinoimob.domain.entity.PropertyVideo;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import com.rinoimob.domain.enums.PropertyCondition;
+import com.rinoimob.domain.enums.PropertyVideoSource;
 import com.rinoimob.domain.repository.*;
 import com.rinoimob.service.billing.TenantQuotaEnforcementService;
 import com.rinoimob.service.storage.FileStorageService;
@@ -20,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -37,11 +40,13 @@ class PropertyServiceTest {
     private static final UUID PROPERTY_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static final UUID PHOTO_ID = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static final UUID FLOOR_PLAN_ID = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
+    private static final UUID VIDEO_ID = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
 
     @Mock private PropertyRepository propertyRepository;
     @Mock private PropertyPhotoRepository photoRepository;
     @Mock private FloorPlanRepository floorPlanRepository;
     @Mock private FloorPlanPhotoRepository floorPlanPhotoRepository;
+    @Mock private PropertyVideoRepository videoRepository;
     @Mock private PropertyCategoryRepository categoryRepository;
     @Mock private FileStorageService fileStorageService;
     @Mock private CategoryService categoryService;
@@ -54,7 +59,7 @@ class PropertyServiceTest {
         TenantContext.setTenantId(TENANT_ID.toString());
         propertyService = new PropertyService(
                 propertyRepository, photoRepository, floorPlanRepository,
-                floorPlanPhotoRepository, categoryRepository, fileStorageService, categoryService,
+                floorPlanPhotoRepository, videoRepository, categoryRepository, fileStorageService, categoryService,
                 tenantQuotaEnforcementService);
     }
 
@@ -242,6 +247,84 @@ class PropertyServiceTest {
         verify(propertyRepository, never()).save(any());
     }
 
+    // ── videos ───────────────────────────────────────────────────────────────
+
+    @Test
+    void addUploadedVideo_savesVideoWhenFileIsWithinLimit() {
+        Property property = buildProperty();
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(PROPERTY_ID, TENANT_ID))
+                .thenReturn(Optional.of(property));
+        when(videoRepository.countByPropertyId(PROPERTY_ID)).thenReturn(0);
+        when(fileStorageService.upload(any()))
+                .thenReturn(new FileStorageService.UploadResult("2,01", "http://storage/2,01"));
+        when(videoRepository.save(any())).thenReturn(buildUploadedVideo(property));
+
+        MockMultipartFile file = new MockMultipartFile("file", "tour.mp4", "video/mp4", new byte[100]);
+        PropertyVideoResponse response = propertyService.addUploadedVideo(PROPERTY_ID, file, "Tour");
+
+        assertThat(response.id()).isEqualTo(VIDEO_ID);
+        assertThat(response.source()).isEqualTo(PropertyVideoSource.UPLOAD);
+        assertThat(response.title()).isEqualTo("Tour");
+        verify(videoRepository).save(argThat(video -> video.getPosition() == 0));
+    }
+
+    @Test
+    void addUploadedVideo_rejectsFilesAbove25Mb() {
+        Property property = buildProperty();
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(PROPERTY_ID, TENANT_ID))
+                .thenReturn(Optional.of(property));
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        when(file.getSize()).thenReturn(25L * 1024L * 1024L + 1L);
+
+        assertThatThrownBy(() -> propertyService.addUploadedVideo(PROPERTY_ID, file, "Large"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("25MB");
+
+        verify(fileStorageService, never()).upload(any());
+    }
+
+    @Test
+    void addYoutubeVideo_normalizesUrlToEmbedUrl() {
+        Property property = buildProperty();
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(PROPERTY_ID, TENANT_ID))
+                .thenReturn(Optional.of(property));
+        when(videoRepository.countByPropertyId(PROPERTY_ID)).thenReturn(1);
+        when(videoRepository.save(any())).thenAnswer(invocation -> {
+            PropertyVideo video = invocation.getArgument(0);
+            video.setId(VIDEO_ID);
+            video.setCreatedAt(LocalDateTime.now());
+            return video;
+        });
+
+        PropertyVideoResponse response = propertyService.addYoutubeVideo(
+                PROPERTY_ID,
+                new CreateYoutubeVideoRequest("https://youtu.be/dQw4w9WgXcQ", "Visita")
+        );
+
+        assertThat(response.source()).isEqualTo(PropertyVideoSource.YOUTUBE);
+        assertThat(response.youtubeVideoId()).isEqualTo("dQw4w9WgXcQ");
+        assertThat(response.url()).isEqualTo("https://www.youtube.com/embed/dQw4w9WgXcQ");
+        assertThat(response.position()).isEqualTo(1);
+    }
+
+    @Test
+    void deleteVideo_deletesUploadedFileFromStorage() {
+        Property property = buildProperty();
+        PropertyVideo video = buildUploadedVideo(property);
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(PROPERTY_ID, TENANT_ID))
+                .thenReturn(Optional.of(property));
+        when(videoRepository.findByIdAndPropertyId(VIDEO_ID, PROPERTY_ID))
+                .thenReturn(Optional.of(video));
+        when(videoRepository.findByPropertyIdOrderByPositionAsc(PROPERTY_ID))
+                .thenReturn(List.of());
+
+        propertyService.deleteVideo(PROPERTY_ID, VIDEO_ID);
+
+        verify(fileStorageService).delete("2,01", "http://storage/2,01");
+        verify(videoRepository).delete(video);
+    }
+
     // ── setCoverPhoto ─────────────────────────────────────────────────────────
 
     @Test
@@ -354,6 +437,20 @@ class PropertyServiceTest {
         plan.setCreatedAt(LocalDateTime.now());
         plan.setPhotos(new ArrayList<>());
         return plan;
+    }
+
+    private PropertyVideo buildUploadedVideo(Property property) {
+        PropertyVideo video = new PropertyVideo();
+        video.setId(VIDEO_ID);
+        video.setProperty(property);
+        video.setTenantId(TENANT_ID);
+        video.setSource(PropertyVideoSource.UPLOAD);
+        video.setSeaweedFid("2,01");
+        video.setUrl("http://storage/2,01");
+        video.setTitle("Tour");
+        video.setPosition(0);
+        video.setCreatedAt(LocalDateTime.now());
+        return video;
     }
 
     private UpdatePropertyRequest buildUpdateRequest(String title, PropertyStatus status) {

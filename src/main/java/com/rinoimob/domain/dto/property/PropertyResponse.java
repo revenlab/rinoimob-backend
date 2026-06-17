@@ -51,5 +51,6 @@ public record PropertyResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         List<PropertyPhotoResponse> photos,
-        List<FloorPlanResponse> floorPlans
+        List<FloorPlanResponse> floorPlans,
+        List<PropertyVideoResponse> videos
 ) implements Serializable {}

@@ -4,7 +4,7 @@ Arquivo de histórico de mudanças e crumbs para reduzir tokens em contextos fut
 
 ---
 
-## Última migration: V25
+## Última migration: V38
 
 ```
 V21__support_permissions.sql — tabela support_user_permissions com UNIQUE(user_id, permission)
@@ -12,6 +12,7 @@ V22__tenant_website_config.sql — tabela tenant_website_config (tenant_id como 
 V23__add_hero_image_to_website_config.sql — adiciona hero_image_fid e hero_image_url em tenant_website_config
 V24__expand_tenant_website_config_cms.sql — adiciona campos CMS da home (destaques, lançamentos, categorias, serviços, stats, blog, CTA)
 V25__create_tenant_blog_posts.sql — cria CMS real de blog por tenant (draft/publicado, slug único, conteúdo HTML)
+V38__property_videos.sql — cria vídeos de imóveis com origem UPLOAD/YOUTUBE
 ```
 
 ---
@@ -136,7 +137,17 @@ support:health:read
 - K&R, 4 espaços, sem tabs.
 - Repos SEMPRE escopados por `tenantId` — nunca `findById()` solo em entidade de tenant.
 - Auditoria em toda ação de suporte via `AuditLogRepository`.
-- Flyway para migrations — próxima será `V26__...`.
+- Flyway para migrations — próxima será `V39__...`.
+
+## Vídeos em imóveis (#47)
+
+- Migration `V38__property_videos.sql` cria `property_videos` com `tenant_id`, `property_id`, `source` (`UPLOAD`/`YOUTUBE`), `seaweed_fid`, `url`, `youtube_video_id`, `title` e `position`.
+- `Property` agora possui coleção `videos`; `PropertyResponse` expõe `List<PropertyVideoResponse> videos` também para o contrato público.
+- Endpoints autenticados:
+  - `POST /api/v1/properties/{id}/videos/upload` (`multipart/form-data`, `file`, `title?`) envia vídeo para SeaweedFS e limita arquivo a 25MB.
+  - `POST /api/v1/properties/{id}/videos/youtube` cadastra URL do YouTube e normaliza para `https://www.youtube.com/embed/{id}`.
+  - `DELETE /api/v1/properties/{id}/videos/{videoId}` remove o vídeo; se for upload, apaga também do storage.
+- Mutação de vídeos usa `@CacheEvict` para `publicPropertyListings` e `publicPropertyDetails`.
 
 ---
 

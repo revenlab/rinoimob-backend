@@ -156,6 +156,10 @@ public class Property {
     @OrderBy("createdAt ASC")
     private List<FloorPlan> floorPlans = new ArrayList<>();
 
+    @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("position ASC")
+    private List<PropertyVideo> videos = new ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
