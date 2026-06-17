@@ -57,6 +57,7 @@ public class PropertyService {
     private final PropertyCategoryRepository categoryRepository;
     private final FileStorageService fileStorageService;
     private final CategoryService categoryService;
+    private final PropertyTypeService propertyTypeService;
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
     private static final long MAX_VIDEO_UPLOAD_BYTES = 25L * 1024L * 1024L;
     private static final Pattern YOUTUBE_VIDEO_ID_PATTERN = Pattern.compile(
@@ -70,6 +71,7 @@ public class PropertyService {
     public PropertyResponse createProperty(CreatePropertyRequest req) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         tenantQuotaEnforcementService.assertCanCreateProperty(tenantId);
+        propertyTypeService.assertActive(tenantId, req.propertyType());
         Property property = new Property();
         property.setTenantId(tenantId);
         applyRequest(property, req);
@@ -83,6 +85,9 @@ public class PropertyService {
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public PropertyResponse updateProperty(UUID id, UpdatePropertyRequest req) {
         Property property = findOwnedProperty(id);
+        if (req.propertyType() != null && req.propertyType() != property.getPropertyType()) {
+            propertyTypeService.assertActive(property.getTenantId(), req.propertyType());
+        }
         applyUpdate(property, req);
         property = propertyRepository.save(property);
         log.info("Property updated id={}", id);

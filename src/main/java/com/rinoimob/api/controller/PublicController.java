@@ -2,6 +2,7 @@ package com.rinoimob.api.controller;
 
 import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.PublicCreateLeadRequest;
+import com.rinoimob.domain.dto.PropertyTypeResponse;
 import com.rinoimob.domain.dto.property.PropertySummaryResponse;
 import com.rinoimob.domain.dto.property.PropertyResponse;
 import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
@@ -15,6 +16,7 @@ import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.service.website.BlogPostService;
 import com.rinoimob.service.crm.LeadService;
 import com.rinoimob.service.imoveis.PropertyService;
+import com.rinoimob.service.imoveis.PropertyTypeService;
 import com.rinoimob.service.website.TenantWebsiteConfigService;
 import com.rinoimob.domain.dto.CreateLeadRequest;
 import jakarta.validation.Valid;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -41,6 +44,7 @@ public class PublicController {
     private final LeadService leadService;
     private final TenantWebsiteConfigService tenantWebsiteConfigService;
     private final BlogPostService blogPostService;
+    private final PropertyTypeService propertyTypeService;
 
     @GetMapping("/properties")
     public ResponseEntity<Page<PropertySummaryResponse>> listProperties(
@@ -79,6 +83,18 @@ public class PublicController {
         TenantContext.setTenantId(tenantId.toString());
         try {
             return ResponseEntity.ok(propertyService.getProperty(id));
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    @GetMapping("/property-types")
+    public ResponseEntity<List<PropertyTypeResponse>> listPropertyTypes(
+            @RequestHeader("X-Tenant-Slug") String tenantSlug) {
+        UUID tenantId = resolveTenant(tenantSlug);
+        TenantContext.setTenantId(tenantId.toString());
+        try {
+            return ResponseEntity.ok(propertyTypeService.listActive(tenantId));
         } finally {
             TenantContext.clear();
         }

@@ -4,7 +4,7 @@ Arquivo de histórico de mudanças e crumbs para reduzir tokens em contextos fut
 
 ---
 
-## Última migration: V39
+## Última migration: V40
 
 ```
 V21__support_permissions.sql — tabela support_user_permissions com UNIQUE(user_id, permission)
@@ -14,6 +14,7 @@ V24__expand_tenant_website_config_cms.sql — adiciona campos CMS da home (desta
 V25__create_tenant_blog_posts.sql — cria CMS real de blog por tenant (draft/publicado, slug único, conteúdo HTML)
 V38__property_videos.sql — cria vídeos de imóveis com origem UPLOAD/YOUTUBE
 V39__granular_broker_permissions.sql — migra Corretor padrão para permissões próprias em leads/tarefas
+V40__tenant_property_types.sql — cria tipos de imóveis configuráveis por tenant sobre os códigos fixos do enum
 ```
 
 ---
@@ -138,7 +139,15 @@ support:health:read
 - K&R, 4 espaços, sem tabs.
 - Repos SEMPRE escopados por `tenantId` — nunca `findById()` solo em entidade de tenant.
 - Auditoria em toda ação de suporte via `AuditLogRepository`.
-- Flyway para migrations — próxima será `V40__...`.
+- Flyway para migrations — próxima será `V41__...`.
+
+## Tipos de imóveis por tenant (#40)
+
+- `tenant_property_types` guarda rótulo, ordem e ativo por tenant para os códigos fixos de `PropertyType`.
+- `GET /api/v1/property-types` lista todos os tipos do tenant; `activeOnly=true` retorna apenas ativos.
+- `PUT /api/v1/property-types/{code}` atualiza `label`, `position` e `active`.
+- `GET /api/v1/public/property-types` expõe apenas os ativos para o site público.
+- `PropertyService` bloqueia criação/alteração para tipo inativo, sem migrar `properties.property_type` para FK nesta fase.
 
 ## Vídeos em imóveis (#47)
 

@@ -50,6 +50,7 @@ class PropertyServiceTest {
     @Mock private PropertyCategoryRepository categoryRepository;
     @Mock private FileStorageService fileStorageService;
     @Mock private CategoryService categoryService;
+    @Mock private PropertyTypeService propertyTypeService;
     @Mock private TenantQuotaEnforcementService tenantQuotaEnforcementService;
 
     private PropertyService propertyService;
@@ -60,7 +61,7 @@ class PropertyServiceTest {
         propertyService = new PropertyService(
                 propertyRepository, photoRepository, floorPlanRepository,
                 floorPlanPhotoRepository, videoRepository, categoryRepository, fileStorageService, categoryService,
-                tenantQuotaEnforcementService);
+                propertyTypeService, tenantQuotaEnforcementService);
     }
 
     @AfterEach
