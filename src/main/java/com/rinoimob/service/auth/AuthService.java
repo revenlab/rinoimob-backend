@@ -27,6 +27,7 @@ import com.rinoimob.service.billing.TenantQuotaEnforcementService;
 import com.rinoimob.service.core.TenantRoleService;
 import com.rinoimob.service.billing.TenantBillingOnboardingService;
 import com.rinoimob.service.email.EmailService;
+import com.rinoimob.service.imoveis.PropertyTypeService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -52,6 +53,7 @@ public class AuthService {
     private final EmailService emailService;
     private final TenantRoleService tenantRoleService;
     private final TenantBillingOnboardingService tenantBillingOnboardingService;
+    private final PropertyTypeService propertyTypeService;
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
     private final TokenService tokenService;
     private final SupportUserPermissionRepository supportUserPermissionRepository;
@@ -71,6 +73,7 @@ public class AuthService {
                        EmailService emailService,
                        TenantRoleService tenantRoleService,
                        TenantBillingOnboardingService tenantBillingOnboardingService,
+                       PropertyTypeService propertyTypeService,
                        TenantQuotaEnforcementService tenantQuotaEnforcementService,
                        TokenService tokenService,
                        SupportUserPermissionRepository supportUserPermissionRepository) {
@@ -83,6 +86,7 @@ public class AuthService {
         this.emailService = emailService;
         this.tenantRoleService = tenantRoleService;
         this.tenantBillingOnboardingService = tenantBillingOnboardingService;
+        this.propertyTypeService = propertyTypeService;
         this.tenantQuotaEnforcementService = tenantQuotaEnforcementService;
         this.tokenService = tokenService;
         this.supportUserPermissionRepository = supportUserPermissionRepository;
@@ -130,6 +134,7 @@ public class AuthService {
 
         tenantRoleService.seedDefaultRoles(savedTenant.getId());
         tenantBillingOnboardingService.provisionDefaultFreePlan(savedTenant.getId());
+        propertyTypeService.provisionDefaults(savedTenant.getId());
 
         String verificationToken = UUID.randomUUID().toString();
         VerificationToken token = new VerificationToken();

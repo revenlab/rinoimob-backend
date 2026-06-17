@@ -145,6 +145,7 @@ support:health:read
 
 - `V41__tenant_custom_domain_cloudflare.sql` passou a guardar `custom_domain_status`, `custom_domain_provider_id` e `custom_domain_target`; o fluxo de domínio agora provisiona custom hostname via Cloudflare quando as credenciais estão configuradas, e `PublicController` resolve tenants por subdomínio ou domínio customizado.
 - `GET /api/v1/website-config/domain` agora exige `TENANT_ADMIN` ou `TENANT_OWNER`, alinhando leitura e escrita do fluxo de domínio customizado.
+- `V42__tenant_property_type_website_metadata.sql` adiciona `card_color`, `cover_image_fid` e `cover_image_url` em `tenant_property_types`; `PropertyTypeService` agora provisiona defaults no signup, permite editar cor do card e upload/remoção de capa por tipo via `/api/v1/property-types/{code}/cover-image`.
 
 ## Tipos de imóveis por tenant (#40)
 

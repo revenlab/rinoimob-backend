@@ -9,5 +9,7 @@ public record PropertyTypeResponse(
         PropertyType code,
         String label,
         int position,
-        boolean active
+        boolean active,
+        String cardColor,
+        String coverImageUrl
 ) {}

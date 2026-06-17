@@ -39,6 +39,15 @@ public class TenantPropertyType {
     @Column(nullable = false)
     private boolean active;
 
+    @Column(name = "card_color", length = 20)
+    private String cardColor;
+
+    @Column(name = "cover_image_fid", length = 255)
+    private String coverImageFid;
+
+    @Column(name = "cover_image_url", length = 500)
+    private String coverImageUrl;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
