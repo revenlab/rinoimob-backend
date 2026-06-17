@@ -217,6 +217,7 @@ support:health:read
    - `GET /api/v1/public/properties` também aceita `latitude`, `longitude` e `radiusKm`.
    - `PropertySpecification.withFilters(...)` aplica um bounding box simples em `lat/lng` quando o raio é informado.
    - `PropertyService` agora usa `@Cacheable` para listagem/detalhe públicos e `@CacheEvict(allEntries = true)` em mutações de imóvel, foto e planta para invalidar o catálogo público.
+   - Correção de floor plans: `PropertyService.addFloorPlan()` também invalida `publicPropertyListings` e `publicPropertyDetails`; antes a criação da planta podia deixar app interno e website recebendo detalhe antigo sem `floorPlans`.
  - Bolsão de Leads hardening (#49):
    - `LeadPoolController` recebeu documentação Swagger e validação também no `PUT`.
    - `LeadPoolService` valida nome, JSON de critérios, tipos de critérios, faixa de preço, prioridade, inatividade, enums de roteamento/seleção e corretores obrigatórios em `SPECIFIC_BROKERS`.

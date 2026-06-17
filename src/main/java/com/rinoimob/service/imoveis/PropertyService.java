@@ -250,6 +250,7 @@ public class PropertyService {
     // ── FLOOR PLANS ──────────────────────────────────────────────────────────
 
     @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public FloorPlanResponse addFloorPlan(UUID propertyId, CreateFloorPlanRequest req) {
         Property property = findOwnedProperty(propertyId);
         FloorPlan plan = new FloorPlan();
