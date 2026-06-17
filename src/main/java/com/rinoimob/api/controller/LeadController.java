@@ -74,9 +74,12 @@ public class LeadController {
     @PostMapping
     @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
     public ResponseEntity<LeadResponse> create(
-            @Valid @RequestBody CreateLeadRequest request) {
+            @Valid @RequestBody CreateLeadRequest request,
+            Authentication auth,
+            HttpServletRequest httpRequest) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(leadService.create(tenantId, request));
+        UUID scopedUserId = resolveScopedUserId(auth, httpRequest, false);
+        return ResponseEntity.status(HttpStatus.CREATED).body(leadService.create(tenantId, scopedUserId, request));
     }
 
     @PutMapping("/{id}")

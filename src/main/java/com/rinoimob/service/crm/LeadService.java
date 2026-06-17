@@ -62,15 +62,23 @@ public class LeadService {
         long total = scopedUserId != null
                 ? leadRepository.countByTenantIdAndAssignedToAndDeletedAtIsNull(tenantId, scopedUserId)
                 : leadRepository.countByTenantIdAndDeletedAtIsNull(tenantId);
-        long newLeads = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.NEW);
-        long contacted = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.CONTACTED);
-        long qualified = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.QUALIFIED);
-        long won = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.WON);
-        long lost = leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, LeadStatus.LOST);
+        long newLeads = countByStatus(tenantId, scopedUserId, LeadStatus.NEW);
+        long contacted = countByStatus(tenantId, scopedUserId, LeadStatus.CONTACTED);
+        long qualified = countByStatus(tenantId, scopedUserId, LeadStatus.QUALIFIED);
+        long won = countByStatus(tenantId, scopedUserId, LeadStatus.WON);
+        long lost = countByStatus(tenantId, scopedUserId, LeadStatus.LOST);
         LocalDateTime weekAgo = LocalDateTime.now().minusDays(7);
-        long thisWeek = leadRepository.countByTenantIdAndCreatedAtAfterAndDeletedAtIsNull(tenantId, weekAgo);
+        long thisWeek = scopedUserId != null
+                ? leadRepository.countByTenantIdAndAssignedToAndCreatedAtAfterAndDeletedAtIsNull(tenantId, scopedUserId, weekAgo)
+                : leadRepository.countByTenantIdAndCreatedAtAfterAndDeletedAtIsNull(tenantId, weekAgo);
         double conversionRate = (won + lost) > 0 ? (double) won / (won + lost) * 100 : 0;
         return new LeadStatsResponse(total, newLeads, contacted, qualified, won, lost, thisWeek, conversionRate);
+    }
+
+    private long countByStatus(UUID tenantId, UUID scopedUserId, LeadStatus status) {
+        return scopedUserId != null
+                ? leadRepository.countByTenantIdAndAssignedToAndStatusAndDeletedAtIsNull(tenantId, scopedUserId, status)
+                : leadRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, status);
     }
 
     @Transactional(readOnly = true)
@@ -106,6 +114,11 @@ public class LeadService {
 
     @Transactional
     public LeadResponse create(UUID tenantId, CreateLeadRequest req) {
+        return create(tenantId, null, req);
+    }
+
+    @Transactional
+    public LeadResponse create(UUID tenantId, UUID scopedUserId, CreateLeadRequest req) {
         tenantQuotaEnforcementService.assertCanCreateLead(tenantId);
         Lead lead = new Lead();
         lead.setTenantId(tenantId);
@@ -124,6 +137,13 @@ public class LeadService {
             if (pool != null) {
                 applyLeadPoolRouting(tenantId, lead, pool);
             }
+        }
+
+        if (scopedUserId != null) {
+            if (lead.getAssignedTo() != null && !scopedUserId.equals(lead.getAssignedTo())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot assign lead to another broker");
+            }
+            lead.setAssignedTo(scopedUserId);
         }
 
         lead = leadRepository.save(lead);

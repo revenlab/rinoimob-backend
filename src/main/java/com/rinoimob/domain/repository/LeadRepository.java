@@ -34,8 +34,16 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
 
     long countByTenantIdAndStatusAndDeletedAtIsNull(UUID tenantId, LeadStatus status);
 
+    long countByTenantIdAndAssignedToAndStatusAndDeletedAtIsNull(UUID tenantId, UUID assignedTo, LeadStatus status);
+
     @Query("SELECT COUNT(l) FROM Lead l WHERE l.tenantId = :tenantId AND l.deletedAt IS NULL AND l.createdAt >= :since")
     long countByTenantIdAndCreatedAtAfterAndDeletedAtIsNull(UUID tenantId, @Param("since") java.time.LocalDateTime since);
+
+    @Query("SELECT COUNT(l) FROM Lead l WHERE l.tenantId = :tenantId AND l.assignedTo = :assignedTo AND l.deletedAt IS NULL AND l.createdAt >= :since")
+    long countByTenantIdAndAssignedToAndCreatedAtAfterAndDeletedAtIsNull(
+            @Param("tenantId") UUID tenantId,
+            @Param("assignedTo") UUID assignedTo,
+            @Param("since") java.time.LocalDateTime since);
 
     List<Lead> findByTenantIdAndDeletedAtIsNullAndStatusNotInAndUpdatedAtBefore(
             UUID tenantId, List<LeadStatus> statuses, java.time.LocalDateTime updatedAt);

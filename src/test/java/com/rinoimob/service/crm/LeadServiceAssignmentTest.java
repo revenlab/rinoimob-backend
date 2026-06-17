@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -69,6 +70,54 @@ class LeadServiceAssignmentTest {
         Lead persisted = cap.getValue();
         assertThat(persisted.getPoolId()).isEqualTo(poolId);
         assertThat(persisted.getAssignedTo()).isEqualTo(brokerId);
+    }
+
+    @Test
+    void createLeadWithScopedBrokerAssignsToCurrentUser() {
+        UUID tenant = UUID.randomUUID();
+        UUID brokerId = UUID.randomUUID();
+        org.mockito.Mockito.doNothing().when(tenantQuotaEnforcementService).assertCanCreateLead(tenant);
+
+        Lead saved = new Lead();
+        saved.setId(UUID.randomUUID());
+        saved.setAssignedTo(brokerId);
+        when(leadRepository.save(any())).thenReturn(saved);
+
+        LeadService svc = new LeadService(leadRepository, leadNoteRepository, leadEventRepository, userRepository,
+                leadPropertyRepository, propertyRepository, leadPoolRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
+                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository));
+
+        svc.create(tenant, brokerId, new CreateLeadRequest("Name", null, "123", null, null, "MANUAL"));
+
+        ArgumentCaptor<Lead> cap = ArgumentCaptor.forClass(Lead.class);
+        verify(leadRepository).save(cap.capture());
+        assertThat(cap.getValue().getAssignedTo()).isEqualTo(brokerId);
+    }
+
+    @Test
+    void createLeadWithScopedBrokerRejectsAssignmentToAnotherUser() {
+        UUID tenant = UUID.randomUUID();
+        UUID brokerId = UUID.randomUUID();
+        UUID otherBrokerId = UUID.randomUUID();
+        org.mockito.Mockito.doNothing().when(tenantQuotaEnforcementService).assertCanCreateLead(tenant);
+
+        LeadPool pool = new LeadPool(UUID.randomUUID(), tenant, "P", null, LocalDateTime.now(), null, 100, "ROUND_ROBIN");
+        when(leadPoolRepository.findByTenantIdOrderByPriorityAsc(tenant)).thenReturn(List.of(pool));
+        when(leadPoolRepository.findByIdAndTenantId(pool.getId(), tenant)).thenReturn(Optional.of(pool));
+        User broker = new User();
+        broker.setId(otherBrokerId);
+        broker.setActive(true);
+        when(userRepository.findByTenantIdAndActive(tenant, Boolean.TRUE)).thenReturn(List.of(broker));
+
+        LeadService svc = new LeadService(leadRepository, leadNoteRepository, leadEventRepository, userRepository,
+                leadPropertyRepository, propertyRepository, leadPoolRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
+                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository));
+
+        assertThatThrownBy(() -> svc.create(tenant, brokerId, new CreateLeadRequest("Name", null, "123", null, null, "MANUAL")))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("Cannot assign lead to another broker");
+
+        verify(leadRepository, never()).save(any());
     }
 
 }

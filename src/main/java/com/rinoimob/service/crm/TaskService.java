@@ -40,9 +40,21 @@ public class TaskService {
     private final AutomationEventDispatcher automationEventDispatcher;
 
     public Page<TaskResponse> list(UUID tenantId, Boolean pending, UUID leadId, int page, int size) {
+        return list(tenantId, null, pending, leadId, page, size);
+    }
+
+    public Page<TaskResponse> list(UUID tenantId, UUID scopedUserId, Boolean pending, UUID leadId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("dueAt").ascending().and(Sort.by("createdAt").descending()));
         Page<Task> tasks;
-        if (leadId != null) {
+        if (scopedUserId != null && leadId != null) {
+            tasks = taskRepository.findByTenantIdAndAssignedToAndLeadIdAndDeletedAtIsNull(tenantId, scopedUserId, leadId, pageable);
+        } else if (scopedUserId != null && Boolean.TRUE.equals(pending)) {
+            tasks = taskRepository.findByTenantIdAndAssignedToAndCompletedAtIsNullAndDeletedAtIsNull(tenantId, scopedUserId, pageable);
+        } else if (scopedUserId != null && Boolean.FALSE.equals(pending)) {
+            tasks = taskRepository.findByTenantIdAndAssignedToAndCompletedAtIsNotNullAndDeletedAtIsNull(tenantId, scopedUserId, pageable);
+        } else if (scopedUserId != null) {
+            tasks = taskRepository.findByTenantIdAndAssignedToAndDeletedAtIsNull(tenantId, scopedUserId, pageable);
+        } else if (leadId != null) {
             tasks = taskRepository.findByTenantIdAndLeadIdAndDeletedAtIsNull(tenantId, leadId, pageable);
         } else if (Boolean.TRUE.equals(pending)) {
             tasks = taskRepository.findByTenantIdAndCompletedAtIsNullAndDeletedAtIsNull(tenantId, pageable);
@@ -60,12 +72,23 @@ public class TaskService {
     }
 
     public TaskResponse create(UUID tenantId, CreateTaskRequest req) {
+        return create(tenantId, null, req);
+    }
+
+    public TaskResponse create(UUID tenantId, UUID scopedUserId, CreateTaskRequest req) {
+        UUID assignedTo = req.assignedTo();
+        if (scopedUserId != null) {
+            if (assignedTo != null && !scopedUserId.equals(assignedTo)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot assign task to another broker");
+            }
+            assignedTo = scopedUserId;
+        }
         Task task = Task.builder()
                 .tenantId(tenantId)
                 .title(req.title())
                 .description(req.description())
                 .leadId(req.leadId())
-                .assignedTo(req.assignedTo())
+                .assignedTo(assignedTo)
                 .dueAt(req.dueAt())
                 .taskTypeId(req.taskTypeId())
                 .build();
@@ -75,18 +98,33 @@ public class TaskService {
     }
 
     public TaskResponse update(UUID id, UUID tenantId, UpdateTaskRequest req) {
+        return update(id, tenantId, null, req);
+    }
+
+    public TaskResponse update(UUID id, UUID tenantId, UUID scopedUserId, UpdateTaskRequest req) {
         Task task = findTask(id, tenantId);
+        assertScopedAccess(task, scopedUserId);
         if (req.title() != null) task.setTitle(req.title());
         if (req.description() != null) task.setDescription(req.description());
         if (req.leadId() != null) task.setLeadId(req.leadId());
-        if (req.assignedTo() != null) task.setAssignedTo(req.assignedTo());
+        if (req.assignedTo() != null) {
+            if (scopedUserId != null && !scopedUserId.equals(req.assignedTo())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot assign task to another broker");
+            }
+            task.setAssignedTo(req.assignedTo());
+        }
         if (req.dueAt() != null) task.setDueAt(req.dueAt());
         if (req.taskTypeId() != null) task.setTaskTypeId(req.taskTypeId());
         return toResponse(taskRepository.save(task));
     }
 
     public TaskResponse complete(UUID id, UUID tenantId) {
+        return complete(id, tenantId, null);
+    }
+
+    public TaskResponse complete(UUID id, UUID tenantId, UUID scopedUserId) {
         Task task = findTask(id, tenantId);
+        assertScopedAccess(task, scopedUserId);
         task.setCompletedAt(task.getCompletedAt() == null ? LocalDateTime.now() : null);
         task = taskRepository.save(task);
         if (task.getCompletedAt() != null) {
@@ -96,7 +134,12 @@ public class TaskService {
     }
 
     public void delete(UUID id, UUID tenantId) {
+        delete(id, tenantId, null);
+    }
+
+    public void delete(UUID id, UUID tenantId, UUID scopedUserId) {
         Task task = findTask(id, tenantId);
+        assertScopedAccess(task, scopedUserId);
         task.setDeletedAt(LocalDateTime.now());
         taskRepository.save(task);
     }
@@ -105,6 +148,12 @@ public class TaskService {
         return taskRepository.findById(id)
                 .filter(t -> t.getTenantId().equals(tenantId) && t.getDeletedAt() == null)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+    }
+
+    private void assertScopedAccess(Task task, UUID scopedUserId) {
+        if (scopedUserId != null && !scopedUserId.equals(task.getAssignedTo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this task");
+        }
     }
 
     private TaskResponse toResponse(Task task) {

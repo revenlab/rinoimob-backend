@@ -4,7 +4,7 @@ Arquivo de histórico de mudanças e crumbs para reduzir tokens em contextos fut
 
 ---
 
-## Última migration: V38
+## Última migration: V39
 
 ```
 V21__support_permissions.sql — tabela support_user_permissions com UNIQUE(user_id, permission)
@@ -13,6 +13,7 @@ V23__add_hero_image_to_website_config.sql — adiciona hero_image_fid e hero_ima
 V24__expand_tenant_website_config_cms.sql — adiciona campos CMS da home (destaques, lançamentos, categorias, serviços, stats, blog, CTA)
 V25__create_tenant_blog_posts.sql — cria CMS real de blog por tenant (draft/publicado, slug único, conteúdo HTML)
 V38__property_videos.sql — cria vídeos de imóveis com origem UPLOAD/YOUTUBE
+V39__granular_broker_permissions.sql — migra Corretor padrão para permissões próprias em leads/tarefas
 ```
 
 ---
@@ -137,7 +138,7 @@ support:health:read
 - K&R, 4 espaços, sem tabs.
 - Repos SEMPRE escopados por `tenantId` — nunca `findById()` solo em entidade de tenant.
 - Auditoria em toda ação de suporte via `AuditLogRepository`.
-- Flyway para migrations — próxima será `V39__...`.
+- Flyway para migrations — próxima será `V40__...`.
 
 ## Vídeos em imóveis (#47)
 

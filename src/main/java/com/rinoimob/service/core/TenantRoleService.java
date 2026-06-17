@@ -102,8 +102,8 @@ public class TenantRoleService {
     public void seedDefaultRoles(UUID tenantId) {
         createSystemRole(tenantId, "Administrador", "Acesso total ao sistema", Permission.allValues());
         createSystemRole(tenantId, "Corretor", "Acesso a leads, tarefas, imóveis e WhatsApp",
-                Arrays.asList("leads:read", "leads:write", "tasks:read", "tasks:write",
-                        "properties:read", "properties:write", "whatsapp:read", "whatsapp:write"));
+                Arrays.asList("leads:read_own", "leads:write_own", "tasks:read_own", "tasks:write_own",
+                        "properties:read", "whatsapp:read", "whatsapp:write"));
         createSystemRole(tenantId, "Visualizador", "Acesso de leitura apenas",
                 Arrays.asList("leads:read", "properties:read", "tasks:read", "categories:read",
                         "whatsapp:read", "reports:read"));

@@ -13,6 +13,9 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     Page<Task> findByTenantIdAndDeletedAtIsNull(UUID tenantId, Pageable pageable);
     Page<Task> findByTenantIdAndLeadIdAndDeletedAtIsNull(UUID tenantId, UUID leadId, Pageable pageable);
     Page<Task> findByTenantIdAndAssignedToAndDeletedAtIsNull(UUID tenantId, UUID assignedTo, Pageable pageable);
+    Page<Task> findByTenantIdAndAssignedToAndLeadIdAndDeletedAtIsNull(UUID tenantId, UUID assignedTo, UUID leadId, Pageable pageable);
+    Page<Task> findByTenantIdAndAssignedToAndCompletedAtIsNullAndDeletedAtIsNull(UUID tenantId, UUID assignedTo, Pageable pageable);
+    Page<Task> findByTenantIdAndAssignedToAndCompletedAtIsNotNullAndDeletedAtIsNull(UUID tenantId, UUID assignedTo, Pageable pageable);
     Page<Task> findByTenantIdAndCompletedAtIsNullAndDeletedAtIsNull(UUID tenantId, Pageable pageable);
     Page<Task> findByTenantIdAndCompletedAtIsNotNullAndDeletedAtIsNull(UUID tenantId, Pageable pageable);
     List<Task> findByTenantIdAndLeadIdAndDeletedAtIsNull(UUID tenantId, UUID leadId);
