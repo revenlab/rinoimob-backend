@@ -39,12 +39,7 @@ public class LeadPoolInactivityScheduler {
     public void scanInactiveLeadPools() {
         Set<UUID> processedLeads = new HashSet<>();
 
-        List<LeadPool> allPools = leadPoolRepository.findAll().stream()
-                .filter(pool -> pool.getTriggerAfterInactiveDays() != null && pool.getTriggerAfterInactiveDays() > 0)
-                .sorted((a, b) -> Integer.compare(
-                        a.getPriority() != null ? a.getPriority() : 100,
-                        b.getPriority() != null ? b.getPriority() : 100))
-                .toList();
+        List<LeadPool> allPools = leadPoolRepository.findInactivityPools();
 
         for (LeadPool pool : allPools) {
             LocalDateTime cutoff = LocalDateTime.now().minusDays(pool.getTriggerAfterInactiveDays());

@@ -217,3 +217,8 @@ support:health:read
    - `GET /api/v1/public/properties` também aceita `latitude`, `longitude` e `radiusKm`.
    - `PropertySpecification.withFilters(...)` aplica um bounding box simples em `lat/lng` quando o raio é informado.
    - `PropertyService` agora usa `@Cacheable` para listagem/detalhe públicos e `@CacheEvict(allEntries = true)` em mutações de imóvel, foto e planta para invalidar o catálogo público.
+ - Bolsão de Leads hardening (#49):
+   - `LeadPoolController` recebeu documentação Swagger e validação também no `PUT`.
+   - `LeadPoolService` valida nome, JSON de critérios, tipos de critérios, faixa de preço, prioridade, inatividade, enums de roteamento/seleção e corretores obrigatórios em `SPECIFIC_BROKERS`.
+   - `LeadPoolRuleEvaluator` passou a buscar imóvel por `propertyId + tenantId + deletedAt null`, mantendo avaliação tenant-scoped.
+   - `LeadPoolInactivityScheduler` usa `LeadPoolRepository.findInactivityPools()` para buscar apenas pools com gatilho ativo, ordenados por tenant/prioridade.

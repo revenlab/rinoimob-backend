@@ -1,5 +1,6 @@
 package com.rinoimob.domain.dto.property;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -11,4 +12,4 @@ public record FloorPlanResponse(
         BigDecimal area,
         LocalDateTime createdAt,
         List<FloorPlanPhotoResponse> photos
-) {}
+) implements Serializable {}

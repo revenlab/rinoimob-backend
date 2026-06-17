@@ -6,6 +6,7 @@ import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -51,4 +52,4 @@ public record PropertyResponse(
         LocalDateTime updatedAt,
         List<PropertyPhotoResponse> photos,
         List<FloorPlanResponse> floorPlans
-) {}
+) implements Serializable {}

@@ -1,5 +1,6 @@
 package com.rinoimob.domain.dto;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 public record CategoryResponse(
@@ -11,4 +12,4 @@ public record CategoryResponse(
     Boolean active,
     Integer position,
     boolean isGlobal
-) {}
+) implements Serializable {}

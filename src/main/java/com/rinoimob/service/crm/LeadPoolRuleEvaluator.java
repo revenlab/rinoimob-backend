@@ -56,6 +56,7 @@ public class LeadPoolRuleEvaluator {
     }
 
     private boolean matches(JsonNode node, Lead lead) {
+        Property property = null;
         // source
         if (node.has("source")) {
             String src = node.get("source").asText(null);
@@ -66,8 +67,8 @@ public class LeadPoolRuleEvaluator {
             String city = node.get("city").asText(null);
             String leadCity = null;
             if (lead.getPropertyId() != null) {
-                Property prop = propertyRepository.findById(lead.getPropertyId()).orElse(null);
-                if (prop != null) leadCity = prop.getAddressCity();
+                property = findLeadProperty(lead, property);
+                if (property != null) leadCity = property.getAddressCity();
             }
             if (city != null) {
                 if (leadCity == null || !leadCity.equalsIgnoreCase(city)) return false;
@@ -78,23 +79,23 @@ public class LeadPoolRuleEvaluator {
             String pt = node.get("propertyType").asText(null);
             if (pt != null) {
                 if (lead.getPropertyId() == null) return false;
-                Property prop = propertyRepository.findById(lead.getPropertyId()).orElse(null);
-                if (prop == null || prop.getPropertyType() == null || !prop.getPropertyType().name().equalsIgnoreCase(pt)) return false;
+                property = findLeadProperty(lead, property);
+                if (property == null || property.getPropertyType() == null || !property.getPropertyType().name().equalsIgnoreCase(pt)) return false;
             }
         }
         // minPrice
         if (node.has("minPrice")) {
             BigDecimal min = node.get("minPrice").decimalValue();
             if (lead.getPropertyId() == null) return false;
-            Property prop = propertyRepository.findById(lead.getPropertyId()).orElse(null);
-            if (prop == null || prop.getPrice() == null || prop.getPrice().compareTo(min) < 0) return false;
+            property = findLeadProperty(lead, property);
+            if (property == null || property.getPrice() == null || property.getPrice().compareTo(min) < 0) return false;
         }
         // maxPrice
         if (node.has("maxPrice")) {
             BigDecimal max = node.get("maxPrice").decimalValue();
             if (lead.getPropertyId() == null) return false;
-            Property prop = propertyRepository.findById(lead.getPropertyId()).orElse(null);
-            if (prop == null || prop.getPrice() == null || prop.getPrice().compareTo(max) > 0) return false;
+            property = findLeadProperty(lead, property);
+            if (property == null || property.getPrice() == null || property.getPrice().compareTo(max) > 0) return false;
         }
         // keywordContains on lead.message and lead.name
         if (node.has("keywordContains")) {
@@ -107,5 +108,12 @@ public class LeadPoolRuleEvaluator {
             }
         }
         return true;
+    }
+
+    private Property findLeadProperty(Lead lead, Property cached) {
+        if (cached != null || lead.getPropertyId() == null || lead.getTenantId() == null) {
+            return cached;
+        }
+        return propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(lead.getPropertyId(), lead.getTenantId()).orElse(null);
     }
 }

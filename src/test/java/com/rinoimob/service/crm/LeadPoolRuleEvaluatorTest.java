@@ -47,17 +47,34 @@ class LeadPoolRuleEvaluatorTest {
         when(poolRepo.findByTenantIdOrderByPriorityAsc(tenant)).thenReturn(List.of(p));
 
         Lead lead = new Lead();
+        lead.setTenantId(tenant);
         lead.setPropertyId(UUID.randomUUID());
 
         Property prop = new Property();
         prop.setId(lead.getPropertyId());
         prop.setAddressCity("Rio");
         prop.setPrice(new BigDecimal("150000"));
-        when(propertyRepository.findById(lead.getPropertyId())).thenReturn(Optional.of(prop));
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(lead.getPropertyId(), tenant)).thenReturn(Optional.of(prop));
 
         LeadPoolRuleEvaluator eval = new LeadPoolRuleEvaluator(poolRepo, propertyRepository);
         UUID matched = eval.evaluate(tenant, lead);
         assertThat(matched).isEqualTo(p.getId());
+    }
+
+    @Test
+    void shouldNotMatchPropertyCriteriaAcrossTenants() {
+        UUID tenant = UUID.randomUUID();
+        LeadPool p = new LeadPool(UUID.randomUUID(), tenant, "P", null, LocalDateTime.now(), "{\"city\":\"Rio\"}", 100, "ROUND_ROBIN");
+        when(poolRepo.findByTenantIdOrderByPriorityAsc(tenant)).thenReturn(List.of(p));
+
+        Lead lead = new Lead();
+        lead.setTenantId(tenant);
+        lead.setPropertyId(UUID.randomUUID());
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(lead.getPropertyId(), tenant)).thenReturn(Optional.empty());
+
+        LeadPoolRuleEvaluator eval = new LeadPoolRuleEvaluator(poolRepo, propertyRepository);
+
+        assertThat(eval.evaluate(tenant, lead)).isNull();
     }
 
     @Test

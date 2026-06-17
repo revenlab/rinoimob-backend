@@ -115,6 +115,21 @@ public class PropertyService {
             PropertyStatus status,
             PropertyOperation operation,
             PropertyType propertyType,
+            String categorySlug,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Integer bedrooms,
+            String city,
+            String queryText,
+            Pageable pageable) {
+        return listProperties(status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, queryText, null, null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PropertySummaryResponse> listProperties(
+            PropertyStatus status,
+            PropertyOperation operation,
+            PropertyType propertyType,
             BigDecimal minPrice,
             BigDecimal maxPrice,
             Integer bedrooms,

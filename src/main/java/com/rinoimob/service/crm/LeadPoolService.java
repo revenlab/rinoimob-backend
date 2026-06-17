@@ -1,5 +1,7 @@
 package com.rinoimob.service.crm;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rinoimob.domain.dto.CreateLeadPoolRequest;
 import com.rinoimob.domain.dto.LeadPoolResponse;
 import com.rinoimob.domain.dto.UpdateLeadPoolRequest;
@@ -27,18 +29,21 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 @RequiredArgsConstructor
 public class LeadPoolService {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final LeadPoolRepository leadPoolRepository;
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public List<LeadPoolResponse> list(UUID tenantId) {
-        return leadPoolRepository.findByTenantId(tenantId).stream()
+        return leadPoolRepository.findByTenantIdOrderByPriorityAsc(tenantId).stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional
     public LeadPoolResponse create(UUID tenantId, CreateLeadPoolRequest req) {
+        validateName(req.name(), true);
         LeadPool p = new LeadPool();
         p.setTenantId(tenantId);
         applyRequest(tenantId, p, req.name(), req.description(), req.criteria(), req.priority(),
@@ -67,15 +72,19 @@ public class LeadPoolService {
     private void applyRequest(UUID tenantId, LeadPool pool, String name, String description, String criteria, Integer priority,
                               String routingStrategy, String brokerSelectionMode, List<UUID> brokerIds, Integer triggerAfterInactiveDays) {
         if (name != null) {
+            validateName(name, false);
             pool.setName(name);
         }
         if (description != null) {
             pool.setDescription(description);
         }
         if (criteria != null) {
-            pool.setCriteria(criteria);
+            pool.setCriteria(validateCriteria(criteria));
         }
         if (priority != null) {
+            if (priority < 0) {
+                throw new ResponseStatusException(BAD_REQUEST, "priority must be zero or greater");
+            }
             pool.setPriority(priority);
         }
         if (routingStrategy != null) {
@@ -85,6 +94,9 @@ public class LeadPoolService {
             pool.setBrokerSelectionMode(parseBrokerSelectionMode(brokerSelectionMode));
         }
         if (triggerAfterInactiveDays != null) {
+            if (triggerAfterInactiveDays < 0) {
+                throw new ResponseStatusException(BAD_REQUEST, "triggerAfterInactiveDays must be zero or greater");
+            }
             pool.setTriggerAfterInactiveDays(triggerAfterInactiveDays);
         }
         if (pool.getBrokerSelectionMode() == LeadPoolBrokerSelectionMode.SPECIFIC_BROKERS) {
@@ -99,6 +111,54 @@ public class LeadPoolService {
             }
         } else {
             pool.setBrokers(new HashSet<>());
+        }
+    }
+
+    private void validateName(String name, boolean required) {
+        if (required && (name == null || name.isBlank())) {
+            throw new ResponseStatusException(BAD_REQUEST, "name is required");
+        }
+        if (name != null && name.isBlank()) {
+            throw new ResponseStatusException(BAD_REQUEST, "name cannot be blank");
+        }
+    }
+
+    private String validateCriteria(String criteria) {
+        if (criteria.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(criteria);
+            if (!node.isObject()) {
+                throw new ResponseStatusException(BAD_REQUEST, "criteria must be a JSON object");
+            }
+            requireText(node, "source");
+            requireText(node, "city");
+            requireText(node, "propertyType");
+            requireText(node, "keywordContains");
+            requireNumber(node, "minPrice");
+            requireNumber(node, "maxPrice");
+            if (node.has("minPrice") && node.has("maxPrice")
+                    && node.get("minPrice").decimalValue().compareTo(node.get("maxPrice").decimalValue()) > 0) {
+                throw new ResponseStatusException(BAD_REQUEST, "minPrice cannot be greater than maxPrice");
+            }
+            return criteria;
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(BAD_REQUEST, "criteria must be valid JSON", e);
+        }
+    }
+
+    private void requireText(JsonNode node, String field) {
+        if (node.has(field) && !node.get(field).isTextual()) {
+            throw new ResponseStatusException(BAD_REQUEST, field + " must be a string");
+        }
+    }
+
+    private void requireNumber(JsonNode node, String field) {
+        if (node.has(field) && !node.get(field).isNumber()) {
+            throw new ResponseStatusException(BAD_REQUEST, field + " must be a number");
         }
     }
 

@@ -60,7 +60,7 @@ class LeadPoolInactivitySchedulerTest {
         lead.setUpdatedAt(LocalDateTime.now().minusDays(10));
         lead.setAssignedTo(UUID.randomUUID());
 
-        when(leadPoolRepository.findAll()).thenReturn(List.of(pool));
+        when(leadPoolRepository.findInactivityPools()).thenReturn(List.of(pool));
         when(leadRepository.findByTenantIdAndDeletedAtIsNullAndStatusNotInAndUpdatedAtBefore(any(), anyList(), any()))
                 .thenReturn(List.of(lead));
         when(leadPoolRuleEvaluator.matches(pool, lead)).thenReturn(true);
@@ -105,7 +105,7 @@ class LeadPoolInactivitySchedulerTest {
         lead.setStatus(LeadStatus.NEW);
         lead.setUpdatedAt(LocalDateTime.now().minusDays(10));
 
-        when(leadPoolRepository.findAll()).thenReturn(List.of(pool));
+        when(leadPoolRepository.findInactivityPools()).thenReturn(List.of(pool));
         when(leadRepository.findByTenantIdAndDeletedAtIsNullAndStatusNotInAndUpdatedAtBefore(any(), anyList(), any()))
                 .thenReturn(List.of(lead));
         when(leadPoolRuleEvaluator.matches(pool, lead)).thenReturn(true);
