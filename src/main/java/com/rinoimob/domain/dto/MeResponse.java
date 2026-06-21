@@ -17,5 +17,6 @@ public record MeResponse(
     UUID tenantId,
     String tenantName,
     String tenantSubdomain,
-    Set<String> supportPermissions
+    Set<String> supportPermissions,
+    OnboardingSummaryResponse onboarding
 ) {}

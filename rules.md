@@ -246,7 +246,11 @@ support:health:read
    - `PropertyService` agora usa `@Cacheable` para listagem/detalhe públicos e `@CacheEvict(allEntries = true)` em mutações de imóvel, foto e planta para invalidar o catálogo público.
    - Correção de floor plans: `PropertyService.addFloorPlan()` também invalida `publicPropertyListings` e `publicPropertyDetails`; antes a criação da planta podia deixar app interno e website recebendo detalhe antigo sem `floorPlans`.
  - Bolsão de Leads hardening (#49):
-   - `LeadPoolController` recebeu documentação Swagger e validação também no `PUT`.
-   - `LeadPoolService` valida nome, JSON de critérios, tipos de critérios, faixa de preço, prioridade, inatividade, enums de roteamento/seleção e corretores obrigatórios em `SPECIFIC_BROKERS`.
-   - `LeadPoolRuleEvaluator` passou a buscar imóvel por `propertyId + tenantId + deletedAt null`, mantendo avaliação tenant-scoped.
-   - `LeadPoolInactivityScheduler` usa `LeadPoolRepository.findInactivityPools()` para buscar apenas pools com gatilho ativo, ordenados por tenant/prioridade.
+ - `LeadPoolController` recebeu documentação Swagger e validação também no `PUT`.
+ - `LeadPoolService` valida nome, JSON de critérios, tipos de critérios, faixa de preço, prioridade, inatividade, enums de roteamento/seleção e corretores obrigatórios em `SPECIFIC_BROKERS`.
+ - `LeadPoolRuleEvaluator` passou a buscar imóvel por `propertyId + tenantId + deletedAt null`, mantendo avaliação tenant-scoped.
+ - `LeadPoolInactivityScheduler` usa `LeadPoolRepository.findInactivityPools()` para buscar apenas pools com gatilho ativo, ordenados por tenant/prioridade.
+ - Tutorial guiado do app:
+   - Migration `V43__user_onboarding_progress.sql` cria `user_onboarding_progress` com UNIQUE `(tenant_id, user_id, tutorial_key)` e timestamps de início/dismiss/conclusão.
+   - `UserOnboardingService` faz upsert idempotente do progresso por usuário autenticado; `AuthService.getMe()` agora expõe `onboarding` para usuários CRM e omite para staff interno.
+   - `PUT /api/v1/users/onboarding/{tutorialKey}` usa apenas `TenantContext + userId` autenticado, sem permitir escopo cruzado.

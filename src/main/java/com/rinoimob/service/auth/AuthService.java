@@ -17,6 +17,7 @@ import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
 import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
+import com.rinoimob.domain.dto.OnboardingSummaryResponse;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
 import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
@@ -28,6 +29,7 @@ import com.rinoimob.service.core.TenantRoleService;
 import com.rinoimob.service.billing.TenantBillingOnboardingService;
 import com.rinoimob.service.email.EmailService;
 import com.rinoimob.service.imoveis.PropertyTypeService;
+import com.rinoimob.service.onboarding.UserOnboardingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -57,6 +59,7 @@ public class AuthService {
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
     private final TokenService tokenService;
     private final SupportUserPermissionRepository supportUserPermissionRepository;
+    private final UserOnboardingService userOnboardingService;
 
     @Value("${app.verification-token-expiration:86400}")
     private long verificationTokenExpiration;
@@ -76,7 +79,8 @@ public class AuthService {
                        PropertyTypeService propertyTypeService,
                        TenantQuotaEnforcementService tenantQuotaEnforcementService,
                        TokenService tokenService,
-                       SupportUserPermissionRepository supportUserPermissionRepository) {
+                       SupportUserPermissionRepository supportUserPermissionRepository,
+                       UserOnboardingService userOnboardingService) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.globalCredentialRepository = globalCredentialRepository;
@@ -90,6 +94,7 @@ public class AuthService {
         this.tenantQuotaEnforcementService = tenantQuotaEnforcementService;
         this.tokenService = tokenService;
         this.supportUserPermissionRepository = supportUserPermissionRepository;
+        this.userOnboardingService = userOnboardingService;
     }
 
     @Transactional
@@ -405,6 +410,15 @@ public class AuthService {
             supportPermissions = new LinkedHashSet<>(supportUserPermissionRepository.findPermissionValuesByUserId(userId));
         }
 
+        OnboardingSummaryResponse onboarding = null;
+        if (user.getSystemRole() == null || !user.getSystemRole().isInternalStaff()) {
+            onboarding = userOnboardingService.getSummaryOrDefault(
+                    user.getTenantId(),
+                    user.getId(),
+                    UserOnboardingService.APP_CRM_CORE_V1
+            );
+        }
+
         return new MeResponse(
                 user.getId(),
                 user.getEmail(),
@@ -416,7 +430,8 @@ public class AuthService {
                 tenantId,
                 tenantName,
                 tenantSubdomain,
-                supportPermissions
+                supportPermissions,
+                onboarding
         );
     }
 

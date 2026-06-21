@@ -2,12 +2,14 @@ package com.rinoimob.service.auth;
 
 import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.LoginRequest;
+import com.rinoimob.domain.dto.OnboardingSummaryResponse;
 import com.rinoimob.domain.dto.RegisterRequest;
 import com.rinoimob.domain.dto.TenantRegistrationRequest;
 import com.rinoimob.domain.entity.GlobalCredential;
 import com.rinoimob.domain.entity.Tenant;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.entity.VerificationToken;
+import com.rinoimob.domain.enums.OnboardingStatus;
 import com.rinoimob.domain.enums.SystemRole;
 import com.rinoimob.domain.enums.VerificationStatus;
 import com.rinoimob.domain.repository.GlobalCredentialRepository;
@@ -15,8 +17,12 @@ import com.rinoimob.domain.repository.SupportUserPermissionRepository;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.domain.repository.VerificationTokenRepository;
+import com.rinoimob.service.billing.TenantBillingOnboardingService;
+import com.rinoimob.service.billing.TenantQuotaEnforcementService;
 import com.rinoimob.service.core.TenantRoleService;
 import com.rinoimob.service.email.EmailService;
+import com.rinoimob.service.imoveis.PropertyTypeService;
+import com.rinoimob.service.onboarding.UserOnboardingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -68,10 +74,22 @@ class AuthServiceTest {
     private TenantRoleService tenantRoleService;
 
     @Mock
+    private TenantBillingOnboardingService tenantBillingOnboardingService;
+
+    @Mock
+    private PropertyTypeService propertyTypeService;
+
+    @Mock
+    private TenantQuotaEnforcementService tenantQuotaEnforcementService;
+
+    @Mock
     private TokenService tokenService;
 
     @Mock
     private SupportUserPermissionRepository supportUserPermissionRepository;
+
+    @Mock
+    private UserOnboardingService userOnboardingService;
 
     @InjectMocks
     private AuthService authService;
@@ -399,6 +417,7 @@ class AuthServiceTest {
             var response = authService.getMe(userId);
 
             assertEquals(Set.of("support:health:read", "support:audit:read"), response.supportPermissions());
+            assertNull(response.onboarding());
         } finally {
             TenantContext.clear();
         }
@@ -418,6 +437,45 @@ class AuthServiceTest {
 
         assertTrue(response.supportPermissions().isEmpty());
         verifyNoInteractions(supportUserPermissionRepository);
+    }
+
+    @Test
+    @DisplayName("Should include onboarding summary in me response for CRM users")
+    void testGetMeIncludesOnboardingForCrmUsers() {
+        User user = new User();
+        user.setId(userId);
+        user.setTenantId(tenantId);
+        user.setEmail("owner@test.com");
+        user.setSystemRole(SystemRole.TENANT_OWNER);
+
+        Tenant tenant = new Tenant();
+        tenant.setId(tenantId);
+        tenant.setName("Acme");
+        tenant.setSubdomain("acme");
+
+        OnboardingSummaryResponse onboarding = new OnboardingSummaryResponse(
+                UserOnboardingService.APP_CRM_CORE_V1,
+                OnboardingStatus.IN_PROGRESS,
+                "dashboard-overview",
+                "/dashboard",
+                null,
+                null
+        );
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(userOnboardingService.getSummaryOrDefault(tenantId, userId, UserOnboardingService.APP_CRM_CORE_V1))
+                .thenReturn(onboarding);
+
+        TenantContext.setTenantId(tenantId.toString());
+        try {
+            var response = authService.getMe(userId);
+
+            assertEquals(onboarding, response.onboarding());
+            verify(userOnboardingService).getSummaryOrDefault(tenantId, userId, UserOnboardingService.APP_CRM_CORE_V1);
+        } finally {
+            TenantContext.clear();
+        }
     }
 
 }
