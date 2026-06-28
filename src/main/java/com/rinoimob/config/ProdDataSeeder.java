@@ -83,15 +83,20 @@ public class ProdDataSeeder implements ApplicationRunner {
     }
 
     private User ensureUser(UUID tenantId, String email, String firstName, String lastName) {
-        return userRepository.findByEmailAndTenantId(email, tenantId).orElseGet(() -> {
-            ensureCredential(email);
-
+        ensureCredential(email);
+        return userRepository.findByEmailAndTenantId(email, tenantId).map(existing -> {
+            if (existing.getSystemRole() != SystemRole.SUPPORT_MANAGER) {
+                existing.setSystemRole(SystemRole.SUPPORT_MANAGER);
+                return userRepository.save(existing);
+            }
+            return existing;
+        }).orElseGet(() -> {
             User user = new User();
             user.setTenantId(tenantId);
             user.setEmail(email);
             user.setFirstName(firstName);
             user.setLastName(lastName);
-            user.setSystemRole(SystemRole.TENANT_ADMIN);
+            user.setSystemRole(SystemRole.SUPPORT_MANAGER);
             user.setVerificationStatus(VerificationStatus.VERIFIED);
             user.setEmailVerifiedAt(LocalDateTime.now());
             user.setActive(true);

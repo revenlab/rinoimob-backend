@@ -82,7 +82,6 @@ class UserManagementServiceTest {
 
         User savedUser = buildPendingUser();
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
-        when(tenantRoleRepository.findById(ROLE_ID)).thenReturn(Optional.of(buildRole()));
 
         UserManagementResponse response = service.inviteUser(TENANT_ID, req);
 
@@ -166,10 +165,22 @@ class UserManagementServiceTest {
         User owner = buildPendingUser();
         owner.setSystemRole(SystemRole.TENANT_OWNER);
 
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(owner));
+        when(userRepository.findByIdAndTenantId(USER_ID, TENANT_ID)).thenReturn(Optional.of(owner));
 
         assertThatThrownBy(() -> service.deactivateUser(TENANT_ID, USER_ID))
                 .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void assignRole_throwsNotFound_whenUserDoesNotBelongToTenant() {
+        when(userRepository.findByIdAndTenantId(USER_ID, TENANT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.assignRole(TENANT_ID, USER_ID, ROLE_ID))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("User not found");
+
+        verify(userRepository, never()).save(any());
+        verify(tokenService, never()).invalidateUserTokens(any());
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

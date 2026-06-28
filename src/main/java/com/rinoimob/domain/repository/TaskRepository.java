@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface TaskRepository extends JpaRepository<Task, UUID> {
@@ -19,6 +20,7 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     Page<Task> findByTenantIdAndCompletedAtIsNullAndDeletedAtIsNull(UUID tenantId, Pageable pageable);
     Page<Task> findByTenantIdAndCompletedAtIsNotNullAndDeletedAtIsNull(UUID tenantId, Pageable pageable);
     List<Task> findByTenantIdAndLeadIdAndDeletedAtIsNull(UUID tenantId, UUID leadId);
+    Optional<Task> findByIdAndTenantIdAndDeletedAtIsNull(UUID id, UUID tenantId);
     long countByTenantIdAndCompletedAtIsNullAndDeletedAtIsNull(UUID tenantId);
     long countByTenantIdAndDueAtBeforeAndCompletedAtIsNullAndDeletedAtIsNull(UUID tenantId, LocalDateTime now);
 }

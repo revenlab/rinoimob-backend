@@ -68,6 +68,7 @@ class TaskServiceTest {
             task.setUpdatedAt(LocalDateTime.now());
             return task;
         });
+        when(userRepository.findByIdAndTenantId(brokerId, tenantId)).thenReturn(Optional.of(activeUser(tenantId, brokerId)));
 
         TaskService service = buildService();
 
@@ -101,7 +102,7 @@ class TaskServiceTest {
         UUID tenantId = UUID.randomUUID();
         UUID brokerId = UUID.randomUUID();
         Task task = buildTask(tenantId, UUID.randomUUID());
-        when(taskRepository.findById(task.getId())).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdAndTenantIdAndDeletedAtIsNull(task.getId(), tenantId)).thenReturn(Optional.of(task));
 
         TaskService service = buildService();
 
@@ -124,5 +125,13 @@ class TaskServiceTest {
         task.setCreatedAt(LocalDateTime.now());
         task.setUpdatedAt(LocalDateTime.now());
         return task;
+    }
+
+    private com.rinoimob.domain.entity.User activeUser(UUID tenantId, UUID userId) {
+        com.rinoimob.domain.entity.User user = new com.rinoimob.domain.entity.User();
+        user.setId(userId);
+        user.setTenantId(tenantId);
+        user.setActive(true);
+        return user;
     }
 }

@@ -10,13 +10,13 @@ public enum SystemRole {
     SUPPORT_AGENT;
 
     private static final Set<SystemRole> INTERNAL_STAFF_ROLES =
-            EnumSet.of(TENANT_ADMIN, SUPPORT_MANAGER, SUPPORT_AGENT);
+            EnumSet.of(SUPPORT_MANAGER, SUPPORT_AGENT);
 
     public boolean isInternalStaff() {
         return INTERNAL_STAFF_ROLES.contains(this);
     }
 
     public boolean canManageSupport() {
-        return this == TENANT_ADMIN || this == SUPPORT_MANAGER;
+        return this == SUPPORT_MANAGER;
     }
 }

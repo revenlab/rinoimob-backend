@@ -74,12 +74,13 @@ class DevDataSeederTest {
 
         assertThat(userCaptor.getAllValues())
                 .extracting(User::getSystemRole)
-                .contains(SystemRole.TENANT_ADMIN, SystemRole.TENANT_OWNER);
+                .contains(SystemRole.TENANT_ADMIN, SystemRole.SUPPORT_MANAGER, SystemRole.SUPPORT_AGENT, SystemRole.TENANT_OWNER);
 
         verify(globalCredentialRepository, atLeastOnce()).save(any(GlobalCredential.class));
         ArgumentCaptor<List<SupportUserPermission>> permissionCaptor = ArgumentCaptor.forClass(List.class);
-        verify(supportUserPermissionRepository).saveAll(permissionCaptor.capture());
-        assertThat(permissionCaptor.getValue())
+        verify(supportUserPermissionRepository, times(2)).saveAll(permissionCaptor.capture());
+        assertThat(permissionCaptor.getAllValues())
+                .anySatisfy(permissions -> assertThat(permissions)
                 .extracting(SupportUserPermission::getPermission)
                 .containsExactlyInAnyOrderElementsOf(
                         Set.of(
@@ -92,7 +93,7 @@ class DevDataSeederTest {
                                 SupportPermission.AUDIT_READ.getValue(),
                                 SupportPermission.HEALTH_READ.getValue()
                         )
-                );
+                ));
         verify(tenantRoleService, atLeast(2)).seedDefaultRoles(any());
     }
 }

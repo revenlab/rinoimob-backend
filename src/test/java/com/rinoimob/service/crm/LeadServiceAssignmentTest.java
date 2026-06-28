@@ -47,8 +47,9 @@ class LeadServiceAssignmentTest {
         when(leadPoolRepository.findByTenantIdOrderByPriorityAsc(tenant)).thenReturn(List.of(pool));
         when(leadPoolRepository.findByIdAndTenantId(poolId, tenant)).thenReturn(Optional.of(pool));
 
-        User broker = new User(); broker.setId(brokerId); broker.setActive(true);
+        User broker = new User(); broker.setId(brokerId); broker.setTenantId(tenant); broker.setActive(true);
         when(userRepository.findByTenantIdAndActive(tenant, Boolean.TRUE)).thenReturn(List.of(broker));
+        when(userRepository.findByIdAndTenantId(brokerId, tenant)).thenReturn(Optional.of(broker));
 
         org.mockito.Mockito.doNothing().when(tenantQuotaEnforcementService).assertCanCreateLead(tenant);
 
@@ -77,6 +78,11 @@ class LeadServiceAssignmentTest {
         UUID tenant = UUID.randomUUID();
         UUID brokerId = UUID.randomUUID();
         org.mockito.Mockito.doNothing().when(tenantQuotaEnforcementService).assertCanCreateLead(tenant);
+        User broker = new User();
+        broker.setId(brokerId);
+        broker.setTenantId(tenant);
+        broker.setActive(true);
+        when(userRepository.findByIdAndTenantId(brokerId, tenant)).thenReturn(Optional.of(broker));
 
         Lead saved = new Lead();
         saved.setId(UUID.randomUUID());

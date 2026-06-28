@@ -111,7 +111,7 @@ public class UserManagementService {
 
     @Transactional
     public UserManagementResponse assignRole(UUID tenantId, UUID userId, UUID roleId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdAndTenantId(userId, tenantId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (SystemRole.TENANT_OWNER.equals(user.getSystemRole())) {
             throw new ForbiddenException("Cannot change role of TENANT_OWNER", "Proprietário do workspace não pode ter sua função alterada");
@@ -130,7 +130,7 @@ public class UserManagementService {
 
     @Transactional
     public void deactivateUser(UUID tenantId, UUID userId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdAndTenantId(userId, tenantId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (SystemRole.TENANT_OWNER.equals(user.getSystemRole())) {
             throw new ForbiddenException("Cannot deactivate TENANT_OWNER", "Proprietário do workspace não pode ser desativado");
@@ -166,7 +166,7 @@ public class UserManagementService {
     private UserManagementResponse toResponse(User user) {
         String roleName = null;
         if (user.getTenantRoleId() != null) {
-            roleName = tenantRoleRepository.findById(user.getTenantRoleId())
+            roleName = tenantRoleRepository.findByTenantIdAndId(user.getTenantId(), user.getTenantRoleId())
                     .map(TenantRole::getName)
                     .orElse(null);
         }

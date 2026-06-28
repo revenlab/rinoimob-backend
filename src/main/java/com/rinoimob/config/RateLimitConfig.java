@@ -8,13 +8,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Configuration
 public class RateLimitConfig {
 
-    private static final Map<String, Bucket> cache = new HashMap<>();
+    private static final Map<String, Bucket> cache = new ConcurrentHashMap<>();
 
     public Bucket resolveBucket(String clientId) {
         return cache.computeIfAbsent(clientId, k -> createNewBucket());

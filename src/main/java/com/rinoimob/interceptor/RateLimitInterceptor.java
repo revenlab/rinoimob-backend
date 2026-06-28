@@ -3,6 +3,7 @@ package com.rinoimob.interceptor;
 import com.rinoimob.config.RateLimitConfig;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,10 +39,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     }
 
     private String getClientId(HttpServletRequest request) {
-        String clientId = request.getHeader("X-Client-ID");
-        if (clientId == null || clientId.isEmpty()) {
-            clientId = request.getRemoteAddr();
-        }
-        return clientId;
+        String remoteAddr = request.getRemoteAddr();
+        return StringUtils.hasText(remoteAddr) ? remoteAddr : "unknown";
     }
 }

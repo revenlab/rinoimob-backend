@@ -24,7 +24,6 @@ import java.util.UUID;
 public class SupportPermissionFilter extends OncePerRequestFilter {
 
     private static final List<String> SUPPORT_ROLES = List.of(
-            "ROLE_" + SystemRole.TENANT_ADMIN.name(),
             "ROLE_" + SystemRole.SUPPORT_MANAGER.name(),
             "ROLE_" + SystemRole.SUPPORT_AGENT.name()
     );

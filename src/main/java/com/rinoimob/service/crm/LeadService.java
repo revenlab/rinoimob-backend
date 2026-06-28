@@ -86,18 +86,18 @@ public class LeadService {
         Pageable pageable = PageRequest.of(page, size);
         if (scopedUserId != null && status != null) {
             return leadRepository.findAllByTenantIdAndAssignedToAndStatusAndDeletedAtIsNull(tenantId, scopedUserId, status, pageable)
-                    .map(l -> toResponse(l, List.of(), resolveUserName(l.getAssignedTo()), List.of()));
+                    .map(l -> toResponse(l, List.of(), resolveUserName(tenantId, l.getAssignedTo()), List.of()));
         }
         if (scopedUserId != null) {
             return leadRepository.findAllByTenantIdAndAssignedToAndDeletedAtIsNull(tenantId, scopedUserId, pageable)
-                    .map(l -> toResponse(l, List.of(), resolveUserName(l.getAssignedTo()), List.of()));
+                    .map(l -> toResponse(l, List.of(), resolveUserName(tenantId, l.getAssignedTo()), List.of()));
         }
         if (status != null) {
             return leadRepository.findAllByTenantIdAndStatusAndDeletedAtIsNull(tenantId, status, pageable)
-                    .map(l -> toResponse(l, List.of(), resolveUserName(l.getAssignedTo()), List.of()));
+                    .map(l -> toResponse(l, List.of(), resolveUserName(tenantId, l.getAssignedTo()), List.of()));
         }
         return leadRepository.findAllByTenantIdAndDeletedAtIsNull(tenantId, pageable)
-                .map(l -> toResponse(l, List.of(), resolveUserName(l.getAssignedTo()), List.of()));
+                .map(l -> toResponse(l, List.of(), resolveUserName(tenantId, l.getAssignedTo()), List.of()));
     }
 
     @Transactional(readOnly = true)
@@ -108,8 +108,8 @@ public class LeadService {
         }
         List<LeadNote> notes = leadNoteRepository.findAllByLeadIdOrderByCreatedAtDesc(id);
         List<LeadProperty> leadProps = leadPropertyRepository.findAllByLeadIdOrderByCreatedAtAsc(id);
-        List<LeadPropertyResponse> propResponses = leadProps.stream().map(this::toLeadPropertyResponse).toList();
-        return toResponse(lead, notes, resolveUserName(lead.getAssignedTo()), propResponses);
+        List<LeadPropertyResponse> propResponses = leadProps.stream().map(lp -> toLeadPropertyResponse(tenantId, lp)).toList();
+        return toResponse(lead, notes, resolveUserName(tenantId, lead.getAssignedTo()), propResponses);
     }
 
     @Transactional
@@ -127,6 +127,7 @@ public class LeadService {
         lead.setPhone(req.phone());
         lead.setMessage(req.message());
         lead.setPropertyId(req.propertyId());
+        validatePropertyBelongsToTenant(tenantId, req.propertyId());
         lead.setSource(req.source() != null ? req.source() : "MANUAL");
         lead.setStatus(LeadStatus.NEW);
 
@@ -145,6 +146,7 @@ public class LeadService {
             }
             lead.setAssignedTo(scopedUserId);
         }
+        validateActiveUserBelongsToTenant(tenantId, lead.getAssignedTo());
 
         lead = leadRepository.save(lead);
         logEvent(lead.getId(), null, LeadEventType.CREATED, "Lead criado via " + lead.getSource());
@@ -157,7 +159,7 @@ public class LeadService {
         }
         log.info("Lead created id={} tenant={}", lead.getId(), tenantId);
         automationEventDispatcher.dispatchLeadCreated(lead);
-        LeadResponse response = toResponse(lead, List.of(), resolveUserName(lead.getAssignedTo()), List.of());
+        LeadResponse response = toResponse(lead, List.of(), resolveUserName(tenantId, lead.getAssignedTo()), List.of());
         leadRealtimeService.publishLeadCreated(tenantId, response);
         return response;
     }
@@ -181,8 +183,9 @@ public class LeadService {
                     "Status alterado de " + oldStatus + " para " + req.status());
         }
         if (req.assignedTo() != null && !req.assignedTo().equals(lead.getAssignedTo())) {
+            validateActiveUserBelongsToTenant(tenantId, req.assignedTo());
             lead.setAssignedTo(req.assignedTo());
-            String userName = resolveUserName(req.assignedTo());
+            String userName = resolveUserName(tenantId, req.assignedTo());
             logEvent(lead.getId(), null, LeadEventType.ASSIGNED,
                     "Atribuído a " + (userName != null ? userName : req.assignedTo()));
         }
@@ -199,14 +202,14 @@ public class LeadService {
             automationEventDispatcher.dispatchLeadStatusChanged(lead, oldStatus);
         }
         if (oldAssignedTo == null ? lead.getAssignedTo() != null : !oldAssignedTo.equals(lead.getAssignedTo())) {
-            User assignedUser = lead.getAssignedTo() != null ? userRepository.findById(lead.getAssignedTo()).orElse(null) : null;
+            User assignedUser = lead.getAssignedTo() != null ? userRepository.findByIdAndTenantId(lead.getAssignedTo(), tenantId).orElse(null) : null;
             automationEventDispatcher.dispatchLeadAssigned(lead, assignedUser);
         }
         
         List<LeadNote> notes = leadNoteRepository.findAllByLeadIdOrderByCreatedAtDesc(id);
         List<LeadProperty> leadProps = leadPropertyRepository.findAllByLeadIdOrderByCreatedAtAsc(id);
-        List<LeadPropertyResponse> propResponses = leadProps.stream().map(this::toLeadPropertyResponse).toList();
-        LeadResponse response = toResponse(lead, notes, resolveUserName(lead.getAssignedTo()), propResponses);
+        List<LeadPropertyResponse> propResponses = leadProps.stream().map(lp -> toLeadPropertyResponse(tenantId, lp)).toList();
+        LeadResponse response = toResponse(lead, notes, resolveUserName(tenantId, lead.getAssignedTo()), propResponses);
         leadRealtimeService.publishLeadUpdated(tenantId, response);
         return response;
     }
@@ -259,6 +262,7 @@ public class LeadService {
         if (leadPropertyRepository.existsByLeadIdAndPropertyId(leadId, req.propertyId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Property already linked to this lead");
         }
+        validatePropertyBelongsToTenant(tenantId, req.propertyId());
         LeadProperty lp = new LeadProperty();
         lp.setLeadId(leadId);
         lp.setPropertyId(req.propertyId());
@@ -266,7 +270,7 @@ public class LeadService {
         lp = leadPropertyRepository.save(lp);
         touchLeadActivity(lead);
         logEvent(leadId, null, LeadEventType.PROPERTY_LINKED, "Imóvel vinculado: " + req.propertyId());
-        return toLeadPropertyResponse(lp);
+        return toLeadPropertyResponse(tenantId, lp);
     }
 
     @Transactional
@@ -280,7 +284,7 @@ public class LeadService {
         lp.setInterestLevel(req.interestLevel());
         lp = leadPropertyRepository.save(lp);
         touchLeadActivity(lead);
-        return toLeadPropertyResponse(lp);
+        return toLeadPropertyResponse(tenantId, lp);
     }
 
     @Transactional
@@ -303,7 +307,7 @@ public class LeadService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
         }
         return leadPropertyRepository.findAllByLeadIdOrderByCreatedAtAsc(leadId).stream()
-                .map(this::toLeadPropertyResponse)
+                .map(lp -> toLeadPropertyResponse(tenantId, lp))
                 .toList();
     }
 
@@ -403,9 +407,24 @@ public class LeadService {
         lead.setAssignedTo(brokerAssigner.chooseBroker(tenantId, pool));
     }
 
-    private String resolveUserName(UUID userId) {
+    private void validateActiveUserBelongsToTenant(UUID tenantId, UUID userId) {
+        if (userId == null) return;
+        User user = userRepository.findByIdAndTenantId(userId, tenantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assigned user not found"));
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Assigned user not found");
+        }
+    }
+
+    private void validatePropertyBelongsToTenant(UUID tenantId, UUID propertyId) {
+        if (propertyId == null) return;
+        propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(propertyId, tenantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Property not found"));
+    }
+
+    private String resolveUserName(UUID tenantId, UUID userId) {
         if (userId == null) return null;
-        return userRepository.findById(userId).map(u -> {
+        return userRepository.findByIdAndTenantId(userId, tenantId).map(u -> {
             if (u.getFirstName() != null && !u.getFirstName().isBlank()) {
                 return u.getLastName() != null ? u.getFirstName() + " " + u.getLastName() : u.getFirstName();
             }
@@ -413,8 +432,9 @@ public class LeadService {
         }).orElse(null);
     }
 
-    private LeadPropertyResponse toLeadPropertyResponse(LeadProperty lp) {
-        Optional<Property> propOpt = propertyRepository.findByIdWithPhotos(lp.getPropertyId());
+    private LeadPropertyResponse toLeadPropertyResponse(UUID tenantId, LeadProperty lp) {
+        Optional<Property> propOpt = propertyRepository.findByIdWithPhotos(lp.getPropertyId())
+                .filter(property -> tenantId.equals(property.getTenantId()) && property.getDeletedAt() == null);
         if (propOpt.isEmpty()) {
             return new LeadPropertyResponse(lp.getId(), lp.getLeadId(), lp.getPropertyId(),
                     lp.getInterestLevel(), lp.getCreatedAt(), null, null, null, null, null, null, null);

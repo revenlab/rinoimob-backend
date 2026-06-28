@@ -195,6 +195,14 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("Should revoke tokens for the authenticated user on logout")
+    void testLogoutInvalidatesAuthenticatedUserTokens() {
+        authService.logout(userId);
+
+        verify(tokenService).invalidateUserTokens(userId);
+    }
+
+    @Test
     @DisplayName("Should verify email successfully")
     void testVerifyEmailSuccess() {
         String token = "verification_token";

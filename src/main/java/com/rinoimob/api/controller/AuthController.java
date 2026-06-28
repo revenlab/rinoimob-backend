@@ -96,9 +96,12 @@ public class AuthController {
 
     @PostMapping("/logout")
     @Operation(summary = "Logout and revoke current token")
-    public ResponseEntity<Void> logout() {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
-        authService.logout(tenantId);
+    public ResponseEntity<Void> logout(HttpServletRequest request) {
+        UUID userId = (UUID) request.getAttribute("userId");
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        authService.logout(userId);
         return ResponseEntity.ok().build();
     }
 

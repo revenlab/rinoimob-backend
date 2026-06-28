@@ -44,6 +44,7 @@ public class TaskService {
     }
 
     public Page<TaskResponse> list(UUID tenantId, UUID scopedUserId, Boolean pending, UUID leadId, int page, int size) {
+        validateLeadBelongsToTenant(tenantId, leadId);
         Pageable pageable = PageRequest.of(page, size, Sort.by("dueAt").ascending().and(Sort.by("createdAt").descending()));
         Page<Task> tasks;
         if (scopedUserId != null && leadId != null) {
@@ -83,6 +84,9 @@ public class TaskService {
             }
             assignedTo = scopedUserId;
         }
+        validateLeadBelongsToTenant(tenantId, req.leadId());
+        validateActiveUserBelongsToTenant(tenantId, assignedTo);
+        validateTaskTypeBelongsToTenantOrGlobal(tenantId, req.taskTypeId());
         Task task = Task.builder()
                 .tenantId(tenantId)
                 .title(req.title())
@@ -106,15 +110,22 @@ public class TaskService {
         assertScopedAccess(task, scopedUserId);
         if (req.title() != null) task.setTitle(req.title());
         if (req.description() != null) task.setDescription(req.description());
-        if (req.leadId() != null) task.setLeadId(req.leadId());
+        if (req.leadId() != null) {
+            validateLeadBelongsToTenant(tenantId, req.leadId());
+            task.setLeadId(req.leadId());
+        }
         if (req.assignedTo() != null) {
             if (scopedUserId != null && !scopedUserId.equals(req.assignedTo())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot assign task to another broker");
             }
+            validateActiveUserBelongsToTenant(tenantId, req.assignedTo());
             task.setAssignedTo(req.assignedTo());
         }
         if (req.dueAt() != null) task.setDueAt(req.dueAt());
-        if (req.taskTypeId() != null) task.setTaskTypeId(req.taskTypeId());
+        if (req.taskTypeId() != null) {
+            validateTaskTypeBelongsToTenantOrGlobal(tenantId, req.taskTypeId());
+            task.setTaskTypeId(req.taskTypeId());
+        }
         return toResponse(taskRepository.save(task));
     }
 
@@ -145,8 +156,7 @@ public class TaskService {
     }
 
     private Task findTask(UUID id, UUID tenantId) {
-        return taskRepository.findById(id)
-                .filter(t -> t.getTenantId().equals(tenantId) && t.getDeletedAt() == null)
+        return taskRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
     }
 
@@ -156,12 +166,31 @@ public class TaskService {
         }
     }
 
+    private void validateLeadBelongsToTenant(UUID tenantId, UUID leadId) {
+        if (leadId == null) return;
+        leadRepository.findByIdAndTenantIdAndDeletedAtIsNull(leadId, tenantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found"));
+    }
+
+    private void validateActiveUserBelongsToTenant(UUID tenantId, UUID userId) {
+        if (userId == null) return;
+        userRepository.findByIdAndTenantId(userId, tenantId)
+                .filter(user -> Boolean.TRUE.equals(user.getActive()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assigned user not found"));
+    }
+
+    private void validateTaskTypeBelongsToTenantOrGlobal(UUID tenantId, UUID taskTypeId) {
+        if (taskTypeId == null) return;
+        taskTypeRepository.findAvailableByIdForTenant(taskTypeId, tenantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task type not found"));
+    }
+
     private TaskResponse toResponse(Task task) {
         String leadName = task.getLeadId() != null
-                ? leadRepository.findById(task.getLeadId()).map(l -> l.getName()).orElse(null)
+                ? leadRepository.findByIdAndTenantIdAndDeletedAtIsNull(task.getLeadId(), task.getTenantId()).map(l -> l.getName()).orElse(null)
                 : null;
         String assignedToName = task.getAssignedTo() != null
-                ? userRepository.findById(task.getAssignedTo())
+                ? userRepository.findByIdAndTenantId(task.getAssignedTo(), task.getTenantId())
                         .map(u -> (u.getFirstName() != null ? u.getFirstName() : "") + " " + (u.getLastName() != null ? u.getLastName() : ""))
                         .map(String::trim).orElse(null)
                 : null;
@@ -169,7 +198,7 @@ public class TaskService {
                 && task.getDueAt().isBefore(LocalDateTime.now())
                 && task.getCompletedAt() == null;
         TaskType taskType = task.getTaskTypeId() != null
-                ? taskTypeRepository.findById(task.getTaskTypeId()).orElse(null)
+                ? taskTypeRepository.findAvailableByIdForTenant(task.getTaskTypeId(), task.getTenantId()).orElse(null)
                 : null;
         return new TaskResponse(
                 task.getId(), task.getTenantId(), task.getLeadId(), leadName,

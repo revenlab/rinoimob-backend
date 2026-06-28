@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,6 +38,7 @@ public class UserController {
 
     @GetMapping
     @Operation(summary = "List active users for the current tenant")
+    @PreAuthorize("hasAuthority('PERMISSION_users:read')")
     public ResponseEntity<List<UserDto>> listUsers(HttpServletRequest request) {
         UUID tenantId = (UUID) request.getAttribute("tenantId");
         if (tenantId == null) tenantId = UUID.fromString(TenantContext.getTenantId());

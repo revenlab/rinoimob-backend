@@ -56,7 +56,7 @@ public class DevDataSeeder implements ApplicationRunner {
         tenantRoleService.seedDefaultRoles(tenant.getId());
 
         User tenantAdmin = ensureUser(tenant.getId(), "suporte@rinoimob.com", "Rino", "Support", SystemRole.TENANT_ADMIN, null);
-        ensureAllSupportPermissions(tenantAdmin);
+        log.debug("Dev tenant admin seeded without internal support permissions: {}", tenantAdmin.getEmail());
 
         User manager = ensureUser(tenant.getId(), "gestor.suporte@rinoimob.com", "Rino", "Manager", SystemRole.SUPPORT_MANAGER, null);
         ensureAllSupportPermissions(manager);

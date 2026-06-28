@@ -27,7 +27,7 @@ import java.util.UUID;
 public class SupportAdminOperatorService {
 
     private static final List<SystemRole> INTERNAL_ROLES =
-            List.of(SystemRole.TENANT_ADMIN, SystemRole.SUPPORT_MANAGER, SystemRole.SUPPORT_AGENT);
+            List.of(SystemRole.SUPPORT_MANAGER, SystemRole.SUPPORT_AGENT);
 
     private final UserRepository userRepository;
     private final SupportUserPermissionRepository supportUserPermissionRepository;

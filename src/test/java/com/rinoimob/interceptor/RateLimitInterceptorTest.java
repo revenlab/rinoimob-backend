@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RateLimitInterceptorTest {
@@ -47,7 +49,7 @@ class RateLimitInterceptorTest {
     }
 
     @Test
-    void testGetClientIdFromHeader() throws Exception {
+    void ignoresClientIdHeaderAndUsesRemoteAddress() throws Exception {
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
 
@@ -55,7 +57,9 @@ class RateLimitInterceptorTest {
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
 
         interceptor.preHandle(request, response, null);
-        assertThat(true).isTrue();
+
+        verify(request).getRemoteAddr();
+        verify(request, never()).getHeader("X-Client-ID");
     }
 
     @Test
