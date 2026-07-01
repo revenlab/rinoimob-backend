@@ -149,6 +149,7 @@ support:health:read
 - Hardening pre-prod: logout revoga pelo `userId`, `GET /api/v1/users` exige `PERMISSION_users:read`, `TENANT_ADMIN` deixou de ser staff interno, vínculos de leads/tarefas validam tenant, auth sensível usa rate limit por IP e `ProdConfigValidator` falha startup `prod` com defaults inseguros.
 - Docker prod: `Dockerfile` multi-stage compila com Maven/JDK 17 e roda o jar em `eclipse-temurin:17-jre-alpine` na porta interna `39000`; deploy esperado via `rinoimob-infrastructure/docker-compose.prod.yml` com Postgres/Redis/RabbitMQ/SeaweedFS/Evolution em rede privada atrás de Nginx como origin Cloudflare.
 - CORS prod: `/api/v1/public/**` usa `PUBLIC_CORS_ALLOWED_ORIGINS` para suportar websites em domínios customizados; rotas autenticadas continuam restritas por `CORS_ALLOWED_ORIGINS`.
+- `V44__create_audit_logs_table.sql` cria a tabela `audit_logs` esperada pela entidade `AuditLog` e migra dados best-effort da tabela legada `audit_log` quando existir.
 
 ## Tipos de imóveis por tenant (#40)
 
