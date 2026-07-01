@@ -150,6 +150,7 @@ support:health:read
 - Docker prod: `Dockerfile` multi-stage compila com Maven/JDK 17 e roda o jar em `eclipse-temurin:17-jre-alpine` na porta interna `39000`; deploy esperado via `rinoimob-infrastructure/docker-compose.prod.yml` com Postgres/Redis/RabbitMQ/SeaweedFS/Evolution em rede privada atrás de Nginx como origin Cloudflare.
 - Healthcheck prod: `/actuator/health` fica sem autenticação para o `docker-compose.prod.yml` conseguir marcar o backend como healthy; demais endpoints Actuator continuam protegidos pela regra autenticada geral.
 - CORS prod: `/api/v1/public/**` usa `PUBLIC_CORS_ALLOWED_ORIGINS` para suportar websites em domínios customizados; rotas autenticadas continuam restritas por `CORS_ALLOWED_ORIGINS`.
+- Subdomínios prod: `TENANT_BASE_DOMAIN` permite que `PublicController` normalize `cliente.rinoimob.com.br` para o subdomain `cliente`; domínios customizados continuam resolvidos por `custom_domain`.
 - `V44__create_audit_logs_table.sql` cria a tabela `audit_logs` esperada pela entidade `AuditLog` e migra dados best-effort da tabela legada `audit_log` quando existir.
 
 ## Tipos de imóveis por tenant (#40)

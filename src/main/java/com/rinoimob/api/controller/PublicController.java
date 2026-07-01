@@ -22,6 +22,7 @@ import com.rinoimob.service.website.TenantWebsiteConfigService;
 import com.rinoimob.domain.dto.CreateLeadRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +48,9 @@ public class PublicController {
     private final TenantWebsiteConfigService tenantWebsiteConfigService;
     private final BlogPostService blogPostService;
     private final PropertyTypeService propertyTypeService;
+
+    @Value("${app.tenant-base-domain:}")
+    private String tenantBaseDomain;
 
     @GetMapping("/properties")
     public ResponseEntity<Page<PropertySummaryResponse>> listProperties(
@@ -182,9 +186,36 @@ public class PublicController {
         if (tenantIdentifier == null) {
             return "";
         }
-        return tenantIdentifier.trim().toLowerCase()
+        String normalizedIdentifier = tenantIdentifier.trim().toLowerCase()
                 .replaceFirst("^https?://", "")
-                .replaceFirst("^www\\.", "");
+                .replaceFirst("^www\\.", "")
+                .split("/")[0]
+                .split(":")[0];
+
+        String normalizedBaseDomain = normalizeConfiguredDomain(tenantBaseDomain);
+        if (!normalizedBaseDomain.isBlank()
+                && normalizedIdentifier.endsWith("." + normalizedBaseDomain)) {
+            String subdomain = normalizedIdentifier.substring(
+                    0,
+                    normalizedIdentifier.length() - normalizedBaseDomain.length() - 1);
+            if (!subdomain.isBlank() && !subdomain.contains(".")) {
+                return subdomain;
+            }
+        }
+
+        return normalizedIdentifier;
+    }
+
+    private String normalizeConfiguredDomain(String domain) {
+        if (domain == null) {
+            return "";
+        }
+        return domain.trim().toLowerCase()
+                .replaceFirst("^https?://", "")
+                .replaceFirst("^\\*\\.", "")
+                .replaceFirst("^www\\.", "")
+                .split("/")[0]
+                .split(":")[0];
     }
 
     private String normalizePublicLeadSource(String source) {
