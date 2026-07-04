@@ -152,6 +152,7 @@ support:health:read
 - CORS prod: `/api/v1/public/**` usa `PUBLIC_CORS_ALLOWED_ORIGINS` para suportar websites em domínios customizados; rotas autenticadas continuam restritas por `CORS_ALLOWED_ORIGINS`.
 - Subdomínios prod: `TENANT_BASE_DOMAIN` permite que `PublicController` normalize `cliente.rinoimob.com.br` para o subdomain `cliente`; se a env faltar, `PublicController` ainda tenta resolver o primeiro label do hostname após checar `custom_domain`.
 - `V44__create_audit_logs_table.sql` cria a tabela `audit_logs` esperada pela entidade `AuditLog` e migra dados best-effort da tabela legada `audit_log` quando existir.
+- Cloudflare custom hostname é criado sem `custom_metadata`, evitando falha 403/código 1413 em contas sem custom metadata provisionado.
 
 ## Tipos de imóveis por tenant (#40)
 

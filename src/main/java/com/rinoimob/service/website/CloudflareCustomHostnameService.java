@@ -48,8 +48,7 @@ public class CloudflareCustomHostnameService {
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(
                 Map.of(
                         "hostname", hostname,
-                        "ssl", Map.of("method", "http", "type", "dv", "settings", Map.of()),
-                        "custom_metadata", Map.of("product", "rinoimob")
+                        "ssl", Map.of("method", "http", "type", "dv", "settings", Map.of())
                 ),
                 headers()
         );
