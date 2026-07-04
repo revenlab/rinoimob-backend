@@ -34,6 +34,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -178,6 +179,8 @@ public class PublicController {
         return tenantRepository.findBySubdomain(normalizedIdentifier)
                 .or(() -> tenantWebsiteConfigRepository.findByCustomDomainIgnoreCase(normalizedIdentifier)
                         .flatMap(config -> tenantRepository.findById(config.getTenantId())))
+                .or(() -> extractSubdomainFromHostname(normalizedIdentifier)
+                        .flatMap(tenantRepository::findBySubdomain))
                 .map(Tenant::getId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tenant not found"));
     }
@@ -204,6 +207,18 @@ public class PublicController {
         }
 
         return normalizedIdentifier;
+    }
+
+    private Optional<String> extractSubdomainFromHostname(String hostname) {
+        if (hostname == null || !hostname.contains(".")) {
+            return Optional.empty();
+        }
+
+        String firstLabel = hostname.split("\\.")[0];
+        if (firstLabel.isBlank() || List.of("www", "app", "api", "files").contains(firstLabel)) {
+            return Optional.empty();
+        }
+        return Optional.of(firstLabel);
     }
 
     private String normalizeConfiguredDomain(String domain) {
