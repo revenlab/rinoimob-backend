@@ -75,6 +75,7 @@ public class PropertyService {
         Property property = new Property();
         property.setTenantId(tenantId);
         applyRequest(property, req);
+        property.setReferenceCode(resolveReferenceCode(tenantId, req.referenceCode()));
         property.setStatus(req.status() != null ? req.status() : PropertyStatus.DRAFT);
         property = propertyRepository.save(property);
         log.info("Property created id={} tenant={}", property.getId(), tenantId);
@@ -452,7 +453,7 @@ public class PropertyService {
         p.setOperation(req.operation());
         p.setPropertyType(req.propertyType());
         p.setCondition(req.condition());
-        p.setReferenceCode(req.referenceCode());
+        p.setReferenceCode(normalizeReferenceCode(req.referenceCode()));
         p.setFeatured(Boolean.TRUE.equals(req.featured()));
         p.setPrice(req.price());
         p.setCurrency(req.currency() != null ? req.currency() : "BRL");
@@ -542,6 +543,32 @@ public class PropertyService {
             });
         }
         return resolved;
+    }
+
+    private String resolveReferenceCode(UUID tenantId, String requestedCode) {
+        String normalizedCode = normalizeReferenceCode(requestedCode);
+        if (normalizedCode != null) {
+            if (propertyRepository.existsByTenantIdAndReferenceCodeAndDeletedAtIsNull(tenantId, normalizedCode)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Reference code already exists");
+            }
+            return normalizedCode;
+        }
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String generatedCode = "IMV-" + UUID.randomUUID().toString().replace("-", "")
+                    .substring(0, 8).toUpperCase();
+            if (!propertyRepository.existsByTenantIdAndReferenceCodeAndDeletedAtIsNull(tenantId, generatedCode)) {
+                return generatedCode;
+            }
+        }
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "Unable to generate a unique reference code");
+    }
+
+    private String normalizeReferenceCode(String referenceCode) {
+        if (referenceCode == null || referenceCode.isBlank()) {
+            return null;
+        }
+        return referenceCode.trim().toUpperCase();
     }
 
     private PropertyResponse toResponse(Property p) {

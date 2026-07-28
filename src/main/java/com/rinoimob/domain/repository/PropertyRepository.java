@@ -20,5 +20,7 @@ public interface PropertyRepository extends JpaRepository<Property, UUID>, JpaSp
 
     boolean existsByTenantIdAndSlugAndDeletedAtIsNull(UUID tenantId, String slug);
 
+    boolean existsByTenantIdAndReferenceCodeAndDeletedAtIsNull(UUID tenantId, String referenceCode);
+
     long countByTenantIdAndDeletedAtIsNull(UUID tenantId);
 }

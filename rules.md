@@ -143,6 +143,8 @@ support:health:read
 
 ## Structural Note
 
+- **Referência automática (#61)**: na criação, imóveis sem `referenceCode` recebem `IMV-XXXXXXXX` único por tenant; códigos manuais são normalizados em maiúsculas, validados antes de persistir e protegidos por índice único parcial. A migration normaliza referências legadas vazias e desambigua duplicadas antes de criar o índice.
+
 - **Destaques por imóvel (#50)**: `properties.is_featured` identifica imóveis escolhidos pelo tenant; o contrato autenticado permite marcar/desmarcar no cadastro e a listagem pública aceita `featured=true`, usada exclusivamente pela seção de destaques da home.
 
 - **CORS público local**: a política de `/api/v1/public/**` também aceita `http(s)://*.localhost` nas portas de desenvolvimento, mantendo `allowCredentials=false`; assim o proxy Nuxt pode encaminhar leads de subdomínios locais sem afrouxar as rotas autenticadas.
