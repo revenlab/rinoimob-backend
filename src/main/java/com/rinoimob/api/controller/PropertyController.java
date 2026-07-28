@@ -38,9 +38,10 @@ public class PropertyController {
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Integer bedrooms,
             @RequestParam(required = false) String city,
+            @RequestParam(required = false) Boolean featured,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         return ResponseEntity.ok(propertyService.listProperties(
-                status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, null, pageable));
+                status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, null, null, null, null, featured, pageable));
     }
 
     @PostMapping

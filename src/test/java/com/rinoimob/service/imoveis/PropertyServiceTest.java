@@ -75,7 +75,7 @@ class PropertyServiceTest {
     void createProperty_savesAndReturnsMappedResponse() {
         CreatePropertyRequest req = new CreatePropertyRequest(
                 "Casa Teste", null, "Descrição", PropertyOperation.SALE, PropertyType.HOUSE,
-                PropertyStatus.DRAFT, null, null, new BigDecimal("500000"), "BRL", null, null,
+                PropertyStatus.DRAFT, null, null, true, new BigDecimal("500000"), "BRL", null, null,
                 new BigDecimal("120"), new BigDecimal("100"), 3, 1, 2, 2, null,
                 "Rua A", "10", null, "Bairro", "São Paulo", "SP", "BR", "01001-000",
                 null, null, null, null);
@@ -88,7 +88,7 @@ class PropertyServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.id()).isEqualTo(PROPERTY_ID);
         assertThat(response.title()).isEqualTo("Casa Teste");
-        verify(propertyRepository).save(any(Property.class));
+        verify(propertyRepository).save(argThat(Property::isFeatured));
     }
 
     @Test
@@ -96,7 +96,7 @@ class PropertyServiceTest {
         CreatePropertyRequest req = new CreatePropertyRequest(
                 "Casa", null, null, PropertyOperation.RENT, PropertyType.APARTMENT,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         Property savedProperty = buildProperty();
         when(propertyRepository.save(any(Property.class))).thenReturn(savedProperty);
@@ -464,6 +464,7 @@ class PropertyServiceTest {
                 status,          // status
                 null,            // condition
                 null,            // referenceCode
+                null,            // featured
                 null,            // price
                 null,            // currency
                 null,            // taxes

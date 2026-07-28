@@ -117,6 +117,9 @@ public class Property {
     @Column(name = "reference_code", length = 50)
     private String referenceCode;
 
+    @Column(name = "is_featured", nullable = false)
+    private boolean featured;
+
     @Column(name = "floor_number")
     private Integer floorNumber;
 

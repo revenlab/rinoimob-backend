@@ -35,7 +35,8 @@ public class PropertySpecification {
             String queryText,
             BigDecimal latitude,
             BigDecimal longitude,
-            BigDecimal radiusKm) {
+            BigDecimal radiusKm,
+            Boolean featured) {
 
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -51,6 +52,9 @@ public class PropertySpecification {
             }
             if (propertyType != null) {
                 predicates.add(cb.equal(root.get("propertyType"), propertyType));
+            }
+            if (featured != null) {
+                predicates.add(cb.equal(root.get("featured"), featured));
             }
             if (categorySlug != null && !categorySlug.isBlank()) {
                 query.distinct(true);

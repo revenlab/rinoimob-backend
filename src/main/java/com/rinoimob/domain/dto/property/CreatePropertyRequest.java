@@ -21,6 +21,7 @@ public record CreatePropertyRequest(
         PropertyStatus status,
         PropertyCondition condition,
         String referenceCode,
+        Boolean featured,
         BigDecimal price,
         String currency,
         BigDecimal taxes,

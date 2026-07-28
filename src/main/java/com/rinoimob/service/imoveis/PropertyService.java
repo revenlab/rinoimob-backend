@@ -137,7 +137,7 @@ public class PropertyService {
             String city,
             String queryText,
             Pageable pageable) {
-        return listProperties(status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, queryText, null, null, null, pageable);
+        return listProperties(status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, queryText, null, null, null, null, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -153,13 +153,13 @@ public class PropertyService {
             BigDecimal longitude,
             BigDecimal radiusKm,
             Pageable pageable) {
-        return listProperties(status, operation, propertyType, null, minPrice, maxPrice, bedrooms, city, null, latitude, longitude, radiusKm, pageable);
+        return listProperties(status, operation, propertyType, null, minPrice, maxPrice, bedrooms, city, null, latitude, longitude, radiusKm, null, pageable);
     }
 
     @Transactional(readOnly = true)
     @Cacheable(
             cacheNames = "publicPropertyListings",
-            key = "T(com.rinoimob.context.TenantContext).getTenantId() + ':' + #status + ':' + #operation + ':' + #propertyType + ':' + #categorySlug + ':' + #minPrice + ':' + #maxPrice + ':' + #bedrooms + ':' + #city + ':' + #queryText + ':' + #latitude + ':' + #longitude + ':' + #radiusKm + ':' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort.toString()"
+            key = "T(com.rinoimob.context.TenantContext).getTenantId() + ':' + #status + ':' + #operation + ':' + #propertyType + ':' + #categorySlug + ':' + #minPrice + ':' + #maxPrice + ':' + #bedrooms + ':' + #city + ':' + #queryText + ':' + #latitude + ':' + #longitude + ':' + #radiusKm + ':' + #featured + ':' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort.toString()"
     )
     public Page<PropertySummaryResponse> listProperties(
             PropertyStatus status,
@@ -174,12 +174,13 @@ public class PropertyService {
             BigDecimal latitude,
             BigDecimal longitude,
             BigDecimal radiusKm,
+            Boolean featured,
             Pageable pageable) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return propertyRepository.findAll(
                 PropertySpecification.withFilters(
                         tenantId, status, operation, propertyType, categorySlug, minPrice, maxPrice, bedrooms, city, queryText,
-                        latitude, longitude, radiusKm),
+                        latitude, longitude, radiusKm, featured),
                 pageable)
                 .map(this::toSummary);
     }
@@ -452,6 +453,7 @@ public class PropertyService {
         p.setPropertyType(req.propertyType());
         p.setCondition(req.condition());
         p.setReferenceCode(req.referenceCode());
+        p.setFeatured(Boolean.TRUE.equals(req.featured()));
         p.setPrice(req.price());
         p.setCurrency(req.currency() != null ? req.currency() : "BRL");
         p.setTaxes(req.taxes());
@@ -495,6 +497,7 @@ public class PropertyService {
         if (req.propertyType() != null) p.setPropertyType(req.propertyType());
         if (req.condition() != null) p.setCondition(req.condition());
         if (req.referenceCode() != null) p.setReferenceCode(req.referenceCode());
+        if (req.featured() != null) p.setFeatured(req.featured());
         if (req.status() != null) {
             p.setStatus(req.status());
             if (req.status() == PropertyStatus.ACTIVE && p.getPublishedAt() == null) {
@@ -547,7 +550,7 @@ public class PropertyService {
         return new PropertyResponse(
                 p.getId(), p.getTitle(), p.getSlug(), p.getDescription(),
                 p.getOperation(), p.getPropertyType(), p.getStatus(),
-                p.getCondition(), p.getReferenceCode(),
+                p.getCondition(), p.getReferenceCode(), p.isFeatured(),
                 p.getPrice(), p.getCurrency(), p.getTaxes(), p.getCondoFee(),
                 p.getAreaTotal(), p.getAreaUseful(),
                 p.getBedrooms(), p.getSuites(), p.getBathrooms(), p.getParking(),
@@ -574,7 +577,7 @@ public class PropertyService {
                 .map(categoryService::toResponse).toList();
         return new PropertySummaryResponse(
                 p.getId(), p.getTitle(), p.getOperation(), p.getPropertyType(), p.getStatus(),
-                p.getCondition(), p.getReferenceCode(),
+                p.getCondition(), p.getReferenceCode(), p.isFeatured(),
                 p.getPrice(), p.getCurrency(), p.getAreaTotal(), p.getBedrooms(), p.getBathrooms(),
                 p.getAddressCity(), p.getAddressState(), p.getAddressCountry(),
                 p.getCoverPhotoId(), coverUrl, cats, p.getCreatedAt()

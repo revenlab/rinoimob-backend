@@ -20,6 +20,7 @@ public record PropertySummaryResponse(
         PropertyStatus status,
         PropertyCondition condition,
         String referenceCode,
+        boolean featured,
         BigDecimal price,
         String currency,
         BigDecimal areaTotal,

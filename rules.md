@@ -143,6 +143,8 @@ support:health:read
 
 ## Structural Note
 
+- **Destaques por imóvel (#50)**: `properties.is_featured` identifica imóveis escolhidos pelo tenant; o contrato autenticado permite marcar/desmarcar no cadastro e a listagem pública aceita `featured=true`, usada exclusivamente pela seção de destaques da home.
+
 - **CORS público local**: a política de `/api/v1/public/**` também aceita `http(s)://*.localhost` nas portas de desenvolvimento, mantendo `allowCredentials=false`; assim o proxy Nuxt pode encaminhar leads de subdomínios locais sem afrouxar as rotas autenticadas.
 - **Busca pública sem acentuação (#53)**: `PropertySpecification` normaliza o termo de consulta e usa `translate(lower(...))` nos campos públicos pesquisáveis (título, descrição, referência, bairro e cidade), mantendo a equivalência entre grafias com e sem acento no PostgreSQL e H2.
 - `V41__tenant_custom_domain_cloudflare.sql` passou a guardar `custom_domain_status`, `custom_domain_provider_id` e `custom_domain_target`; o fluxo de domínio agora provisiona custom hostname via Cloudflare quando as credenciais estão configuradas, e `PublicController` resolve tenants por subdomínio ou domínio customizado.

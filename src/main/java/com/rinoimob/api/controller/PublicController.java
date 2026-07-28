@@ -68,7 +68,8 @@ public class PublicController {
             @RequestParam(required = false, name = "q") String queryText,
             @RequestParam(required = false) BigDecimal latitude,
             @RequestParam(required = false) BigDecimal longitude,
-            @RequestParam(required = false) BigDecimal radiusKm) {
+            @RequestParam(required = false) BigDecimal radiusKm,
+            @RequestParam(required = false) Boolean featured) {
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
@@ -76,7 +77,7 @@ public class PublicController {
             return ResponseEntity.ok(propertyService.listProperties(
                     PropertyStatus.ACTIVE, operation, propertyType,
                     categorySlug, minPrice, maxPrice, bedrooms, city, queryText,
-                    latitude, longitude, radiusKm, pageable));
+                    latitude, longitude, radiusKm, featured, pageable));
         } finally {
             TenantContext.clear();
         }

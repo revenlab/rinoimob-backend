@@ -23,6 +23,7 @@ public record PropertyResponse(
         PropertyStatus status,
         PropertyCondition condition,
         String referenceCode,
+        boolean featured,
         BigDecimal price,
         String currency,
         BigDecimal taxes,
