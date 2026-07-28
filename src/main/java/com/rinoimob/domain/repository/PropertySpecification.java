@@ -6,15 +6,21 @@ import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public class PropertySpecification {
+
+    private static final String ACCENTED_CHARACTERS = "áàâãäåéèêëíìîïóòôõöúùûüçýÿ";
+    private static final String UNACCENTED_CHARACTERS = "aaaaaaeeeeiiiiooooouuuucyy";
 
     public static Specification<Property> withFilters(
             UUID tenantId,
@@ -62,18 +68,18 @@ public class PropertySpecification {
             }
             if (city != null && !city.isBlank()) {
                 predicates.add(cb.like(
-                        cb.lower(root.get("addressCity")),
-                        "%" + city.toLowerCase() + "%"
+                        accentInsensitive(root.get("addressCity"), cb),
+                        containsNormalized(city)
                 ));
             }
             if (queryText != null && !queryText.isBlank()) {
-                String normalized = "%" + queryText.toLowerCase() + "%";
+                String normalized = containsNormalized(queryText);
                 predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("title")), normalized),
-                        cb.like(cb.lower(root.get("description")), normalized),
-                        cb.like(cb.lower(root.get("referenceCode")), normalized),
-                        cb.like(cb.lower(root.get("addressNeighborhood")), normalized),
-                        cb.like(cb.lower(root.get("addressCity")), normalized)
+                        cb.like(accentInsensitive(root.get("title"), cb), normalized),
+                        cb.like(accentInsensitive(root.get("description"), cb), normalized),
+                        cb.like(accentInsensitive(root.get("referenceCode"), cb), normalized),
+                        cb.like(accentInsensitive(root.get("addressNeighborhood"), cb), normalized),
+                        cb.like(accentInsensitive(root.get("addressCity"), cb), normalized)
                 ));
             }
             if (latitude != null && longitude != null && radiusKm != null && radiusKm.signum() > 0) {
@@ -84,6 +90,24 @@ public class PropertySpecification {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private static Expression<String> accentInsensitive(Expression<String> expression,
+                                                        jakarta.persistence.criteria.CriteriaBuilder cb) {
+        return cb.function(
+                "translate",
+                String.class,
+                cb.lower(expression),
+                cb.literal(ACCENTED_CHARACTERS),
+                cb.literal(UNACCENTED_CHARACTERS)
+        );
+    }
+
+    private static String containsNormalized(String value) {
+        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT);
+        return "%" + normalized + "%";
     }
 
     private static BigDecimal[] buildGeoBounds(BigDecimal latitude, BigDecimal longitude, BigDecimal radiusKm) {

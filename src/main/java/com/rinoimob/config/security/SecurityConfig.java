@@ -91,6 +91,9 @@ public class SecurityConfig {
         localhostWildcardPatterns.stream()
                 .filter(pattern -> !originPatterns.contains(pattern))
                 .forEach(originPatterns::add);
+        localhostWildcardPatterns.stream()
+                .filter(pattern -> !publicOriginPatterns.contains(pattern))
+                .forEach(publicOriginPatterns::add);
 
         CorsConfiguration appConfiguration = baseCorsConfiguration();
         appConfiguration.setAllowedOriginPatterns(originPatterns);
