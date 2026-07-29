@@ -1,11 +1,9 @@
 package com.rinoimob.domain.dto.property;
 
-import jakarta.validation.constraints.NotBlank;
-
 import java.math.BigDecimal;
 
-public record CreateFloorPlanRequest(
-        @NotBlank String name,
+public record UpdateFloorPlanRequest(
+        String name,
         BigDecimal area,
         BigDecimal priceFrom,
         BigDecimal priceTo,

@@ -132,6 +132,15 @@ public class PropertyController {
         return ResponseEntity.status(HttpStatus.CREATED).body(propertyService.addFloorPlan(id, request));
     }
 
+    @PutMapping("/{id}/floor-plans/{planId}")
+    @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
+    public ResponseEntity<FloorPlanResponse> updateFloorPlan(
+            @PathVariable UUID id,
+            @PathVariable UUID planId,
+            @RequestBody UpdateFloorPlanRequest request) {
+        return ResponseEntity.ok(propertyService.updateFloorPlan(id, planId, request));
+    }
+
     @DeleteMapping("/{id}/floor-plans/{planId}")
     @PreAuthorize("hasAuthority('PERMISSION_properties:write')")
     public ResponseEntity<Void> deleteFloorPlan(@PathVariable UUID id, @PathVariable UUID planId) {

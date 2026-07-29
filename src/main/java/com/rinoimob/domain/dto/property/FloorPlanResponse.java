@@ -10,6 +10,12 @@ public record FloorPlanResponse(
         UUID id,
         String name,
         BigDecimal area,
+        BigDecimal priceFrom,
+        BigDecimal priceTo,
+        Integer bedrooms,
+        Integer suites,
+        Integer bathrooms,
+        Integer parking,
         LocalDateTime createdAt,
         List<FloorPlanPhotoResponse> photos
 ) implements Serializable {}

@@ -391,7 +391,7 @@ class PropertyServiceTest {
         FloorPlan plan = buildFloorPlan(property);
         when(floorPlanRepository.save(any())).thenReturn(plan);
 
-        CreateFloorPlanRequest req = new CreateFloorPlanRequest("Térreo", new BigDecimal("80"));
+        CreateFloorPlanRequest req = new CreateFloorPlanRequest("Térreo", new BigDecimal("80"), null, null, null, null, null, null);
         FloorPlanResponse response = propertyService.addFloorPlan(PROPERTY_ID, req);
 
         assertThat(response.id()).isEqualTo(FLOOR_PLAN_ID);

@@ -143,6 +143,8 @@ support:health:read
 
 ## Structural Note
 
+- **Comercialização por planta**: `floor_plans` passou a guardar faixa de preço e características próprias; o CRUD autenticado permite atualização da planta sem alterar o imóvel principal, preservando `properties.price` como fallback.
+
 - **Referência automática (#61)**: na criação, imóveis sem `referenceCode` recebem `IMV-XXXXXXXX` único por tenant; códigos manuais são normalizados em maiúsculas, validados antes de persistir e protegidos por índice único parcial. A migration normaliza referências legadas vazias e desambigua duplicadas antes de criar o índice.
 
 - **Destaques por imóvel (#50)**: `properties.is_featured` identifica imóveis escolhidos pelo tenant; o contrato autenticado permite marcar/desmarcar no cadastro e a listagem pública aceita `featured=true`, usada exclusivamente pela seção de destaques da home.
@@ -263,6 +265,7 @@ support:health:read
  - `LeadPoolService` valida nome, JSON de critérios, tipos de critérios, faixa de preço, prioridade, inatividade, enums de roteamento/seleção e corretores obrigatórios em `SPECIFIC_BROKERS`.
  - `LeadPoolRuleEvaluator` passou a buscar imóvel por `propertyId + tenantId + deletedAt null`, mantendo avaliação tenant-scoped.
  - `LeadPoolInactivityScheduler` usa `LeadPoolRepository.findInactivityPools()` para buscar apenas pools com gatilho ativo, ordenados por tenant/prioridade.
+- Comercialização por planta: `floor_plans` armazena preço inicial/final e cômodos próprios; `PropertyService` mantém tudo tenant-scoped, valida faixas e usa o menor `price_from` no resumo público como fallback ao preço do imóvel.
  - Tutorial guiado do app:
    - Migration `V43__user_onboarding_progress.sql` cria `user_onboarding_progress` com UNIQUE `(tenant_id, user_id, tutorial_key)` e timestamps de início/dismiss/conclusão.
    - `UserOnboardingService` faz upsert idempotente do progresso por usuário autenticado; `AuthService.getMe()` agora expõe `onboarding` para usuários CRM e omite para staff interno.

@@ -32,6 +32,17 @@ public class FloorPlan {
     @Column(precision = 10, scale = 2)
     private BigDecimal area;
 
+    @Column(name = "price_from", precision = 14, scale = 2)
+    private BigDecimal priceFrom;
+
+    @Column(name = "price_to", precision = 14, scale = 2)
+    private BigDecimal priceTo;
+
+    private Integer bedrooms;
+    private Integer suites;
+    private Integer bathrooms;
+    private Integer parking;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

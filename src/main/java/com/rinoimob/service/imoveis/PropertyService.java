@@ -338,9 +338,22 @@ public class PropertyService {
         plan.setProperty(property);
         plan.setName(req.name());
         plan.setArea(req.area());
+        applyFloorPlanDetails(plan, req.priceFrom(), req.priceTo(), req.bedrooms(), req.suites(), req.bathrooms(), req.parking());
         plan = floorPlanRepository.save(plan);
         log.info("Floor plan added to property={} name={}", propertyId, req.name());
         return toFloorPlanResponse(plan);
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
+    public FloorPlanResponse updateFloorPlan(UUID propertyId, UUID planId, UpdateFloorPlanRequest req) {
+        findOwnedProperty(propertyId);
+        FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan not found"));
+        if (req.name() != null && !req.name().isBlank()) plan.setName(req.name().trim());
+        if (req.area() != null) plan.setArea(req.area());
+        applyFloorPlanDetails(plan, req.priceFrom(), req.priceTo(), req.bedrooms(), req.suites(), req.bathrooms(), req.parking());
+        return toFloorPlanResponse(floorPlanRepository.save(plan));
     }
 
     @Transactional
@@ -602,10 +615,15 @@ public class PropertyService {
                 .orElse(null);
         List<com.rinoimob.domain.dto.CategoryResponse> cats = p.getCategories().stream()
                 .map(categoryService::toResponse).toList();
+        BigDecimal floorPlanStartingPrice = p.getFloorPlans().stream()
+                .map(FloorPlan::getPriceFrom)
+                .filter(price -> price != null)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
         return new PropertySummaryResponse(
                 p.getId(), p.getTitle(), p.getOperation(), p.getPropertyType(), p.getStatus(),
                 p.getCondition(), p.getReferenceCode(), p.isFeatured(),
-                p.getPrice(), p.getCurrency(), p.getAreaTotal(), p.getBedrooms(), p.getBathrooms(),
+                floorPlanStartingPrice != null ? floorPlanStartingPrice : p.getPrice(), p.getCurrency(), p.getAreaTotal(), p.getBedrooms(), p.getBathrooms(),
                 p.getAddressCity(), p.getAddressState(), p.getAddressCountry(),
                 p.getCoverPhotoId(), coverUrl, cats, p.getCreatedAt()
         );
@@ -617,8 +635,22 @@ public class PropertyService {
     }
 
     private FloorPlanResponse toFloorPlanResponse(FloorPlan fp) {
-        return new FloorPlanResponse(fp.getId(), fp.getName(), fp.getArea(), fp.getCreatedAt(),
+        return new FloorPlanResponse(fp.getId(), fp.getName(), fp.getArea(), fp.getPriceFrom(), fp.getPriceTo(),
+                fp.getBedrooms(), fp.getSuites(), fp.getBathrooms(), fp.getParking(), fp.getCreatedAt(),
                 fp.getPhotos().stream().map(this::toFloorPlanPhotoResponse).toList());
+    }
+
+    private void applyFloorPlanDetails(FloorPlan plan, BigDecimal priceFrom, BigDecimal priceTo,
+                                       Integer bedrooms, Integer suites, Integer bathrooms, Integer parking) {
+        plan.setPriceFrom(priceFrom);
+        plan.setPriceTo(priceTo);
+        if (plan.getPriceFrom() != null && plan.getPriceTo() != null && plan.getPriceTo().compareTo(plan.getPriceFrom()) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Floor plan maximum price cannot be lower than minimum price");
+        }
+        plan.setBedrooms(bedrooms);
+        plan.setSuites(suites);
+        plan.setBathrooms(bathrooms);
+        plan.setParking(parking);
     }
 
     private FloorPlanPhotoResponse toFloorPlanPhotoResponse(FloorPlanPhoto fpp) {
