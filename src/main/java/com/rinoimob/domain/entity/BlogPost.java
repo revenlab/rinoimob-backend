@@ -47,6 +47,9 @@ public class BlogPost {
     @Column(name = "cover_image_url", length = 500)
     private String coverImageUrl;
 
+    @Column(name = "cover_image_fid", length = 500)
+    private String coverImageFid;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private BlogPostStatus status = BlogPostStatus.DRAFT;

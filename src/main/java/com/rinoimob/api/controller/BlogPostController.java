@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -62,6 +65,22 @@ public class BlogPostController {
             @Valid @RequestBody UpdateBlogPostRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return ResponseEntity.ok(blogPostService.update(tenantId, id, request));
+    }
+
+    @PostMapping(value = "/{id}/cover-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
+    public ResponseEntity<BlogPostResponse> uploadCoverImage(
+            @PathVariable UUID id,
+            @RequestPart("file") MultipartFile file) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(blogPostService.uploadCoverImage(tenantId, id, file));
+    }
+
+    @DeleteMapping("/{id}/cover-image")
+    @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
+    public ResponseEntity<BlogPostResponse> deleteCoverImage(@PathVariable UUID id) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return ResponseEntity.ok(blogPostService.deleteCoverImage(tenantId, id));
     }
 
     @PatchMapping("/{id}/status")

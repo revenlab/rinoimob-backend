@@ -11,6 +11,7 @@ import com.rinoimob.domain.enums.BlogPostStatus;
 import com.rinoimob.domain.repository.BlogPostRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.context.TenantContext;
+import com.rinoimob.service.storage.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
@@ -19,13 +20,16 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -39,6 +43,7 @@ public class BlogPostService {
 
     private final BlogPostRepository blogPostRepository;
     private final UserRepository userRepository;
+    private final FileStorageService fileStorageService;
 
     @Transactional(readOnly = true)
     public Page<BlogPostResponse> list(UUID tenantId, int page, int size) {
@@ -109,7 +114,12 @@ public class BlogPostService {
             post.setExcerpt(sanitizeExcerpt(request.excerpt(), post.getContentHtml()));
         }
         if (request.coverImageUrl() != null) {
-            post.setCoverImageUrl(trimToNull(request.coverImageUrl()));
+            String coverImageUrl = trimToNull(request.coverImageUrl());
+            if (!Objects.equals(coverImageUrl, post.getCoverImageUrl())) {
+                deleteStoredCover(post);
+                post.setCoverImageFid(null);
+                post.setCoverImageUrl(coverImageUrl);
+            }
         }
         if (request.status() != null) {
             applyStatus(post, request.status(), request.publishedAt());
@@ -143,8 +153,30 @@ public class BlogPostService {
     @Transactional
     public void delete(UUID tenantId, UUID id) {
         BlogPost post = findOwned(tenantId, id);
+        deleteStoredCover(post);
         post.setDeletedAt(LocalDateTime.now());
         blogPostRepository.save(post);
+    }
+
+    @Transactional
+    public BlogPostResponse uploadCoverImage(UUID tenantId, UUID id, MultipartFile file) {
+        validateCoverImage(file);
+        BlogPost post = findOwned(tenantId, id);
+        deleteStoredCover(post);
+
+        FileStorageService.UploadResult uploadResult = fileStorageService.upload(file);
+        post.setCoverImageFid(uploadResult.fid());
+        post.setCoverImageUrl(uploadResult.url());
+        return toResponse(blogPostRepository.save(post));
+    }
+
+    @Transactional
+    public BlogPostResponse deleteCoverImage(UUID tenantId, UUID id) {
+        BlogPost post = findOwned(tenantId, id);
+        deleteStoredCover(post);
+        post.setCoverImageFid(null);
+        post.setCoverImageUrl(null);
+        return toResponse(blogPostRepository.save(post));
     }
 
     @Transactional(readOnly = true)
@@ -241,6 +273,29 @@ public class BlogPostService {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private void validateCoverImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cover image file is required");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cover image must not exceed 5MB");
+        }
+        String contentType = file.getContentType();
+        boolean valid = MediaType.IMAGE_JPEG_VALUE.equals(contentType)
+                || "image/jpg".equals(contentType)
+                || MediaType.IMAGE_PNG_VALUE.equals(contentType)
+                || "image/webp".equals(contentType);
+        if (!valid) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cover image must be JPG, PNG or WEBP");
+        }
+    }
+
+    private void deleteStoredCover(BlogPost post) {
+        if (post.getCoverImageFid() != null && !post.getCoverImageFid().isBlank()) {
+            fileStorageService.delete(post.getCoverImageFid(), post.getCoverImageUrl());
+        }
     }
 
     private String getUserName(UUID userId) {

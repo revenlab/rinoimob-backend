@@ -32,6 +32,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.data.domain.Page;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -239,6 +241,23 @@ public class SupportAdminController {
             @PathVariable UUID postId,
             @Valid @RequestBody UpdateBlogPostRequest request) {
         return blogPostService.update(tenantId, postId, request);
+    }
+
+    @PostMapping(value = "/tenants/{tenantId}/blog-posts/{postId}/cover-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:write')")
+    public BlogPostResponse uploadTenantBlogPostCoverImage(
+            @PathVariable UUID tenantId,
+            @PathVariable UUID postId,
+            @RequestPart("file") MultipartFile file) {
+        return blogPostService.uploadCoverImage(tenantId, postId, file);
+    }
+
+    @DeleteMapping("/tenants/{tenantId}/blog-posts/{postId}/cover-image")
+    @PreAuthorize("hasAuthority('PERMISSION_support:tenants:write')")
+    public BlogPostResponse deleteTenantBlogPostCoverImage(
+            @PathVariable UUID tenantId,
+            @PathVariable UUID postId) {
+        return blogPostService.deleteCoverImage(tenantId, postId);
     }
 
     @PatchMapping("/tenants/{tenantId}/blog-posts/{postId}/status")

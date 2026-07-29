@@ -143,6 +143,7 @@ support:health:read
 
 ## Structural Note
 
+- **Capas de blog por upload (#57)**: `tenant_blog_posts.cover_image_fid` mantém a referência no storage; upload, troca, remoção e exclusão do post limpam o arquivo associado e preservam URL externa como alternativa.
 - **Comercialização por planta**: `floor_plans` passou a guardar faixa de preço e características próprias; o CRUD autenticado permite atualização da planta sem alterar o imóvel principal, preservando `properties.price` como fallback.
 
 - **Referência automática (#61)**: na criação, imóveis sem `referenceCode` recebem `IMV-XXXXXXXX` único por tenant; códigos manuais são normalizados em maiúsculas, validados antes de persistir e protegidos por índice único parcial. A migration normaliza referências legadas vazias e desambigua duplicadas antes de criar o índice.
