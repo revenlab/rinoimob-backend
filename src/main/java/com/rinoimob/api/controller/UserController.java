@@ -2,6 +2,7 @@ package com.rinoimob.api.controller;
 
 import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.ChangePasswordRequest;
+import com.rinoimob.domain.dto.RequestEmailChangeRequest;
 import com.rinoimob.domain.dto.UpdateProfileRequest;
 import com.rinoimob.domain.dto.UserDto;
 import com.rinoimob.domain.entity.User;
@@ -93,6 +94,19 @@ public class UserController {
         }
         authService.changePassword(userId, body.currentPassword(), body.newPassword(), body.confirmPassword());
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/request-email-change")
+    @Operation(summary = "Request an email address change")
+    public ResponseEntity<Void> requestEmailChange(
+            @RequestBody @Valid RequestEmailChangeRequest body,
+            HttpServletRequest request) {
+        UUID userId = (UUID) request.getAttribute("userId");
+        if (userId == null) {
+            throw unauthorized();
+        }
+        authService.requestEmailChange(userId, body.newEmail(), body.currentPassword());
+        return ResponseEntity.accepted().build();
     }
 
     private ResponseStatusException unauthorized() {

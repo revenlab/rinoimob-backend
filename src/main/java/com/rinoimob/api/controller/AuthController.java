@@ -112,6 +112,13 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/confirm-email-change")
+    @Operation(summary = "Confirm an email address change with token")
+    public ResponseEntity<Void> confirmEmailChange(@RequestParam String token) {
+        authService.confirmEmailChange(token);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/forgot-password")
     @Operation(summary = "Request password reset")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {

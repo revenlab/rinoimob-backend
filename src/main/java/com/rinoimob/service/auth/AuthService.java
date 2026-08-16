@@ -482,6 +482,77 @@ public class AuthService {
         log.info("Password changed for: {}", user.getEmail());
     }
 
+    @Transactional
+    public void requestEmailChange(UUID userId, String newEmail, String currentPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        String currentEmail = user.getEmail();
+        String normalizedEmail = newEmail.trim().toLowerCase();
+
+        if (currentEmail.equals(normalizedEmail)) {
+            throw new IllegalArgumentException("New email must be different from the current email");
+        }
+
+        GlobalCredential credential = globalCredentialRepository.findByEmail(currentEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Credential not found"));
+        if (!passwordEncoderService.verifyPassword(currentPassword, credential.getPasswordHash())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+        if (globalCredentialRepository.findByEmail(normalizedEmail).isPresent()) {
+            throw new IllegalArgumentException("Email is already registered");
+        }
+
+        tokenRepository.deleteAll(tokenRepository.findByUserIdAndTokenType(userId, "EMAIL_CHANGE"));
+        VerificationToken token = new VerificationToken();
+        token.setToken(UUID.randomUUID().toString());
+        token.setUserId(userId);
+        token.setTokenType("EMAIL_CHANGE");
+        token.setPendingEmail(normalizedEmail);
+        token.setExpiresAt(LocalDateTime.now().plusSeconds(verificationTokenExpiration));
+        tokenRepository.save(token);
+        emailService.sendEmailChangeVerification(normalizedEmail, token.getToken());
+
+        log.info("Email change requested for user: {}", userId);
+    }
+
+    @Transactional
+    public void confirmEmailChange(String token) {
+        VerificationToken verificationToken = tokenRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid email change token"));
+        if (!"EMAIL_CHANGE".equals(verificationToken.getTokenType()) || verificationToken.isExpired()
+                || verificationToken.getPendingEmail() == null || verificationToken.getPendingEmail().isBlank()) {
+            throw new IllegalArgumentException("Email change token is invalid or has expired");
+        }
+
+        User requestingUser = userRepository.findById(verificationToken.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        String previousEmail = requestingUser.getEmail();
+        String newEmail = verificationToken.getPendingEmail();
+        if (globalCredentialRepository.findByEmail(newEmail).isPresent()) {
+            throw new IllegalArgumentException("Email is already registered");
+        }
+
+        GlobalCredential credential = globalCredentialRepository.findByEmail(previousEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Credential not found"));
+        List<User> linkedUsers = userRepository.findAllByEmail(previousEmail);
+        for (User linkedUser : linkedUsers) {
+            linkedUser.setEmail(newEmail);
+        }
+        userRepository.saveAll(linkedUsers);
+
+        GlobalCredential replacement = new GlobalCredential();
+        replacement.setEmail(newEmail);
+        replacement.setPasswordHash(credential.getPasswordHash());
+        globalCredentialRepository.save(replacement);
+        globalCredentialRepository.delete(credential);
+        for (User linkedUser : linkedUsers) {
+            tokenService.invalidateUserTokens(linkedUser.getId());
+        }
+        tokenRepository.delete(verificationToken);
+
+        log.info("Email changed for {} linked user(s)", linkedUsers.size());
+    }
+
     private UserDto mapToUserDto(User user) {
         Set<String> supportPermissions = Set.of();
         if (user.getSystemRole() != null && user.getSystemRole().isInternalStaff()) {

@@ -240,6 +240,58 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("Should request email change after validating current password")
+    void shouldRequestEmailChangeAfterValidatingCurrentPassword() {
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("old@test.com");
+        GlobalCredential credential = new GlobalCredential();
+        credential.setEmail("old@test.com");
+        credential.setPasswordHash("hash");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(globalCredentialRepository.findByEmail("old@test.com")).thenReturn(Optional.of(credential));
+        when(globalCredentialRepository.findByEmail("new@test.com")).thenReturn(Optional.empty());
+        when(passwordEncoderService.verifyPassword("Password123", "hash")).thenReturn(true);
+
+        authService.requestEmailChange(userId, " New@Test.com ", "Password123");
+
+        verify(tokenRepository).save(argThat(token -> "EMAIL_CHANGE".equals(token.getTokenType())
+                && "new@test.com".equals(token.getPendingEmail())));
+        verify(emailService).sendEmailChangeVerification(eq("new@test.com"), anyString());
+    }
+
+    @Test
+    @DisplayName("Should confirm email change and revoke all sessions for the identity")
+    void shouldConfirmEmailChangeAndRevokeLinkedSessions() {
+        VerificationToken verificationToken = new VerificationToken();
+        verificationToken.setUserId(userId);
+        verificationToken.setTokenType("EMAIL_CHANGE");
+        verificationToken.setPendingEmail("new@test.com");
+        verificationToken.setExpiresAt(LocalDateTime.now().plusHours(1));
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("old@test.com");
+        GlobalCredential credential = new GlobalCredential();
+        credential.setEmail("old@test.com");
+        credential.setPasswordHash("hash");
+
+        when(tokenRepository.findByToken("token")).thenReturn(Optional.of(verificationToken));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(globalCredentialRepository.findByEmail("new@test.com")).thenReturn(Optional.empty());
+        when(globalCredentialRepository.findByEmail("old@test.com")).thenReturn(Optional.of(credential));
+        when(userRepository.findAllByEmail("old@test.com")).thenReturn(List.of(user));
+
+        authService.confirmEmailChange("token");
+
+        assertEquals("new@test.com", user.getEmail());
+        verify(globalCredentialRepository).save(argThat(value -> "new@test.com".equals(value.getEmail())));
+        verify(globalCredentialRepository).delete(credential);
+        verify(tokenService).invalidateUserTokens(userId);
+        verify(tokenRepository).delete(verificationToken);
+    }
+
+    @Test
     @DisplayName("Should request password reset successfully")
     void testRequestPasswordResetSuccess() {
         String email = "john@test.com";

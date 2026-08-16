@@ -28,6 +28,9 @@ public class VerificationToken {
     @Column(name = "token_type", nullable = false)
     private String tokenType;
 
+    @Column(name = "pending_email")
+    private String pendingEmail;
+
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 

@@ -112,6 +112,30 @@ public class EmailService {
     }
 
     @Async
+    public void sendEmailChangeVerification(String email, String token) {
+        try {
+            String confirmationUrl = frontendUrl + "/confirm-email-change?token=" + token;
+            String subject = "Confirme seu novo e-mail no Rinoimob";
+            String text = String.format(
+                    "Recebemos uma solicitação para usar este e-mail na sua conta Rinoimob.\n\n"
+                            + "Confirme a alteração pelo link abaixo:\n\n%s\n\n"
+                            + "Este link expira em 24 horas. Se você não solicitou a alteração, ignore esta mensagem.",
+                    confirmationUrl
+            );
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(email);
+            message.setSubject(subject);
+            message.setText(text);
+            mailSender.send(message);
+            log.info("Email change verification sent to {}", email);
+        } catch (Exception e) {
+            log.error("Failed to send email change verification to {}", email, e);
+        }
+    }
+
+    @Async
     public void sendInvitationEmail(String email, String token, String firstName) {
         try {
             String verificationUrl = frontendUrl + "/verify-email?token=" + token;

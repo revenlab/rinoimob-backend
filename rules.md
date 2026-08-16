@@ -143,6 +143,8 @@ support:health:read
 
 ## Structural Note
 
+- **Troca de e-mail com confirmação (#13)**: `POST /api/v1/users/request-email-change` exige a senha atual e envia token de uso único ao novo endereço; `POST /api/v1/auth/confirm-email-change` só então substitui a credencial global e todos os vínculos de usuário com o mesmo e-mail, revogando as sessões existentes. `verification_tokens.pending_email` guarda o endereço pendente até a confirmação.
+
 - **Capas de blog por upload (#57)**: `tenant_blog_posts.cover_image_fid` mantém a referência no storage; upload, troca, remoção e exclusão do post limpam o arquivo associado e preservam URL externa como alternativa.
 - **Comercialização por planta**: `floor_plans` passou a guardar faixa de preço e características próprias; o CRUD autenticado permite atualização da planta sem alterar o imóvel principal, preservando `properties.price` como fallback.
 
