@@ -56,6 +56,7 @@ public class LeadService {
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
     private final LeadPoolRuleEvaluator leadPoolRuleEvaluator;
     private final BrokerAssigner brokerAssigner;
+    private final LeadPipelineService leadPipelineService;
 
     @Transactional(readOnly = true)
     public LeadStatsResponse getStats(UUID tenantId, UUID scopedUserId) {
@@ -129,7 +130,7 @@ public class LeadService {
         lead.setPropertyId(req.propertyId());
         validatePropertyBelongsToTenant(tenantId, req.propertyId());
         lead.setSource(req.source() != null ? req.source() : "MANUAL");
-        lead.setStatus(LeadStatus.NEW);
+        applyPipelineForSource(tenantId, lead);
 
         UUID poolId = leadPoolRuleEvaluator.evaluate(tenantId, lead);
         if (poolId != null) {
@@ -357,7 +358,7 @@ public class LeadService {
         newLead.setPhone(phoneNumber);
         newLead.setMessage(messageContent);
         newLead.setSource("WHATSAPP");
-        newLead.setStatus(LeadStatus.NEW);
+        applyPipelineForSource(tenantId, newLead);
         UUID newLeadPoolId = leadPoolRuleEvaluator.evaluate(tenantId, newLead);
         if (newLeadPoolId != null) {
             LeadPool pool = leadPoolRepository.findByIdAndTenantId(newLeadPoolId, tenantId).orElse(null);
@@ -407,6 +408,44 @@ public class LeadService {
         lead.setAssignedTo(brokerAssigner.chooseBroker(tenantId, pool));
     }
 
+    @Transactional
+    public LeadResponse moveToPipeline(UUID tenantId, UUID leadId, UUID scopedUserId, MoveLeadPipelineRequest request) {
+        Lead lead = findOwned(leadId, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(lead.getAssignedTo())) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        var stage = leadPipelineService.requireStage(tenantId, request.pipelineId(), request.stageId());
+        lead.setPipelineId(request.pipelineId());
+        lead.setPipelineStageId(stage.getId());
+        lead.setStatus(statusForStage(stage));
+        leadRepository.save(lead);
+        logEvent(leadId, null, LeadEventType.PIPELINE_MOVED, "Lead movido para outro funil");
+        return toResponse(lead, leadNoteRepository.findAllByLeadIdOrderByCreatedAtDesc(leadId), resolveUserName(tenantId, lead.getAssignedTo()), getProperties(tenantId, leadId, scopedUserId));
+    }
+
+    @Transactional
+    public LeadResponse duplicateToPipeline(UUID tenantId, UUID leadId, UUID scopedUserId, DuplicateLeadPipelineRequest request) {
+        Lead original = findOwned(leadId, tenantId);
+        if (scopedUserId != null && !scopedUserId.equals(original.getAssignedTo())) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to this lead");
+        var stage = leadPipelineService.requireStage(tenantId, request.pipelineId(), request.stageId());
+        Lead copy = new Lead();
+        copy.setTenantId(tenantId); copy.setName(original.getName()); copy.setEmail(original.getEmail()); copy.setPhone(original.getPhone()); copy.setMessage(original.getMessage()); copy.setPropertyId(original.getPropertyId()); copy.setSource(original.getSource()); copy.setAssignedTo(original.getAssignedTo()); copy.setPoolId(original.getPoolId()); copy.setPipelineId(request.pipelineId()); copy.setPipelineStageId(stage.getId()); copy.setStatus(statusForStage(stage)); copy.setDuplicatedFromLeadId(original.getId());
+        copy = leadRepository.save(copy);
+        for (LeadProperty lp : leadPropertyRepository.findAllByLeadIdOrderByCreatedAtAsc(original.getId())) { LeadProperty linked = new LeadProperty(); linked.setLeadId(copy.getId()); linked.setPropertyId(lp.getPropertyId()); linked.setInterestLevel(lp.getInterestLevel()); leadPropertyRepository.save(linked); }
+        logEvent(original.getId(), null, LeadEventType.PIPELINE_DUPLICATED, "Lead duplicado em outro funil: " + copy.getId());
+        logEvent(copy.getId(), null, LeadEventType.PIPELINE_DUPLICATED, "Duplicado do lead: " + original.getId());
+        LeadResponse response = toResponse(copy, List.of(), resolveUserName(tenantId, copy.getAssignedTo()), getProperties(tenantId, copy.getId(), null));
+        leadRealtimeService.publishLeadCreated(tenantId, response);
+        return response;
+    }
+
+    private void applyPipelineForSource(UUID tenantId, Lead lead) {
+        var stage = leadPipelineService.resolveInitialStage(tenantId, lead.getSource());
+        lead.setPipelineId(stage.getPipelineId()); lead.setPipelineStageId(stage.getId()); lead.setStatus(statusForStage(stage));
+    }
+
+    private LeadStatus statusForStage(com.rinoimob.domain.entity.LeadPipelineStage stage) {
+        return switch (stage.getKind()) { case WON -> LeadStatus.WON; case LOST -> LeadStatus.LOST; case OPEN -> LeadStatus.NEW; };
+    }
+
     private void validateActiveUserBelongsToTenant(UUID tenantId, UUID userId) {
         if (userId == null) return;
         User user = userRepository.findByIdAndTenantId(userId, tenantId)
@@ -452,7 +491,7 @@ public class LeadService {
 
     public LeadResponse toResponse(Lead l, List<LeadNote> notes, String assignedToName, List<LeadPropertyResponse> properties) {
         return new LeadResponse(
-                l.getId(), l.getTenantId(), l.getPropertyId(), l.getPoolId(),
+                l.getId(), l.getTenantId(), l.getPropertyId(), l.getPoolId(), l.getPipelineId(), l.getPipelineStageId(), l.getDuplicatedFromLeadId(),
                 l.getName(), l.getEmail(), l.getPhone(), l.getMessage(),
                 l.getStatus(), l.getSource(), l.getAssignedTo(), assignedToName,
                 l.getCreatedAt(), l.getUpdatedAt(),

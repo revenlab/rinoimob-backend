@@ -28,6 +28,7 @@ public enum Permission {
     USERS_WRITE("users:write"),
     ROLES_READ("roles:read"),
     ROLES_WRITE("roles:write"),
+    PIPELINES_MANAGE("pipelines:manage"),
     SETTINGS_MANAGE("settings:manage"),
     REPORTS_READ("reports:read");
 

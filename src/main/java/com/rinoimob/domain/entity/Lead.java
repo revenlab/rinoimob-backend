@@ -49,6 +49,15 @@ public class Lead {
     @Column(name = "pool_id")
     private UUID poolId;
 
+    @Column(name = "pipeline_id", nullable = false)
+    private UUID pipelineId;
+
+    @Column(name = "pipeline_stage_id", nullable = false)
+    private UUID pipelineStageId;
+
+    @Column(name = "duplicated_from_lead_id")
+    private UUID duplicatedFromLeadId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

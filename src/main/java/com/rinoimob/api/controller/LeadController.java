@@ -93,6 +93,18 @@ public class LeadController {
         return ResponseEntity.ok(leadService.update(tenantId, id, scopedUserId, req));
     }
 
+    @PostMapping("/{id}/move-pipeline")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
+    public LeadResponse movePipeline(@PathVariable UUID id, @Valid @RequestBody MoveLeadPipelineRequest req, Authentication auth, HttpServletRequest request) {
+        return leadService.moveToPipeline(UUID.fromString(TenantContext.getTenantId()), id, resolveScopedUserId(auth, request, false), req);
+    }
+
+    @PostMapping("/{id}/duplicate-pipeline")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
+    public ResponseEntity<LeadResponse> duplicatePipeline(@PathVariable UUID id, @Valid @RequestBody DuplicateLeadPipelineRequest req, Authentication auth, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(leadService.duplicateToPipeline(UUID.fromString(TenantContext.getTenantId()), id, resolveScopedUserId(auth, request, false), req));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('PERMISSION_leads:write','PERMISSION_leads:write_all','PERMISSION_leads:write_own')")
     public ResponseEntity<Void> delete(@PathVariable UUID id, Authentication auth, HttpServletRequest request) {
