@@ -72,6 +72,9 @@ public class TenantSubscription {
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
+    @Column(name = "past_due_at")
+    private LocalDateTime pastDueAt;
+
     @Column(name = "cancel_at_period_end", nullable = false)
     private Boolean cancelAtPeriodEnd = false;
 

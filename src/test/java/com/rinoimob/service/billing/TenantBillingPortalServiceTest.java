@@ -126,7 +126,7 @@ class TenantBillingPortalServiceTest {
         ArgumentCaptor<TenantSubscription> captor = ArgumentCaptor.forClass(TenantSubscription.class);
         verify(tenantSubscriptionRepository).save(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo(BillingSubscriptionStatus.PENDING);
-        assertThat(captor.getValue().getProvider()).isEqualTo(BillingProvider.ABACATEPAY);
+        assertThat(captor.getValue().getProvider()).isEqualTo(BillingProvider.ASAAS);
         assertThat(captor.getValue().getProviderSubscriptionId()).isNull();
     }
 
@@ -174,7 +174,7 @@ class TenantBillingPortalServiceTest {
         subscription.setTenantId(TENANT_ID);
         subscription.setBillingPlan(currentPlan);
         subscription.setStatus(BillingSubscriptionStatus.ACTIVE);
-        subscription.setProvider(BillingProvider.ABACATEPAY);
+        subscription.setProvider(BillingProvider.ASAAS);
         subscription.setProviderCustomerId("cus_existing");
         subscription.setLastPlanChangeAt(lastPlanChangeAt);
         return subscription;

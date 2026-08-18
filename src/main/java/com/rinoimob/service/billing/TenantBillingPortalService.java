@@ -149,7 +149,7 @@ public class TenantBillingPortalService {
 
         cancelPreviousSubscriptionIfNeeded(previousProviderSubscriptionId);
 
-        subscription.setProvider(BillingProvider.ABACATEPAY);
+        subscription.setProvider(BillingProvider.ASAAS);
         subscription.setStatus(BillingSubscriptionStatus.PENDING);
         subscription.setProviderCheckoutId(checkout.checkoutId());
         if (checkout.providerCustomerId() != null && !checkout.providerCustomerId().isBlank()) {
@@ -212,7 +212,7 @@ public class TenantBillingPortalService {
     }
 
     private String resolvePreviousProviderSubscriptionId(TenantSubscription subscription) {
-        if (subscription.getProvider() != BillingProvider.ABACATEPAY) {
+        if (subscription.getProvider() != BillingProvider.ASAAS) {
             return null;
         }
         if (subscription.getStatus() != BillingSubscriptionStatus.ACTIVE
