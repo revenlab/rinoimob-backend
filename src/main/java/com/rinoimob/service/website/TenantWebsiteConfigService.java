@@ -57,6 +57,7 @@ public class TenantWebsiteConfigService {
         if (request.categoriesSectionSubtitle() != null) config.setCategoriesSectionSubtitle(request.categoriesSectionSubtitle());
         if (request.servicesSectionTitle() != null) config.setServicesSectionTitle(request.servicesSectionTitle());
         if (request.servicesSectionSubtitle() != null) config.setServicesSectionSubtitle(request.servicesSectionSubtitle());
+        if (request.servicesItems() != null) config.setServicesItems(request.servicesItems());
         if (request.servicesFormTitle() != null) config.setServicesFormTitle(request.servicesFormTitle());
         if (request.servicesFormSubtitle() != null) config.setServicesFormSubtitle(request.servicesFormSubtitle());
         if (request.statsSectionTitle() != null) config.setStatsSectionTitle(request.statsSectionTitle());
@@ -271,6 +272,7 @@ public class TenantWebsiteConfigService {
                 config.getCategoriesSectionSubtitle(),
                 config.getServicesSectionTitle(),
                 config.getServicesSectionSubtitle(),
+                config.getServicesItems(),
                 config.getServicesFormTitle(),
                 config.getServicesFormSubtitle(),
                 config.getStatsSectionTitle(),

@@ -143,6 +143,8 @@ support:health:read
 
 ## Structural Note
 
+- **Serviços configuráveis da home (#54)**: `tenant_website_config.services_items` armazena, por tenant, a lista JSON ordenada de serviços (`title`, `description`, `icon` e `imageUrl` opcionais). O contrato de website-config a expõe tanto para o painel autenticado quanto para o site público, que mantém os serviços padrão quando a lista não estiver configurada ou for inválida.
+
 - **Troca de e-mail com confirmação (#13)**: `POST /api/v1/users/request-email-change` exige a senha atual e envia token de uso único ao novo endereço; `POST /api/v1/auth/confirm-email-change` só então substitui a credencial global e todos os vínculos de usuário com o mesmo e-mail, revogando as sessões existentes. `verification_tokens.pending_email` guarda o endereço pendente até a confirmação.
 
 - **Capas de blog por upload (#57)**: `tenant_blog_posts.cover_image_fid` mantém a referência no storage; upload, troca, remoção e exclusão do post limpam o arquivo associado e preservam URL externa como alternativa.
