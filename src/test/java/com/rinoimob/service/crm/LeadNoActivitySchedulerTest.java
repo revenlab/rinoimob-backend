@@ -8,6 +8,7 @@ import com.rinoimob.domain.repository.AutomationExecutionRepository;
 import com.rinoimob.domain.repository.AutomationWorkflowRepository;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.service.automation.workflow.AutomationExecutor;
+import com.rinoimob.service.billing.TenantPlanAccessService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +40,9 @@ class LeadNoActivitySchedulerTest {
     @Mock
     private AutomationExecutor automationExecutor;
 
+    @Mock
+    private TenantPlanAccessService tenantPlanAccessService;
+
     private LeadNoActivityScheduler scheduler;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -50,7 +54,9 @@ class LeadNoActivitySchedulerTest {
                 leadRepository,
                 automationExecutionRepository,
                 automationExecutor,
-                objectMapper);
+                objectMapper,
+                tenantPlanAccessService);
+        lenient().when(tenantPlanAccessService.isEnabled(any(), any())).thenReturn(true);
     }
 
     @Test
@@ -151,5 +157,21 @@ class LeadNoActivitySchedulerTest {
         scheduler.scanInactiveLeads();
 
         verify(automationExecutor, never()).executeWorkflow(any(), anyString(), anyMap());
+    }
+
+    @Test
+    void shouldSkipWorkflowWhenCurrentPlanDoesNotIncludeAutomations() {
+        UUID tenantId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        AutomationWorkflow workflow = new AutomationWorkflow();
+        workflow.setId(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        workflow.setTenantId(tenantId);
+        workflow.setIsActive(true);
+
+        when(workflowRepository.findAll()).thenReturn(List.of(workflow));
+        when(tenantPlanAccessService.isEnabled(any(), any())).thenReturn(false);
+
+        scheduler.scanInactiveLeads();
+
+        verifyNoInteractions(leadRepository, automationExecutionRepository, automationExecutor);
     }
 }

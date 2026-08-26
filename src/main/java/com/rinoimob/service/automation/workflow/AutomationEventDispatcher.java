@@ -5,8 +5,10 @@ import com.rinoimob.domain.entity.Lead;
 import com.rinoimob.domain.entity.Task;
 import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.enums.LeadStatus;
+import com.rinoimob.domain.enums.BillingFeature;
 import com.rinoimob.domain.enums.TriggerType;
 import com.rinoimob.domain.repository.AutomationWorkflowRepository;
+import com.rinoimob.service.billing.TenantPlanAccessService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -24,9 +26,13 @@ public class AutomationEventDispatcher {
 
     private final AutomationWorkflowRepository workflowRepository;
     private final AutomationExecutor automationExecutor;
+    private final TenantPlanAccessService tenantPlanAccessService;
 
     @Async
     public void dispatchLeadCreated(Lead lead) {
+        if (!isAutomationEnabled(lead.getTenantId())) {
+            return;
+        }
         log.debug("Dispatching LEAD_CREATED event for lead: {}", lead.getId());
 
         List<AutomationWorkflow> workflows = workflowRepository.findByTenantIdAndIsActiveTrue(lead.getTenantId());
@@ -41,6 +47,9 @@ public class AutomationEventDispatcher {
 
     @Async
     public void dispatchLeadStatusChanged(Lead lead, LeadStatus oldStatus) {
+        if (!isAutomationEnabled(lead.getTenantId())) {
+            return;
+        }
         log.debug("Dispatching LEAD_STATUS_CHANGED event for lead: {} (old: {}, new: {})",
                 lead.getId(), oldStatus, lead.getStatus());
 
@@ -57,6 +66,9 @@ public class AutomationEventDispatcher {
 
     @Async
     public void dispatchLeadAssigned(Lead lead, User assignedUser) {
+        if (!isAutomationEnabled(lead.getTenantId())) {
+            return;
+        }
         log.debug("Dispatching LEAD_ASSIGNED event for lead: {} to user: {}",
                 lead.getId(), assignedUser != null ? assignedUser.getId() : null);
 
@@ -78,6 +90,9 @@ public class AutomationEventDispatcher {
 
     @Async
     public void dispatchTaskCreated(Task task) {
+        if (!isAutomationEnabled(task.getTenantId())) {
+            return;
+        }
         log.debug("Dispatching TASK_CREATED event for task: {}", task.getId());
 
         List<AutomationWorkflow> workflows = workflowRepository.findByTenantIdAndIsActiveTrue(task.getTenantId());
@@ -92,6 +107,9 @@ public class AutomationEventDispatcher {
 
     @Async
     public void dispatchTaskOverdue(Task task) {
+        if (!isAutomationEnabled(task.getTenantId())) {
+            return;
+        }
         log.debug("Dispatching TASK_OVERDUE event for task: {}", task.getId());
 
         List<AutomationWorkflow> workflows = workflowRepository.findByTenantIdAndIsActiveTrue(task.getTenantId());
@@ -106,6 +124,9 @@ public class AutomationEventDispatcher {
 
     @Async
     public void dispatchTaskCompleted(Task task) {
+        if (!isAutomationEnabled(task.getTenantId())) {
+            return;
+        }
         log.debug("Dispatching TASK_COMPLETED event for task: {}", task.getId());
 
         List<AutomationWorkflow> workflows = workflowRepository.findByTenantIdAndIsActiveTrue(task.getTenantId());
@@ -116,6 +137,10 @@ public class AutomationEventDispatcher {
                 automationExecutor.executeWorkflow(workflow, TriggerType.TASK_COMPLETED.name(), triggerData);
             }
         }
+    }
+
+    private boolean isAutomationEnabled(UUID tenantId) {
+        return tenantPlanAccessService.isEnabled(tenantId, BillingFeature.AUTOMATION_CRM);
     }
 
     private boolean isTriggerEnabled(AutomationWorkflow workflow, TriggerType triggerType) {

@@ -4,6 +4,7 @@ public enum BillingSubscriptionStatus {
     PENDING,
     ACTIVE,
     PAST_DUE,
+    SUSPENDED,
     CANCELED,
     TRIAL
 }

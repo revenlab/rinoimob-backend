@@ -16,6 +16,8 @@ public record TenantBillingPortalResponse(
         BillingProvider provider,
         LocalDateTime currentPeriodStart,
         LocalDateTime currentPeriodEnd,
+        LocalDateTime paymentDueDate,
+        String overdueInvoiceUrl,
         int maxUsers,
         int maxProperties,
         int maxLeadsPerMonth,
@@ -26,6 +28,12 @@ public record TenantBillingPortalResponse(
         boolean publicApiEnabled,
         boolean vipSupportEnabled,
         boolean customImplementationEnabled,
-        List<TenantBillingPlanOptionResponse> availablePlans
+        BillingCustomerDetailsResponse billingCustomer,
+        List<TenantBillingPlanOptionResponse> availablePlans,
+        boolean cancelAtPeriodEnd,
+        LocalDateTime accessRestrictedAt,
+        PendingBillingChangeResponse pendingChange,
+        BillingInvoiceResponse nextCharge,
+        boolean cardUpdateAvailable
 ) {
 }

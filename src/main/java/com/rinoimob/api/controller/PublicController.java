@@ -9,12 +9,14 @@ import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
 import com.rinoimob.domain.dto.blog.PublicBlogPostResponse;
 import com.rinoimob.domain.dto.blog.PublicBlogPostSummaryResponse;
 import com.rinoimob.domain.entity.Tenant;
+import com.rinoimob.domain.enums.BillingFeature;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.TenantWebsiteConfigRepository;
 import com.rinoimob.service.website.BlogPostService;
+import com.rinoimob.service.billing.TenantPlanAccessService;
 import com.rinoimob.service.crm.LeadService;
 import com.rinoimob.service.imoveis.PropertyService;
 import com.rinoimob.service.imoveis.PropertyTypeService;
@@ -49,6 +51,7 @@ public class PublicController {
     private final TenantWebsiteConfigService tenantWebsiteConfigService;
     private final BlogPostService blogPostService;
     private final PropertyTypeService propertyTypeService;
+    private final TenantPlanAccessService tenantPlanAccessService;
 
     @Value("${app.tenant-base-domain:}")
     private String tenantBaseDomain;
@@ -128,6 +131,9 @@ public class PublicController {
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
+            if (!tenantPlanAccessService.isEnabled(tenantId, BillingFeature.BLOG)) {
+                return ResponseEntity.ok(Page.empty(PageRequest.of(page, size)));
+            }
             return ResponseEntity.ok(blogPostService.listPublic(tenantId, page, size));
         } finally {
             TenantContext.clear();
@@ -141,6 +147,9 @@ public class PublicController {
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
+            if (!tenantPlanAccessService.isEnabled(tenantId, BillingFeature.BLOG)) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Blog post not found");
+            }
             return ResponseEntity.ok(blogPostService.getPublicBySlug(tenantId, slug));
         } finally {
             TenantContext.clear();
@@ -179,6 +188,8 @@ public class PublicController {
         String normalizedIdentifier = normalizeTenantIdentifier(tenantIdentifier);
         return tenantRepository.findBySubdomain(normalizedIdentifier)
                 .or(() -> tenantWebsiteConfigRepository.findByCustomDomainIgnoreCase(normalizedIdentifier)
+                        .filter(config -> tenantPlanAccessService.isEnabled(
+                                config.getTenantId(), BillingFeature.CUSTOM_DOMAIN))
                         .flatMap(config -> tenantRepository.findById(config.getTenantId())))
                 .or(() -> extractSubdomainFromHostname(normalizedIdentifier)
                         .flatMap(tenantRepository::findBySubdomain))

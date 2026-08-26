@@ -71,10 +71,15 @@ billing:
     base-url: ${ASAAS_BASE_URL:https://api.asaas.com}
     api-key: ${ASAAS_API_KEY:}
     checkout-path: ${ASAAS_CHECKOUT_PATH:/v3/checkouts}
+    checkout-callback-base-url: ${ASAAS_CHECKOUT_CALLBACK_BASE_URL:}
     checkout-expiration-minutes: ${ASAAS_CHECKOUT_EXPIRATION_MINUTES:60}
-    billing-types: ${ASAAS_BILLING_TYPES:PIX,CREDIT_CARD}
+    billing-types: ${ASAAS_BILLING_TYPES:CREDIT_CARD}
     webhook-token: ${ASAAS_WEBHOOK_TOKEN:}
     past-due-scan-interval-ms: ${ASAAS_PAST_DUE_SCAN_INTERVAL_MS:3600000}
+    webhook-processing-interval-ms: ${ASAAS_WEBHOOK_PROCESSING_INTERVAL_MS:2000}
+    provider-operation-interval-ms: ${ASAAS_PROVIDER_OPERATION_INTERVAL_MS:30000}
+    reconciliation-interval-ms: ${ASAAS_RECONCILIATION_INTERVAL_MS:900000}
+    card-token-update-enabled: ${ASAAS_CARD_TOKEN_UPDATE_ENABLED:false}
 
 audit:
   retention-days: ${AUDIT_RETENTION_DAYS:180}

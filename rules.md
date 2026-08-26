@@ -269,3 +269,24 @@ support:health:read
    - Migration `V43__user_onboarding_progress.sql` cria `user_onboarding_progress` com UNIQUE `(tenant_id, user_id, tutorial_key)` e timestamps de início/dismiss/conclusão.
    - `UserOnboardingService` faz upsert idempotente do progresso por usuário autenticado; `AuthService.getMe()` agora expõe `onboarding` para usuários CRM e omite para staff interno.
    - `PUT /api/v1/users/onboarding/{tutorialKey}` usa apenas `TenantContext + userId` autenticado, sem permitir escopo cruzado.
+- Asaas Checkout recorrente usa exclusivamente `CREDIT_CARD`: o Asaas rejeita PIX com `chargeTypes=RECURRENT`; PIX futuro deverá usar um fluxo `DETACHED` separado.
+- O callback do Checkout Asaas é montado exclusivamente a partir de `ASAAS_CHECKOUT_CALLBACK_BASE_URL` HTTPS; o app envia somente o plano e não pode escolher URLs de redirecionamento.
+- `V56__add_billing_customer_details.sql` guarda CPF/CNPJ, telefone e endereço no perfil de billing do tenant. O checkout atualiza ou cria o cliente Asaas antes da assinatura e bloqueia com `409` quando o cadastro estiver incompleto.
+- O ambiente compartilhado já possui `V52` a `V55`; o branch de billing mantém cópias idênticas dessas migrations para Flyway validar a sequência antes de aplicar `V56`. Nunca usar `flyway repair` para ignorar migrations aplicadas.
+- Webhooks Asaas reconciliam primeiro por `externalReference`; quando o evento de pagamento trouxer apenas `payment.checkoutSession`, usam `tenant_subscriptions.provider_checkout_id`. O checkout persiste o plano-alvo antes do redirecionamento para manter essa reconciliação segura.
+- Checkout Asaas: falhas após criação/atualização do cliente preservam o `provider_customer_id` para evitar duplicação na nova tentativa; respostas de atualização sem `id` reutilizam o ID conhecido. Um checkout `PENDING` bloqueia nova tentativa, e assinatura `CANCELED` não aplica cooldown de downgrade.
+- Identidade de cliente Asaas: antes de atualizar um ID persistido, o gateway o consulta; se estiver removido, restaura-o e atualiza seus dados. Se o ID não existir, consulta por `externalReference + cpfCnpj` antes de criar, para impedir duplicação entre tentativas ou ambientes.
+- Faturas vencidas do Asaas: o webhook persiste `payment.invoiceUrl` e `payment.dueDate` na assinatura tenant-scoped; o portal só expõe o link enquanto o status for `PAST_DUE`, permitindo a regularização da cobrança existente sem abrir outra assinatura.
+- Correlação de cobrança sem referência: quando o Asaas não enviar `externalReference`, `checkoutSession` ou `subscription`, o webhook pode reconciliar pelo `payment.customer` apenas se houver exatamente uma assinatura local com aquele `provider_customer_id`; ambiguidade é registrada e ignorada para evitar atualizar tenant incorreto.
+- **Billing Asaas robusto (V58; substitui as regras antigas de troca imediata)**:
+  - `tenant_subscription_changes` mantém upgrade/downgrade separado da assinatura vigente; apenas `PAYMENT_CONFIRMED`/`PAYMENT_RECEIVED` aplica upgrade e cancela o contrato anterior por outbox.
+  - `tenant_billing_payments` é o ledger tenant-scoped; `asaas_webhook_events` é a inbox idempotente e `billing_provider_operations` é a outbox com retentativa.
+  - O controller do webhook apenas autentica/persiste e responde `202`; processors assíncronos usam locks pessimistas e reconciliação periódica consulta o Asaas.
+  - Downgrade/cancelamento ocorre no fim do ciclo. Após sete dias vencida, `SUSPENDED` aplica limites Free sem apagar plano/cliente/assinatura; pagamento tardio restaura o contrato.
+  - Gestão financeira (`/billing/me`, faturas e mutações) é exclusiva de owner/admin; `/billing/status` é a visão leve para qualquer usuário autenticado do tenant.
+  - Troca de cartão nunca recebe PAN/CVV: aceita apenas token do Asaas e fica protegida por `ASAAS_CARD_TOKEN_UPDATE_ENABLED`.
+- **Entitlements e gatilhos de upgrade (V59)**:
+  - `TenantPlanAccessService` resolve as flags efetivas do perfil tenant-scoped e retorna `402 Payment Required` para Blog, domínio customizado e Automações CRM fora do plano.
+  - O Blog público fica vazio e o domínio customizado deixa de resolver após downgrade; subdomínio e catálogo público continuam disponíveis.
+  - Eventos, agendamentos e retomadas de automação respeitam `automationCrmEnabled`; retomadas pendentes são encerradas sem executar novas ações quando o recurso deixa de estar habilitado.
+  - `/billing/status` expõe as flags efetivas para gatilhos leves no app. `V59__align_billing_plan_entitlements.sql` reserva Suporte VIP ao Ultimate e corrige perfis Prime existentes.
