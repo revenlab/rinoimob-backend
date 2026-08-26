@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -57,6 +58,12 @@ public class TenantSubscription {
     @Column(name = "provider_checkout_id", length = 100)
     private String providerCheckoutId;
 
+    @Column(name = "provider_invoice_url", length = 500)
+    private String providerInvoiceUrl;
+
+    @Column(name = "payment_due_date")
+    private LocalDateTime paymentDueDate;
+
     @Column(name = "current_period_start")
     private LocalDateTime currentPeriodStart;
 
@@ -72,6 +79,15 @@ public class TenantSubscription {
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
+    @Column(name = "past_due_at")
+    private LocalDateTime pastDueAt;
+
+    @Column(name = "access_restricted_at")
+    private LocalDateTime accessRestrictedAt;
+
+    @Column(name = "suspension_reason", length = 50)
+    private String suspensionReason;
+
     @Column(name = "cancel_at_period_end", nullable = false)
     private Boolean cancelAtPeriodEnd = false;
 
@@ -80,6 +96,10 @@ public class TenantSubscription {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     @PrePersist
     protected void onCreate() {

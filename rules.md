@@ -211,14 +211,14 @@ support:health:read
 - Fluxo de cadastro atualizado:
   - `AuthService.signup()` agora chama `tenantBillingOnboardingService.provisionDefaultFreePlan(...)` após seed de roles.
 - Adapter de cobrança desacoplado:
-  - `BillingGatewayPort` + `AbacatePayBillingGateway` (REST via `RestTemplate`, configurável por `billing.abacatepay.*`).
-- Fluxo AbacatePay v2 ajustado:
-  - antes do checkout, o backend cria/reativa `customers/create` e reutiliza `customerId` no checkout.
-  - o checkout de assinatura usa `POST /v2/subscriptions/create` com 1 item e `externalId` igual ao `tenantId`.
-  - o plano só é marcado como ativo por webhook `subscription.completed` / `subscription.renewed`; `subscription.cancelled` encerra a assinatura.
-  - `providerSubscriptionId` vem do webhook (`subs_*`), não da resposta do checkout (`bill_*`).
-  - webhook público em `POST /api/v1/webhooks/abacatepay?webhookSecret=...` valida `X-Webhook-Signature` com HMAC-SHA256.
-    - a assinatura usa bytes crus do body e aceita Base64 ou hex; o segredo de URL pode ser separado do segredo de assinatura via `ABACATEPAY_WEBHOOK_SECRET` e `ABACATEPAY_WEBHOOK_SIGNING_SECRET`.
+  - `BillingGatewayPort` + `AsaasBillingGateway` (REST via `RestTemplate`, configurável por `billing.asaas.*`).
+- Fluxo Asaas:
+  - o backend cria/reutiliza o cliente Asaas e cria um Checkout hospedado recorrente mensal em `POST /v3/checkouts`.
+  - o checkout aceita Pix e cartão, tem `externalReference` único (`tenantId-planCode-UUID`) e retorna a URL do Asaas ao app.
+  - o plano só é sincronizado por webhook. `PAYMENT_RECEIVED`/`PAYMENT_CONFIRMED` ativa, `PAYMENT_OVERDUE` marca atraso e cancelamento/expiração/reembolso encerra a assinatura.
+  - webhook público em `POST /api/v1/webhooks/asaas` valida o header `asaas-access-token` contra `ASAAS_WEBHOOK_TOKEN`.
+  - `PAYMENT_OVERDUE` registra a data de vencimento em `tenant_subscriptions.past_due_at`; o app mostra um aviso fixo com CTA de regularização enquanto o status for `PAST_DUE`.
+  - `PastDueSubscriptionScheduler` executa a cada hora (configurável por `ASAAS_PAST_DUE_SCAN_INTERVAL_MS`), cancela a recorrência no Asaas e rebaixa para Free quando o atraso ultrapassa sete dias. Se o cancelamento remoto falhar, mantém a assinatura em atraso para nova tentativa.
 - Convenção de ilimitado no snapshot de limites:
   - valor `-1` (`TenantBillingLimitsSnapshot.UNLIMITED`) quando o plano global tiver limite `NULL`.
 - Suporte (Support Admin) agora possui endpoints de billing:
@@ -233,26 +233,22 @@ support:health:read
   - `GET /api/v1/billing/me` retorna plano atual, limites efetivos e catálogo de planos.
   - `POST /api/v1/billing/checkout` inicia checkout de upgrade para plano pago.
   - `TenantBillingPortalService` orquestra visão do tenant + início de checkout via `BillingGatewayPort`.
-  - Ao iniciar checkout, assinatura registra `provider=ABACATEPAY`, `status=PENDING` e `provider_checkout_id`.
-- Ajustes de integração AbacatePay v2:
-  - `AbacatePayBillingGateway` agora usa autenticação `Authorization: Bearer <API_KEY>` (em vez de `X-Api-Key`).
-  - Endpoint de checkout alinhado para assinatura em `POST /v2/subscriptions/create`.
-  - Checkout usa `items` com `productId` por plano (`ABACATEPAY_PRODUCT_STARTER_ID`, `...PRIME...`, `...ULTIMATE...`).
-  - Cancelamento alinhado para `POST /v2/subscriptions/cancel` com body `{ "id": "<subscriptionId>" }`.
+  - Ao iniciar checkout, assinatura registra `provider=ASAAS`, `status=PENDING` e `provider_checkout_id`.
+- Ajustes de integração Asaas:
+  - autenticação da API usa o header `access_token` com `ASAAS_API_KEY`.
+  - cancelamento usa `DELETE /v3/subscriptions/{subscriptionId}`.
   - `TenantBillingPortalService.startCheckout()` agora retorna `503` quando billing não estiver configurado e `502` quando a API do provedor falhar.
-  - `AbacatePayWebhookService` resolve `tenantId`/`planCode` com fallback para `data.checkout.externalId` e `data.checkout.metadata.*` (payload v2 de `subscription.completed`), além de mapear `providerCheckoutId` por `data.checkout.id`.
+  - `AsaasWebhookService` resolve tenant/plano pelo `externalReference` do checkout ou da cobrança e persiste IDs de checkout, cliente e assinatura retornados pelo Asaas.
  - Anti-fraude na troca de plano (upgrade/downgrade):
    - Novo campo `tenant_subscriptions.last_plan_change_at` (migration `V36__add_last_plan_change_to_tenant_subscriptions.sql`) para controlar cooldown de downgrade.
    - `TenantBillingPortalService.startCheckout()` agora bloqueia downgrade antes de 31 dias da última troca (`409 CONFLICT`).
    - Upgrade continua permitido a qualquer momento.
-   - Em troca permitida, o backend cancela a assinatura anterior no AbacatePay (`cancelSubscription`) antes de deixar a nova assinatura em `PENDING`.
-   - `AbacatePayWebhookService` atualiza `lastPlanChangeAt` quando detectar mudança real de plano.
- - Fix checkout reutilizado/inválido no AbacatePay:
+   - Em troca permitida, o backend cancela a assinatura anterior no Asaas (`cancelSubscription`) antes de deixar a nova assinatura em `PENDING`.
+   - `AsaasWebhookService` atualiza `lastPlanChangeAt` quando detectar mudança real de plano.
+ - Checkout único e reconciliação no Asaas:
    - `TenantBillingPortalService` agora gera `externalId` único por tentativa (`tenantId-planCode-UUID`) ao iniciar checkout.
-   - `AbacatePayBillingGateway` envia esse `externalId` único para `POST /v2/subscriptions/create` (com fallback para `tenantId` se vier vazio).
-   - Mantemos `metadata.tenantId` para correlação de webhook e resolução do tenant, sem depender de `externalId` fixo.
-   - `AbacatePayWebhookService` agora aceita `externalId` composto e prioriza `metadata.tenantId` para evitar `UUID string too large` no retorno do webhook.
-   - `subscription.cancelled` agora valida `subscription.id` do webhook contra `tenant_subscriptions.provider_subscription_id`; cancelamentos com id divergente (assinatura antiga) são ignorados para não rebaixar plano ativo no Rino indevidamente.
+   - `AsaasBillingGateway` envia esse identificador em `externalReference` para que eventos de checkout/cobrança possam ser reconciliados com segurança.
+   - Migration `V50__replace_abacatepay_with_asaas.sql` limpa os identificadores do provedor legado e marca essas assinaturas como manuais; elas não são canceladas na nova API por engano.
  - `PublicController.GET /api/v1/public/properties` agora aceita os filtros opcionais `minPrice`, `maxPrice`, `bedrooms` e `city` (além de `operation`, `propertyType`, `categorySlug`) e repassa todos para `PropertyService.listProperties(...)`.
  - Busca textual no catálogo de imóveis:
    - `GET /api/v1/public/properties` agora também aceita `q`.
@@ -273,3 +269,24 @@ support:health:read
    - Migration `V43__user_onboarding_progress.sql` cria `user_onboarding_progress` com UNIQUE `(tenant_id, user_id, tutorial_key)` e timestamps de início/dismiss/conclusão.
    - `UserOnboardingService` faz upsert idempotente do progresso por usuário autenticado; `AuthService.getMe()` agora expõe `onboarding` para usuários CRM e omite para staff interno.
    - `PUT /api/v1/users/onboarding/{tutorialKey}` usa apenas `TenantContext + userId` autenticado, sem permitir escopo cruzado.
+- Asaas Checkout recorrente usa exclusivamente `CREDIT_CARD`: o Asaas rejeita PIX com `chargeTypes=RECURRENT`; PIX futuro deverá usar um fluxo `DETACHED` separado.
+- O callback do Checkout Asaas é montado exclusivamente a partir de `ASAAS_CHECKOUT_CALLBACK_BASE_URL` HTTPS; o app envia somente o plano e não pode escolher URLs de redirecionamento.
+- `V56__add_billing_customer_details.sql` guarda CPF/CNPJ, telefone e endereço no perfil de billing do tenant. O checkout atualiza ou cria o cliente Asaas antes da assinatura e bloqueia com `409` quando o cadastro estiver incompleto.
+- O ambiente compartilhado já possui `V52` a `V55`; o branch de billing mantém cópias idênticas dessas migrations para Flyway validar a sequência antes de aplicar `V56`. Nunca usar `flyway repair` para ignorar migrations aplicadas.
+- Webhooks Asaas reconciliam primeiro por `externalReference`; quando o evento de pagamento trouxer apenas `payment.checkoutSession`, usam `tenant_subscriptions.provider_checkout_id`. O checkout persiste o plano-alvo antes do redirecionamento para manter essa reconciliação segura.
+- Checkout Asaas: falhas após criação/atualização do cliente preservam o `provider_customer_id` para evitar duplicação na nova tentativa; respostas de atualização sem `id` reutilizam o ID conhecido. Um checkout `PENDING` bloqueia nova tentativa, e assinatura `CANCELED` não aplica cooldown de downgrade.
+- Identidade de cliente Asaas: antes de atualizar um ID persistido, o gateway o consulta; se estiver removido, restaura-o e atualiza seus dados. Se o ID não existir, consulta por `externalReference + cpfCnpj` antes de criar, para impedir duplicação entre tentativas ou ambientes.
+- Faturas vencidas do Asaas: o webhook persiste `payment.invoiceUrl` e `payment.dueDate` na assinatura tenant-scoped; o portal só expõe o link enquanto o status for `PAST_DUE`, permitindo a regularização da cobrança existente sem abrir outra assinatura.
+- Correlação de cobrança sem referência: quando o Asaas não enviar `externalReference`, `checkoutSession` ou `subscription`, o webhook pode reconciliar pelo `payment.customer` apenas se houver exatamente uma assinatura local com aquele `provider_customer_id`; ambiguidade é registrada e ignorada para evitar atualizar tenant incorreto.
+- **Billing Asaas robusto (V58; substitui as regras antigas de troca imediata)**:
+  - `tenant_subscription_changes` mantém upgrade/downgrade separado da assinatura vigente; apenas `PAYMENT_CONFIRMED`/`PAYMENT_RECEIVED` aplica upgrade e cancela o contrato anterior por outbox.
+  - `tenant_billing_payments` é o ledger tenant-scoped; `asaas_webhook_events` é a inbox idempotente e `billing_provider_operations` é a outbox com retentativa.
+  - O controller do webhook apenas autentica/persiste e responde `202`; processors assíncronos usam locks pessimistas e reconciliação periódica consulta o Asaas.
+  - Downgrade/cancelamento ocorre no fim do ciclo. Após sete dias vencida, `SUSPENDED` aplica limites Free sem apagar plano/cliente/assinatura; pagamento tardio restaura o contrato.
+  - Gestão financeira (`/billing/me`, faturas e mutações) é exclusiva de owner/admin; `/billing/status` é a visão leve para qualquer usuário autenticado do tenant.
+  - Troca de cartão nunca recebe PAN/CVV: aceita apenas token do Asaas e fica protegida por `ASAAS_CARD_TOKEN_UPDATE_ENABLED`.
+- **Entitlements e gatilhos de upgrade (V59)**:
+  - `TenantPlanAccessService` resolve as flags efetivas do perfil tenant-scoped e retorna `402 Payment Required` para Blog, domínio customizado e Automações CRM fora do plano.
+  - O Blog público fica vazio e o domínio customizado deixa de resolver após downgrade; subdomínio e catálogo público continuam disponíveis.
+  - Eventos, agendamentos e retomadas de automação respeitam `automationCrmEnabled`; retomadas pendentes são encerradas sem executar novas ações quando o recurso deixa de estar habilitado.
+  - `/billing/status` expõe as flags efetivas para gatilhos leves no app. `V59__align_billing_plan_entitlements.sql` reserva Suporte VIP ao Ultimate e corrige perfis Prime existentes.

@@ -5,6 +5,8 @@ import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
 import com.rinoimob.domain.dto.UpdateTenantWebsiteConfigRequest;
 import com.rinoimob.domain.dto.tenant.UpdateTenantDomainRequest;
 import com.rinoimob.domain.dto.tenant.TenantDomainResponse;
+import com.rinoimob.domain.enums.BillingFeature;
+import com.rinoimob.service.billing.TenantPlanAccessService;
 import com.rinoimob.service.website.TenantWebsiteConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,6 +31,7 @@ import java.util.UUID;
 public class TenantWebsiteConfigController {
 
     private final TenantWebsiteConfigService tenantWebsiteConfigService;
+    private final TenantPlanAccessService tenantPlanAccessService;
 
     @GetMapping
     public ResponseEntity<TenantWebsiteConfigResponse> getConfig() {
@@ -116,6 +119,7 @@ public class TenantWebsiteConfigController {
     public ResponseEntity<TenantDomainResponse> updateCustomDomain(
             @RequestBody UpdateTenantDomainRequest request) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        tenantPlanAccessService.requireEnabled(tenantId, BillingFeature.CUSTOM_DOMAIN);
         TenantWebsiteConfigResponse config = tenantWebsiteConfigService.updateCustomDomain(tenantId, request.customDomain());
         return ResponseEntity.ok(new TenantDomainResponse(
                 config.customDomain(),

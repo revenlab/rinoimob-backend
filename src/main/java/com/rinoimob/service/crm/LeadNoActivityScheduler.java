@@ -6,12 +6,14 @@ import com.rinoimob.domain.dto.WorkflowNodeDto;
 import com.rinoimob.domain.entity.AutomationWorkflow;
 import com.rinoimob.domain.entity.Lead;
 import com.rinoimob.domain.enums.LeadStatus;
+import com.rinoimob.domain.enums.BillingFeature;
 import com.rinoimob.domain.enums.NodeType;
 import com.rinoimob.domain.enums.TriggerType;
 import com.rinoimob.domain.repository.AutomationExecutionRepository;
 import com.rinoimob.domain.repository.AutomationWorkflowRepository;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.service.automation.workflow.AutomationExecutor;
+import com.rinoimob.service.billing.TenantPlanAccessService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -35,6 +37,7 @@ public class LeadNoActivityScheduler {
     private final AutomationExecutionRepository automationExecutionRepository;
     private final AutomationExecutor automationExecutor;
     private final ObjectMapper objectMapper;
+    private final TenantPlanAccessService tenantPlanAccessService;
 
     @Scheduled(fixedDelayString = "${automation.lead-no-activity-scan-ms:600000}")
     public void scanInactiveLeads() {
@@ -47,6 +50,9 @@ public class LeadNoActivityScheduler {
         }
 
         for (AutomationWorkflow workflow : workflows) {
+            if (!tenantPlanAccessService.isEnabled(workflow.getTenantId(), BillingFeature.AUTOMATION_CRM)) {
+                continue;
+            }
             WorkflowConfigDto config = readConfig(workflow);
             if (config == null || config.getNodes() == null) {
                 continue;

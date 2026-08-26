@@ -69,6 +69,30 @@ public class TenantBillingProfile {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "billing_cpf_cnpj", length = 14)
+    private String billingCpfCnpj;
+
+    @Column(name = "billing_phone", length = 20)
+    private String billingPhone;
+
+    @Column(name = "billing_address")
+    private String billingAddress;
+
+    @Column(name = "billing_address_number", length = 30)
+    private String billingAddressNumber;
+
+    @Column(name = "billing_address_complement")
+    private String billingAddressComplement;
+
+    @Column(name = "billing_postal_code", length = 8)
+    private String billingPostalCode;
+
+    @Column(name = "billing_province", length = 120)
+    private String billingProvince;
+
+    @Column(name = "provider_customer_id", length = 100, unique = true)
+    private String providerCustomerId;
+
     @Column(name = "updated_by_user_id")
     private UUID updatedByUserId;
 

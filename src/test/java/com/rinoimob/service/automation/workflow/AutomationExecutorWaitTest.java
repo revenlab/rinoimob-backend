@@ -13,6 +13,7 @@ import com.rinoimob.domain.repository.AutomationExecutionRepository;
 import com.rinoimob.domain.repository.AutomationWorkflowRepository;
 import com.rinoimob.service.automation.ActionHandler;
 import com.rinoimob.service.automation.ActionHandlerRegistry;
+import com.rinoimob.service.billing.TenantPlanAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +47,9 @@ class AutomationExecutorWaitTest {
     @Mock
     private WorkflowWaitService workflowWaitService;
 
+    @Mock
+    private TenantPlanAccessService tenantPlanAccessService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private AutomationExecutor automationExecutor;
 
@@ -61,10 +65,12 @@ class AutomationExecutorWaitTest {
                 automationExecutionRepository,
                 workflowRepository,
                 objectMapper,
-                actionHandlerRegistry);
+                actionHandlerRegistry,
+                tenantPlanAccessService);
 
         lenient().when(actionHandlerRegistry.getHandler(eq(ActionType.WAIT))).thenReturn(waitActionHandler);
         lenient().when(actionHandlerRegistry.getHandler(eq(ActionType.SEND_NOTIFICATION))).thenReturn(notifyActionHandler);
+        lenient().when(tenantPlanAccessService.isEnabled(any(), any())).thenReturn(true);
     }
 
     @Test

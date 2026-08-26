@@ -4,9 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rinoimob.domain.dto.*;
 import com.rinoimob.domain.entity.AutomationWorkflow;
 import com.rinoimob.domain.entity.User;
+import com.rinoimob.domain.enums.BillingFeature;
 import com.rinoimob.domain.repository.AutomationExecutionRepository;
 import com.rinoimob.domain.repository.AutomationWorkflowRepository;
 import com.rinoimob.domain.repository.UserRepository;
+import com.rinoimob.service.billing.TenantPlanAccessService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -29,15 +31,18 @@ public class AutomationWorkflowService {
     private final WorkflowGraphValidator graphValidator;
     private final AutomationExecutor automationExecutor;
     private final ObjectMapper objectMapper;
+    private final TenantPlanAccessService tenantPlanAccessService;
 
     @Transactional(readOnly = true)
     public List<AutomationWorkflowResponse> listWorkflows(UUID tenantId) {
+        requireAutomationAccess(tenantId);
         List<AutomationWorkflow> workflows = workflowRepository.findByTenantIdOrderByCreatedAtDesc(tenantId);
         return workflows.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public AutomationWorkflowResponse getWorkflow(UUID tenantId, UUID id) {
+        requireAutomationAccess(tenantId);
         AutomationWorkflow workflow = findOwned(tenantId, id);
         return toResponse(workflow);
     }
@@ -45,6 +50,7 @@ public class AutomationWorkflowService {
     @Transactional
     public AutomationWorkflowResponse createWorkflow(UUID tenantId, CreateAutomationWorkflowRequest request,
                                                       UUID userId) {
+        requireAutomationAccess(tenantId);
         if (request.getName() == null || request.getName().trim().isEmpty()) {
             throw new IllegalArgumentException("Workflow name is required");
         }
@@ -82,6 +88,7 @@ public class AutomationWorkflowService {
     @Transactional
     public AutomationWorkflowResponse updateWorkflow(UUID tenantId, UUID id,
                                                       UpdateAutomationWorkflowRequest request) {
+        requireAutomationAccess(tenantId);
         AutomationWorkflow workflow = findOwned(tenantId, id);
 
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
@@ -118,6 +125,7 @@ public class AutomationWorkflowService {
 
     @Transactional
     public void deleteWorkflow(UUID tenantId, UUID id) {
+        requireAutomationAccess(tenantId);
         AutomationWorkflow workflow = findOwned(tenantId, id);
         workflowRepository.delete(workflow);
         log.info("Deleted workflow {} for tenant {}", id, tenantId);
@@ -125,6 +133,7 @@ public class AutomationWorkflowService {
 
     @Transactional
     public AutomationWorkflowResponse toggleActive(UUID tenantId, UUID id, Boolean isActive) {
+        requireAutomationAccess(tenantId);
         AutomationWorkflow workflow = findOwned(tenantId, id);
         workflow.setIsActive(isActive != null ? isActive : !workflow.getIsActive());
         AutomationWorkflow updated = workflowRepository.save(workflow);
@@ -134,6 +143,7 @@ public class AutomationWorkflowService {
 
     @Transactional
     public AutomationExecutionResponse testWorkflow(UUID tenantId, UUID id, TestWorkflowRequest request) {
+        requireAutomationAccess(tenantId);
         AutomationWorkflow workflow = findOwned(tenantId, id);
 
         if (request.getTriggerEvent() == null || request.getTriggerEvent().trim().isEmpty()) {
@@ -150,11 +160,16 @@ public class AutomationWorkflowService {
 
     @Transactional(readOnly = true)
     public List<AutomationExecutionResponse> getExecutionHistory(UUID tenantId, UUID workflowId) {
+        requireAutomationAccess(tenantId);
         AutomationWorkflow workflow = findOwned(tenantId, workflowId);
         return executionRepository.findByWorkflowIdOrderByCreatedAtDesc(workflowId)
                 .stream()
                 .map(this::mapExecutionToResponse)
                 .toList();
+    }
+
+    private void requireAutomationAccess(UUID tenantId) {
+        tenantPlanAccessService.requireEnabled(tenantId, BillingFeature.AUTOMATION_CRM);
     }
 
     private void validateWorkflowConfig(WorkflowConfigDto config) {

@@ -10,6 +10,7 @@ import com.rinoimob.domain.repository.AutomationExecutionRepository;
 import com.rinoimob.domain.repository.AutomationWorkflowRepository;
 import com.rinoimob.service.automation.ActionHandler;
 import com.rinoimob.service.automation.ActionHandlerRegistry;
+import com.rinoimob.service.billing.TenantPlanAccessService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,10 +32,12 @@ public class AutomationExecutor {
     private final AutomationWorkflowRepository workflowRepository;
     private final ObjectMapper objectMapper;
     private final ActionHandlerRegistry actionHandlerRegistry;
+    private final TenantPlanAccessService tenantPlanAccessService;
 
     @Transactional
     public AutomationExecutionResponse executeWorkflow(AutomationWorkflow workflow, String triggerEvent,
                                                        Map<String, Object> triggerData) {
+        tenantPlanAccessService.requireEnabled(workflow.getTenantId(), BillingFeature.AUTOMATION_CRM);
         AutomationExecution execution = new AutomationExecution();
         execution.setWorkflowId(workflow.getId());
         execution.setTenantId(workflow.getTenantId());
@@ -88,6 +91,14 @@ public class AutomationExecutor {
 
         if (!WorkflowExecutionStatus.WAITING.equals(execution.getStatus())) {
             return mapToResponse(execution);
+        }
+
+        if (!tenantPlanAccessService.isEnabled(execution.getTenantId(), BillingFeature.AUTOMATION_CRM)) {
+            execution.setStatus(WorkflowExecutionStatus.FAILED);
+            execution.setErrorMessage("Automação interrompida porque o plano atual não inclui Automações CRM");
+            execution.setCompletedAt(LocalDateTime.now());
+            execution.setResumeAt(null);
+            return mapToResponse(automationExecutionRepository.save(execution));
         }
 
         TenantContext.setTenantId(execution.getTenantId().toString());

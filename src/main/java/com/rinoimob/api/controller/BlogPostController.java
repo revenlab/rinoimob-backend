@@ -5,6 +5,8 @@ import com.rinoimob.domain.dto.blog.BlogPostResponse;
 import com.rinoimob.domain.dto.blog.CreateBlogPostRequest;
 import com.rinoimob.domain.dto.blog.UpdateBlogPostRequest;
 import com.rinoimob.domain.dto.blog.UpdateBlogPostStatusRequest;
+import com.rinoimob.domain.enums.BillingFeature;
+import com.rinoimob.service.billing.TenantPlanAccessService;
 import com.rinoimob.service.website.BlogPostService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,27 +36,28 @@ import java.util.UUID;
 public class BlogPostController {
 
     private final BlogPostService blogPostService;
+    private final TenantPlanAccessService tenantPlanAccessService;
 
     @GetMapping
     @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
     public ResponseEntity<Page<BlogPostResponse>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID tenantId = requireBlogAccess();
         return ResponseEntity.ok(blogPostService.list(tenantId, page, size));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
     public ResponseEntity<BlogPostResponse> get(@PathVariable UUID id) {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID tenantId = requireBlogAccess();
         return ResponseEntity.ok(blogPostService.get(tenantId, id));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
     public ResponseEntity<BlogPostResponse> create(@Valid @RequestBody CreateBlogPostRequest request) {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID tenantId = requireBlogAccess();
         return ResponseEntity.status(HttpStatus.CREATED).body(blogPostService.create(tenantId, request));
     }
 
@@ -63,7 +66,7 @@ public class BlogPostController {
     public ResponseEntity<BlogPostResponse> update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateBlogPostRequest request) {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID tenantId = requireBlogAccess();
         return ResponseEntity.ok(blogPostService.update(tenantId, id, request));
     }
 
@@ -72,14 +75,14 @@ public class BlogPostController {
     public ResponseEntity<BlogPostResponse> uploadCoverImage(
             @PathVariable UUID id,
             @RequestPart("file") MultipartFile file) {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID tenantId = requireBlogAccess();
         return ResponseEntity.status(HttpStatus.CREATED).body(blogPostService.uploadCoverImage(tenantId, id, file));
     }
 
     @DeleteMapping("/{id}/cover-image")
     @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
     public ResponseEntity<BlogPostResponse> deleteCoverImage(@PathVariable UUID id) {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID tenantId = requireBlogAccess();
         return ResponseEntity.ok(blogPostService.deleteCoverImage(tenantId, id));
     }
 
@@ -88,15 +91,21 @@ public class BlogPostController {
     public ResponseEntity<BlogPostResponse> updateStatus(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateBlogPostStatusRequest request) {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID tenantId = requireBlogAccess();
         return ResponseEntity.ok(blogPostService.updateStatus(tenantId, id, request.status()));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('TENANT_ADMIN') or hasRole('TENANT_OWNER')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID tenantId = requireBlogAccess();
         blogPostService.delete(tenantId, id);
         return ResponseEntity.noContent().build();
+    }
+
+    private UUID requireBlogAccess() {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        tenantPlanAccessService.requireEnabled(tenantId, BillingFeature.BLOG);
+        return tenantId;
     }
 }
