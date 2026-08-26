@@ -143,6 +143,8 @@ support:health:read
 
 ## Structural Note
 
+- **Testes de IA alinhados ao contrato atual**: `AiIntegrationTest` usa `/api/v1/ai/status` e `/api/v1/ai/generate`, correspondendo ao `@RequestMapping("/api/v1/ai")` de `AiController`.
+
 - **Troca de e-mail com confirmação (#13)**: `POST /api/v1/users/request-email-change` exige a senha atual e envia token de uso único ao novo endereço; `POST /api/v1/auth/confirm-email-change` só então substitui a credencial global e todos os vínculos de usuário com o mesmo e-mail, revogando as sessões existentes. `verification_tokens.pending_email` guarda o endereço pendente até a confirmação.
 
 - **Capas de blog por upload (#57)**: `tenant_blog_posts.cover_image_fid` mantém a referência no storage; upload, troca, remoção e exclusão do post limpam o arquivo associado e preservam URL externa como alternativa.

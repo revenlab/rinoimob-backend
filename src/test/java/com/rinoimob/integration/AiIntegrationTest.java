@@ -18,8 +18,8 @@ import static org.hamcrest.Matchers.*;
  * Teste de integração para a API de IA (Gemini).
  * 
  * Testa:
- * - GET  /api/ai/status - Verificar disponibilidade do serviço
- * - POST /api/ai/generate - Gerar resposta com prompt
+ * - GET  /api/v1/ai/status - Verificar disponibilidade do serviço
+ * - POST /api/v1/ai/generate - Gerar resposta com prompt
  * 
  * Executar com: mvn test -Dtest=AiIntegrationTest
  */
@@ -31,9 +31,9 @@ public class AiIntegrationTest extends IntegrationTestBase {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("GET /api/ai/status - deve retornar disponibilidade do serviço")
+    @DisplayName("GET /api/v1/ai/status - deve retornar disponibilidade do serviço")
     void testAiStatusEndpoint() throws Exception {
-        mockMvc.perform(get("/api/ai/status"))
+        mockMvc.perform(get("/api/v1/ai/status"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.available", instanceOf(Boolean.class)))
@@ -41,7 +41,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("POST /api/ai/generate - deve gerar resposta para prompt válido")
+    @DisplayName("POST /api/v1/ai/generate - deve gerar resposta para prompt válido")
     void testAiGenerateEndpoint_ValidPrompt() throws Exception {
         // Arrange
         AiPromptRequest request = new AiPromptRequest(
@@ -51,7 +51,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
         String requestBody = objectMapper.writeValueAsString(request);
 
         // Act & Assert
-        mockMvc.perform(post("/api/ai/generate")
+        mockMvc.perform(post("/api/v1/ai/generate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody))
                 .andExpect(status().isOk())
@@ -62,7 +62,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("POST /api/ai/generate - deve retornar erro para prompt vazio")
+    @DisplayName("POST /api/v1/ai/generate - deve retornar erro para prompt vazio")
     void testAiGenerateEndpoint_EmptyPrompt() throws Exception {
         // Arrange
         AiPromptRequest request = new AiPromptRequest("");
@@ -70,14 +70,14 @@ public class AiIntegrationTest extends IntegrationTestBase {
         String requestBody = objectMapper.writeValueAsString(request);
 
         // Act & Assert
-        mockMvc.perform(post("/api/ai/generate")
+        mockMvc.perform(post("/api/v1/ai/generate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    @DisplayName("POST /api/ai/generate - deve gerar descrição criativa")
+    @DisplayName("POST /api/v1/ai/generate - deve gerar descrição criativa")
     void testAiGenerateEndpoint_CreativeResponse() throws Exception {
         // Arrange
         AiPromptRequest request = new AiPromptRequest(
@@ -87,7 +87,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
         String requestBody = objectMapper.writeValueAsString(request);
 
         // Act & Assert
-        mockMvc.perform(post("/api/ai/generate")
+        mockMvc.perform(post("/api/v1/ai/generate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody))
                 .andExpect(status().isOk())
@@ -97,7 +97,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("POST /api/ai/generate - deve gerar resposta para lista de cidades")
+    @DisplayName("POST /api/v1/ai/generate - deve gerar resposta para lista de cidades")
     void testAiGenerateEndpoint_ListResponse() throws Exception {
         // Arrange
         AiPromptRequest request = new AiPromptRequest(
@@ -107,7 +107,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
         String requestBody = objectMapper.writeValueAsString(request);
 
         // Act & Assert
-        mockMvc.perform(post("/api/ai/generate")
+        mockMvc.perform(post("/api/v1/ai/generate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody))
                 .andExpect(status().isOk())
@@ -116,7 +116,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("POST /api/ai/generate - deve processar prompt longo")
+    @DisplayName("POST /api/v1/ai/generate - deve processar prompt longo")
     void testAiGenerateEndpoint_LongPrompt() throws Exception {
         // Arrange
         String longPrompt = "Gere um título para um imóvel com as seguintes características: " +
@@ -129,7 +129,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
         String requestBody = objectMapper.writeValueAsString(request);
 
         // Act & Assert
-        mockMvc.perform(post("/api/ai/generate")
+        mockMvc.perform(post("/api/v1/ai/generate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody))
                 .andExpect(status().isOk())
@@ -138,7 +138,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("POST /api/ai/generate - deve processar pergunta simples")
+    @DisplayName("POST /api/v1/ai/generate - deve processar pergunta simples")
     void testAiGenerateEndpoint_SimpleQuestion() throws Exception {
         // Arrange
         AiPromptRequest request = new AiPromptRequest(
@@ -148,7 +148,7 @@ public class AiIntegrationTest extends IntegrationTestBase {
         String requestBody = objectMapper.writeValueAsString(request);
 
         // Act & Assert
-        mockMvc.perform(post("/api/ai/generate")
+        mockMvc.perform(post("/api/v1/ai/generate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody))
                 .andExpect(status().isOk())
