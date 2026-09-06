@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +28,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findByTenantIdOrderByCreatedAtDesc(UUID tenantId);
 
     List<User> findByTenantIdAndActive(UUID tenantId, Boolean active);
+
+    Optional<User> findByTenantIdAndPublicSlugAndActive(UUID tenantId, String publicSlug, Boolean active);
+
+    List<User> findByTenantIdAndIdInAndActive(UUID tenantId, Collection<UUID> ids, Boolean active);
 
     List<User> findBySystemRoleInOrderByCreatedAtDesc(List<SystemRole> systemRoles);
 

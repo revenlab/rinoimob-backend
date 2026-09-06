@@ -1,0 +1,5 @@
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS public_photo_fid VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS public_photo_url TEXT,
+    ADD COLUMN IF NOT EXISTS public_instagram_url VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS creci VARCHAR(80);

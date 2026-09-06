@@ -52,6 +52,7 @@ class PropertyServiceTest {
     @Mock private CategoryService categoryService;
     @Mock private PropertyTypeService propertyTypeService;
     @Mock private TenantQuotaEnforcementService tenantQuotaEnforcementService;
+    @Mock private UserRepository userRepository;
 
     private PropertyService propertyService;
 
@@ -61,7 +62,7 @@ class PropertyServiceTest {
         propertyService = new PropertyService(
                 propertyRepository, photoRepository, floorPlanRepository,
                 floorPlanPhotoRepository, videoRepository, categoryRepository, fileStorageService, categoryService,
-                propertyTypeService, tenantQuotaEnforcementService);
+                propertyTypeService, tenantQuotaEnforcementService, userRepository);
     }
 
     @AfterEach
@@ -78,7 +79,7 @@ class PropertyServiceTest {
                 PropertyStatus.DRAFT, null, null, true, new BigDecimal("500000"), "BRL", null, null,
                 new BigDecimal("120"), new BigDecimal("100"), 3, 1, 2, 2, null,
                 "Rua A", "10", null, "Bairro", "São Paulo", "SP", "BR", "01001-000",
-                null, null, null, null);
+                null, null, null, null, true, List.of());
 
         Property savedProperty = buildProperty();
         when(propertyRepository.save(any(Property.class))).thenReturn(savedProperty);
@@ -95,8 +96,9 @@ class PropertyServiceTest {
     void createProperty_defaultsToDraftStatus_whenStatusNull() {
         CreatePropertyRequest req = new CreatePropertyRequest(
                 "Casa", null, null, PropertyOperation.RENT, PropertyType.APARTMENT,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, true, List.of());
 
         Property savedProperty = buildProperty();
         when(propertyRepository.save(any(Property.class))).thenReturn(savedProperty);
@@ -487,7 +489,9 @@ class PropertyServiceTest {
                 null,            // lat
                 null,            // lng
                 null,            // attributes
-                null             // categoryIds
+                null,            // categoryIds
+                null,            // availableToAllBrokers
+                null             // brokerIds
         );
     }
 }

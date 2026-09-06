@@ -53,5 +53,7 @@ public record PropertyResponse(
         LocalDateTime updatedAt,
         List<PropertyPhotoResponse> photos,
         List<FloorPlanResponse> floorPlans,
-        List<PropertyVideoResponse> videos
+        List<PropertyVideoResponse> videos,
+        boolean availableToAllBrokers,
+        List<UUID> brokerIds
 ) implements Serializable {}

@@ -120,6 +120,13 @@ public class Property {
     @Column(name = "is_featured", nullable = false)
     private boolean featured;
 
+    @Column(name = "available_to_all_brokers", nullable = false)
+    private boolean availableToAllBrokers = true;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "property_broker_map", joinColumns = @JoinColumn(name = "property_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    private Set<User> brokers = new HashSet<>();
+
     @Column(name = "floor_number")
     private Integer floorNumber;
 

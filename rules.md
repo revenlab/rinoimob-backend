@@ -294,3 +294,9 @@ support:health:read
   - O Blog público fica vazio e o domínio customizado deixa de resolver após downgrade; subdomínio e catálogo público continuam disponíveis.
   - Eventos, agendamentos e retomadas de automação respeitam `automationCrmEnabled`; retomadas pendentes são encerradas sem executar novas ações quando o recurso deixa de estar habilitado.
   - `/billing/status` expõe as flags efetivas para gatilhos leves no app. `V59__align_billing_plan_entitlements.sql` reserva Suporte VIP ao Ultimate e corrige perfis Prime existentes.
+
+- **Portfólio público de corretores (#63)**: `V61` adiciona slug/bio público por tenant, `V62` controla a oferta por todos ou por lista explícita de usuários, e `V63` preserva no lead o corretor de origem (`referred_by_user_id`) sem substituir a distribuição automática. Os endpoints públicos ficam em `/api/v1/public/brokers/{slug}` e `/properties`; o perfil próprio é atualizado em `PUT /api/v1/users/profile/public`.
+
+- **Perfil comercial do corretor (#63)**: `V64` inclui foto pública no storage, URL do Instagram e CRECI. O upload autenticado aceita imagens de até 5 MB e remove o arquivo anterior; a resposta pública expõe apenas URL, Instagram e CRECI.
+
+- **Pipeline obrigatório na criação de leads**: `LeadService` resolve o pipeline padrão do tenant e sua primeira etapa aberta antes de persistir leads públicos ou leads criados automaticamente pelo WhatsApp, satisfazendo as colunas obrigatórias introduzidas por `V52`.

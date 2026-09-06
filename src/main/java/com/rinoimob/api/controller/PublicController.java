@@ -9,14 +9,15 @@ import com.rinoimob.domain.dto.TenantWebsiteConfigResponse;
 import com.rinoimob.domain.dto.blog.PublicBlogPostResponse;
 import com.rinoimob.domain.dto.blog.PublicBlogPostSummaryResponse;
 import com.rinoimob.domain.entity.Tenant;
-import com.rinoimob.domain.enums.BillingFeature;
+import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
 import com.rinoimob.domain.repository.TenantRepository;
 import com.rinoimob.domain.repository.TenantWebsiteConfigRepository;
+import com.rinoimob.domain.repository.UserRepository;
+import com.rinoimob.domain.dto.PublicBrokerProfileResponse;
 import com.rinoimob.service.website.BlogPostService;
-import com.rinoimob.service.billing.TenantPlanAccessService;
 import com.rinoimob.service.crm.LeadService;
 import com.rinoimob.service.imoveis.PropertyService;
 import com.rinoimob.service.imoveis.PropertyTypeService;
@@ -46,12 +47,12 @@ public class PublicController {
 
     private final TenantRepository tenantRepository;
     private final TenantWebsiteConfigRepository tenantWebsiteConfigRepository;
+    private final UserRepository userRepository;
     private final PropertyService propertyService;
     private final LeadService leadService;
     private final TenantWebsiteConfigService tenantWebsiteConfigService;
     private final BlogPostService blogPostService;
     private final PropertyTypeService propertyTypeService;
-    private final TenantPlanAccessService tenantPlanAccessService;
 
     @Value("${app.tenant-base-domain:}")
     private String tenantBaseDomain;
@@ -111,6 +112,34 @@ public class PublicController {
         }
     }
 
+    @GetMapping("/brokers/{slug}")
+    public ResponseEntity<PublicBrokerProfileResponse> getBrokerProfile(
+            @RequestHeader("X-Tenant-Slug") String tenantSlug,
+            @PathVariable String slug) {
+        UUID tenantId = resolveTenant(tenantSlug);
+        return userRepository.findByTenantIdAndPublicSlugAndActive(tenantId, slug.trim().toLowerCase(), true)
+                .map(user -> ResponseEntity.ok(new PublicBrokerProfileResponse(
+                        user.getPublicSlug(),
+                        String.join(" ", Optional.ofNullable(user.getFirstName()).orElse(""), Optional.ofNullable(user.getLastName()).orElse("")).trim(),
+                        user.getPhone(), user.getPublicBio(), user.getPublicPhotoUrl(), user.getPublicInstagramUrl(), user.getCreci())))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Broker not found"));
+    }
+
+    @GetMapping("/brokers/{slug}/properties")
+    public ResponseEntity<Page<PropertySummaryResponse>> listBrokerProperties(
+            @RequestHeader("X-Tenant-Slug") String tenantSlug, @PathVariable String slug,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        UUID tenantId = resolveTenant(tenantSlug);
+        TenantContext.setTenantId(tenantId.toString());
+        try {
+            UUID brokerId = userRepository.findByTenantIdAndPublicSlugAndActive(tenantId, slug.trim().toLowerCase(), true)
+                    .map(user -> user.getId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Broker not found"));
+            return ResponseEntity.ok(propertyService.listPublicByBroker(brokerId, PageRequest.of(page, size)));
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
     @GetMapping("/config")
     public ResponseEntity<TenantWebsiteConfigResponse> getWebsiteConfig(
             @RequestHeader("X-Tenant-Slug") String tenantSlug) {
@@ -131,9 +160,6 @@ public class PublicController {
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
-            if (!tenantPlanAccessService.isEnabled(tenantId, BillingFeature.BLOG)) {
-                return ResponseEntity.ok(Page.empty(PageRequest.of(page, size)));
-            }
             return ResponseEntity.ok(blogPostService.listPublic(tenantId, page, size));
         } finally {
             TenantContext.clear();
@@ -147,9 +173,6 @@ public class PublicController {
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
-            if (!tenantPlanAccessService.isEnabled(tenantId, BillingFeature.BLOG)) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Blog post not found");
-            }
             return ResponseEntity.ok(blogPostService.getPublicBySlug(tenantId, slug));
         } finally {
             TenantContext.clear();
@@ -166,13 +189,19 @@ public class PublicController {
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
+            UUID referredByUserId = request.brokerSlug() == null || request.brokerSlug().isBlank()
+                    ? null
+                    : userRepository.findByTenantIdAndPublicSlugAndActive(tenantId, request.brokerSlug().trim().toLowerCase(), true)
+                    .map(User::getId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Broker not found"));
             CreateLeadRequest leadReq = new CreateLeadRequest(
                     request.name(),
                     request.email(),
                     request.phone(),
                     request.message(),
                     request.propertyId(),
-                    normalizePublicLeadSource(request.source())
+                    normalizePublicLeadSource(request.source()),
+                    referredByUserId
             );
             leadService.create(tenantId, leadReq);
             return ResponseEntity.status(HttpStatus.CREATED)
@@ -188,8 +217,6 @@ public class PublicController {
         String normalizedIdentifier = normalizeTenantIdentifier(tenantIdentifier);
         return tenantRepository.findBySubdomain(normalizedIdentifier)
                 .or(() -> tenantWebsiteConfigRepository.findByCustomDomainIgnoreCase(normalizedIdentifier)
-                        .filter(config -> tenantPlanAccessService.isEnabled(
-                                config.getTenantId(), BillingFeature.CUSTOM_DOMAIN))
                         .flatMap(config -> tenantRepository.findById(config.getTenantId())))
                 .or(() -> extractSubdomainFromHostname(normalizedIdentifier)
                         .flatMap(tenantRepository::findBySubdomain))

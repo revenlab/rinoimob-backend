@@ -18,6 +18,7 @@ import com.rinoimob.domain.repository.LeadNoteRepository;
 import com.rinoimob.domain.repository.LeadPropertyRepository;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.domain.repository.LeadPoolRepository;
+import com.rinoimob.domain.repository.LeadPipelineRepository;
 import com.rinoimob.domain.repository.PropertyRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.service.automation.workflow.AutomationEventDispatcher;
@@ -56,6 +57,7 @@ public class LeadService {
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
     private final LeadPoolRuleEvaluator leadPoolRuleEvaluator;
     private final BrokerAssigner brokerAssigner;
+    private final LeadPipelineRepository leadPipelineRepository;
 
     @Transactional(readOnly = true)
     public LeadStatsResponse getStats(UUID tenantId, UUID scopedUserId) {
@@ -129,7 +131,10 @@ public class LeadService {
         lead.setPropertyId(req.propertyId());
         validatePropertyBelongsToTenant(tenantId, req.propertyId());
         lead.setSource(req.source() != null ? req.source() : "MANUAL");
+        validateActiveUserBelongsToTenant(tenantId, req.referredByUserId());
+        lead.setReferredByUserId(req.referredByUserId());
         lead.setStatus(LeadStatus.NEW);
+        assignDefaultPipeline(tenantId, lead);
 
         UUID poolId = leadPoolRuleEvaluator.evaluate(tenantId, lead);
         if (poolId != null) {
@@ -358,6 +363,7 @@ public class LeadService {
         newLead.setMessage(messageContent);
         newLead.setSource("WHATSAPP");
         newLead.setStatus(LeadStatus.NEW);
+        assignDefaultPipeline(tenantId, newLead);
         UUID newLeadPoolId = leadPoolRuleEvaluator.evaluate(tenantId, newLead);
         if (newLeadPoolId != null) {
             LeadPool pool = leadPoolRepository.findByIdAndTenantId(newLeadPoolId, tenantId).orElse(null);
@@ -405,6 +411,15 @@ public class LeadService {
             return;
         }
         lead.setAssignedTo(brokerAssigner.chooseBroker(tenantId, pool));
+    }
+
+    private void assignDefaultPipeline(UUID tenantId, Lead lead) {
+        UUID pipelineId = leadPipelineRepository.findDefaultPipelineId(tenantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "No default lead pipeline configured for this tenant"));
+        UUID stageId = leadPipelineRepository.findInitialOpenStageId(pipelineId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Default lead pipeline has no open stage"));
+        lead.setPipelineId(pipelineId);
+        lead.setPipelineStageId(stageId);
     }
 
     private void validateActiveUserBelongsToTenant(UUID tenantId, UUID userId) {

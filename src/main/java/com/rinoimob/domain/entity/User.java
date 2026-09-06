@@ -38,6 +38,24 @@ public class User {
     @Column(name = "phone")
     private String phone;
 
+    @Column(name = "public_slug", length = 120)
+    private String publicSlug;
+
+    @Column(name = "public_bio", columnDefinition = "TEXT")
+    private String publicBio;
+
+    @Column(name = "public_photo_fid")
+    private String publicPhotoFid;
+
+    @Column(name = "public_photo_url", columnDefinition = "TEXT")
+    private String publicPhotoUrl;
+
+    @Column(name = "public_instagram_url")
+    private String publicInstagramUrl;
+
+    @Column(name = "creci", length = 80)
+    private String creci;
+
     @Column(nullable = false)
     private Boolean active = true;
 
