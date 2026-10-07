@@ -85,6 +85,7 @@ class TenantBillingPortalServiceTest {
                 true,
                 false,
                 false,
+                true,
                 false,
                 false
         ));
@@ -96,6 +97,7 @@ class TenantBillingPortalServiceTest {
         assertThat(response.customDomainEnabled()).isTrue();
         assertThat(response.automationCrmEnabled()).isFalse();
         assertThat(response.publicApiEnabled()).isFalse();
+        assertThat(response.integrationsEnabled()).isTrue();
     }
 
     @Test

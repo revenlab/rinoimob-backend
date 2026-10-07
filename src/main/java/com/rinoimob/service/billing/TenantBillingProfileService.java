@@ -54,6 +54,7 @@ public class TenantBillingProfileService {
         profile.setCustomDomainEnabled(Boolean.TRUE.equals(billingPlan.getCustomDomainEnabled()));
         profile.setAutomationCrmEnabled(Boolean.TRUE.equals(billingPlan.getAutomationCrmEnabled()));
         profile.setPublicApiEnabled(Boolean.TRUE.equals(billingPlan.getPublicApiEnabled()));
+        profile.setIntegrationsEnabled(Boolean.TRUE.equals(billingPlan.getIntegrationsEnabled()));
         profile.setVipSupportEnabled(Boolean.TRUE.equals(billingPlan.getVipSupportEnabled()));
         profile.setCustomImplementationEnabled(Boolean.TRUE.equals(billingPlan.getCustomImplementationEnabled()));
         profile.setUpdatedByUserId(updatedByUserId);
@@ -114,6 +115,7 @@ public class TenantBillingProfileService {
         profile.setCustomDomainEnabled(Boolean.TRUE.equals(billingPlan.getCustomDomainEnabled()));
         profile.setAutomationCrmEnabled(Boolean.TRUE.equals(billingPlan.getAutomationCrmEnabled()));
         profile.setPublicApiEnabled(Boolean.TRUE.equals(billingPlan.getPublicApiEnabled()));
+        profile.setIntegrationsEnabled(Boolean.TRUE.equals(billingPlan.getIntegrationsEnabled()));
         profile.setVipSupportEnabled(Boolean.TRUE.equals(billingPlan.getVipSupportEnabled()));
         profile.setCustomImplementationEnabled(Boolean.TRUE.equals(billingPlan.getCustomImplementationEnabled()));
         profile.setUpdatedByUserId(updatedByUserId);
@@ -135,6 +137,7 @@ public class TenantBillingProfileService {
                 Boolean.TRUE.equals(profile.getCustomDomainEnabled()),
                 Boolean.TRUE.equals(profile.getAutomationCrmEnabled()),
                 Boolean.TRUE.equals(profile.getPublicApiEnabled()),
+                Boolean.TRUE.equals(profile.getIntegrationsEnabled()),
                 Boolean.TRUE.equals(profile.getVipSupportEnabled()),
                 Boolean.TRUE.equals(profile.getCustomImplementationEnabled())
         );
@@ -179,6 +182,7 @@ public class TenantBillingProfileService {
                 Boolean.TRUE.equals(plan.getCustomDomainEnabled()),
                 Boolean.TRUE.equals(plan.getAutomationCrmEnabled()),
                 Boolean.TRUE.equals(plan.getPublicApiEnabled()),
+                Boolean.TRUE.equals(plan.getIntegrationsEnabled()),
                 Boolean.TRUE.equals(plan.getVipSupportEnabled()),
                 Boolean.TRUE.equals(plan.getCustomImplementationEnabled())
         );

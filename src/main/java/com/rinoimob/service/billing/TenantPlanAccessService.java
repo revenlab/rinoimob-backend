@@ -24,6 +24,7 @@ public class TenantPlanAccessService {
             case CUSTOM_DOMAIN -> limits.customDomainEnabled();
             case AUTOMATION_CRM -> limits.automationCrmEnabled();
             case PUBLIC_API -> limits.publicApiEnabled();
+            case INTEGRATIONS -> limits.integrationsEnabled();
         };
     }
 

@@ -6,6 +6,7 @@ import org.springframework.data.repository.Repository;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -16,4 +17,10 @@ public interface LeadPipelineRepository extends Repository<Lead, UUID> {
 
     @Query(value = "SELECT id FROM lead_pipeline_stages WHERE pipeline_id = :pipelineId AND kind = 'OPEN' ORDER BY position LIMIT 1", nativeQuery = true)
     Optional<UUID> findInitialOpenStageId(UUID pipelineId);
+
+    @Query(value = "SELECT id FROM lead_pipelines WHERE id = :pipelineId AND tenant_id = :tenantId AND archived_at IS NULL", nativeQuery = true)
+    Optional<UUID> findActivePipelineId(UUID tenantId, UUID pipelineId);
+
+    @Query(value = "SELECT id, name FROM lead_pipelines WHERE tenant_id = :tenantId AND archived_at IS NULL ORDER BY is_default DESC, name", nativeQuery = true)
+    List<Object[]> findActivePipelineOptions(UUID tenantId);
 }

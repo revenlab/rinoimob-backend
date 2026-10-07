@@ -38,6 +38,7 @@ class LeadServiceAssignmentTest {
     @Mock private LeadRealtimeService leadRealtimeService;
     @Mock private com.rinoimob.service.billing.TenantQuotaEnforcementService tenantQuotaEnforcementService;
     @Mock private com.rinoimob.domain.repository.LeadPipelineRepository leadPipelineRepository;
+    @Mock private com.rinoimob.domain.repository.LeadAcquisitionRepository leadAcquisitionRepository;
 
     @BeforeEach
     void setUpDefaultPipeline() {
@@ -70,7 +71,7 @@ class LeadServiceAssignmentTest {
 
         LeadService svc = new LeadService(leadRepository, leadNoteRepository, leadEventRepository, userRepository,
                 leadPropertyRepository, propertyRepository, leadPoolRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
-                evaluator, assigner, leadPipelineRepository);
+                evaluator, assigner, leadPipelineRepository, leadAcquisitionRepository);
 
         CreateLeadRequest req = new CreateLeadRequest("Name", "a@b.com", "123", "hello", null, "WHATSAPP", null);
         svc.create(tenant, req);
@@ -100,7 +101,8 @@ class LeadServiceAssignmentTest {
 
         LeadService svc = new LeadService(leadRepository, leadNoteRepository, leadEventRepository, userRepository,
                 leadPropertyRepository, propertyRepository, leadPoolRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
-                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository), leadPipelineRepository);
+                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository), leadPipelineRepository,
+                leadAcquisitionRepository);
 
         svc.create(tenant, brokerId, new CreateLeadRequest("Name", null, "123", null, null, "MANUAL", null));
 
@@ -126,7 +128,8 @@ class LeadServiceAssignmentTest {
 
         LeadService svc = new LeadService(leadRepository, leadNoteRepository, leadEventRepository, userRepository,
                 leadPropertyRepository, propertyRepository, leadPoolRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
-                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository), leadPipelineRepository);
+                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository), leadPipelineRepository,
+                leadAcquisitionRepository);
 
         assertThatThrownBy(() -> svc.create(tenant, brokerId, new CreateLeadRequest("Name", null, "123", null, null, "MANUAL", null)))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)

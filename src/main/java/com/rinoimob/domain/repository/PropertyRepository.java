@@ -25,7 +25,16 @@ public interface PropertyRepository extends JpaRepository<Property, UUID>, JpaSp
 
     boolean existsByTenantIdAndReferenceCodeAndDeletedAtIsNull(UUID tenantId, String referenceCode);
 
+    Optional<Property> findByTenantIdAndReferenceCodeIgnoreCaseAndDeletedAtIsNull(UUID tenantId, String referenceCode);
+
     long countByTenantIdAndDeletedAtIsNull(UUID tenantId);
+
+    List<Property> findTop100ByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID tenantId);
+
+    @Query("SELECT DISTINCT p FROM Property p LEFT JOIN FETCH p.photos " +
+            "WHERE p.tenantId = :tenantId AND p.status = com.rinoimob.domain.enums.PropertyStatus.ACTIVE " +
+            "AND p.deletedAt IS NULL ORDER BY p.createdAt ASC")
+    List<Property> findActiveForPortalFeed(@Param("tenantId") UUID tenantId);
 
     @Query(value = "SELECT DISTINCT p FROM Property p LEFT JOIN p.brokers b WHERE p.tenantId = :tenantId AND p.status = com.rinoimob.domain.enums.PropertyStatus.ACTIVE AND p.deletedAt IS NULL AND (p.availableToAllBrokers = true OR b.id = :brokerId)", countQuery = "SELECT COUNT(DISTINCT p) FROM Property p LEFT JOIN p.brokers b WHERE p.tenantId = :tenantId AND p.status = com.rinoimob.domain.enums.PropertyStatus.ACTIVE AND p.deletedAt IS NULL AND (p.availableToAllBrokers = true OR b.id = :brokerId)")
     Page<Property> findPublicByBroker(@Param("tenantId") UUID tenantId, @Param("brokerId") UUID brokerId, Pageable pageable);

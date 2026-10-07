@@ -123,6 +123,7 @@ public class TenantBillingPortalService {
                 limits.customDomainEnabled(),
                 limits.automationCrmEnabled(),
                 limits.publicApiEnabled(),
+                limits.integrationsEnabled(),
                 limits.vipSupportEnabled(),
                 limits.customImplementationEnabled(),
                 profileService.getCustomerDetails(tenantId, contractedPlan),
@@ -149,6 +150,7 @@ public class TenantBillingPortalService {
                 limits.customDomainEnabled(),
                 limits.automationCrmEnabled(),
                 limits.publicApiEnabled(),
+                limits.integrationsEnabled(),
                 limits.vipSupportEnabled(),
                 limits.customImplementationEnabled()
         );
@@ -345,6 +347,7 @@ public class TenantBillingPortalService {
                 plan.getMaxProperties(), plan.getMaxLeadsPerMonth(), plan.getMaxWhatsappNumbers(),
                 Boolean.TRUE.equals(plan.getBlogEnabled()), Boolean.TRUE.equals(plan.getCustomDomainEnabled()),
                 Boolean.TRUE.equals(plan.getAutomationCrmEnabled()), Boolean.TRUE.equals(plan.getPublicApiEnabled()),
+                Boolean.TRUE.equals(plan.getIntegrationsEnabled()),
                 Boolean.TRUE.equals(plan.getVipSupportEnabled()), Boolean.TRUE.equals(plan.getCustomImplementationEnabled())
         );
     }

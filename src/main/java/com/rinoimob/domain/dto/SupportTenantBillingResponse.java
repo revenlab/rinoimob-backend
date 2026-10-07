@@ -28,6 +28,7 @@ public record SupportTenantBillingResponse(
         boolean customDomainEnabled,
         boolean automationCrmEnabled,
         boolean publicApiEnabled,
+        boolean integrationsEnabled,
         boolean vipSupportEnabled,
         boolean customImplementationEnabled,
         String notes,

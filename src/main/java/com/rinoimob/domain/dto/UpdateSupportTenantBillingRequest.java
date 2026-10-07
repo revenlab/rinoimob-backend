@@ -12,6 +12,7 @@ public record UpdateSupportTenantBillingRequest(
         Boolean customDomainEnabled,
         Boolean automationCrmEnabled,
         Boolean publicApiEnabled,
+        Boolean integrationsEnabled,
         Boolean vipSupportEnabled,
         Boolean customImplementationEnabled,
         String notes

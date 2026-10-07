@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import com.rinoimob.service.rental.RentalFinanceService;
 
 @Service
 public class AsaasWebhookEventProcessor {
@@ -23,13 +24,16 @@ public class AsaasWebhookEventProcessor {
     private final AsaasWebhookEventRepository repository;
     private final AsaasWebhookService webhookService;
     private final ObjectMapper objectMapper;
+    private final RentalFinanceService rentalFinanceService;
 
     public AsaasWebhookEventProcessor(AsaasWebhookEventRepository repository,
                                       AsaasWebhookService webhookService,
-                                      ObjectMapper objectMapper) {
+                                      ObjectMapper objectMapper,
+                                      RentalFinanceService rentalFinanceService) {
         this.repository = repository;
         this.webhookService = webhookService;
         this.objectMapper = objectMapper;
+        this.rentalFinanceService = rentalFinanceService;
     }
 
     @Scheduled(fixedDelayString = "${billing.asaas.webhook-processing-interval-ms:2000}")
@@ -50,7 +54,11 @@ public class AsaasWebhookEventProcessor {
         repository.save(event);
         try {
             JsonNode payload = objectMapper.readTree(event.getPayloadJson());
-            if (!webhookService.supports(event.getEventType())) {
+            if (rentalFinanceService.supports(payload)) {
+                UUID tenantId = rentalFinanceService.handleWebhook(payload);
+                event.setTenantId(tenantId);
+                event.setStatus(AsaasWebhookEventStatus.PROCESSED);
+            } else if (!webhookService.supports(event.getEventType())) {
                 event.setStatus(AsaasWebhookEventStatus.IGNORED);
             } else {
                 UUID tenantId = webhookService.handleWebhook(payload);

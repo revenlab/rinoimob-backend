@@ -50,6 +50,9 @@ public class AsaasWebhookInboxService {
         if (payload.hasNonNull("checkout")) {
             return payload.path("checkout");
         }
+        if (payload.hasNonNull("transfer")) {
+            return payload.path("transfer");
+        }
         return payload.path("subscription");
     }
 
@@ -62,6 +65,9 @@ public class AsaasWebhookInboxService {
         }
         if (payload.hasNonNull("subscription")) {
             return "SUBSCRIPTION";
+        }
+        if (payload.hasNonNull("transfer")) {
+            return "TRANSFER";
         }
         return "UNKNOWN";
     }
