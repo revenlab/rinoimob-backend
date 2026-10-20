@@ -13,9 +13,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.util.List;
@@ -62,12 +64,31 @@ public class IntegrationController {
         return service.startMetaOAuth(tenantId(), (UUID) request.getAttribute("userId"));
     }
 
+    @PostMapping("/{connectionId}/meta/oauth/reconnect")
+    @Operation(summary = "Restart Meta authorization for an existing tenant connection")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Authorization URL generated"),
+            @ApiResponse(responseCode = "404", description = "Connection not found in tenant")})
+    public MetaOAuthStartResponse reconnectMetaOAuth(@PathVariable UUID connectionId, HttpServletRequest request) {
+        return service.reconnectMetaOAuth(tenantId(), (UUID) request.getAttribute("userId"), connectionId);
+    }
+
     @GetMapping("/meta/oauth/callback")
     @PreAuthorize("permitAll()")
     @Operation(summary = "Complete Meta Lead Ads OAuth callback")
-    public ResponseEntity<Void> completeMetaOAuth(@RequestParam String code, @RequestParam String state) {
-        UUID connectionId = service.completeMetaOAuth(code, state);
-        URI redirect = URI.create(frontendUrl.replaceAll("/$", "") + "/integracoes?meta=connected&connectionId=" + connectionId);
+    public ResponseEntity<Void> completeMetaOAuth(@RequestParam(required = false) String code,
+                                                   @RequestParam(required = false) String state) {
+        String query;
+        try {
+            if (state == null || state.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing Meta OAuth state");
+            }
+            UUID connectionId = service.completeMetaOAuth(code, state);
+            query = "meta=returned&connectionId=" + connectionId;
+        } catch (ResponseStatusException exception) {
+            if (!exception.getStatusCode().is4xxClientError()) throw exception;
+            query = "meta=error";
+        }
+        URI redirect = URI.create(frontendUrl.replaceAll("/$", "") + "/integracoes?" + query);
         return ResponseEntity.status(302).header(HttpHeaders.LOCATION, redirect.toString()).build();
     }
 
@@ -94,6 +115,16 @@ public class IntegrationController {
     @Operation(summary = "List routing mappings for a connection")
     public List<IntegrationRouteResponse> listRoutes(@PathVariable UUID connectionId) {
         return service.listRoutes(tenantId(), connectionId);
+    }
+
+    @PostMapping("/{connectionId}/meta/sync")
+    @Operation(summary = "Request recovery of missing Meta leads for configured forms")
+    @ApiResponses({@ApiResponse(responseCode = "202", description = "Recovery requested"),
+            @ApiResponse(responseCode = "404", description = "Tenant connection not found"),
+            @ApiResponse(responseCode = "409", description = "Meta connection is not active")})
+    public ResponseEntity<Void> requestMetaSync(@PathVariable UUID connectionId) {
+        service.requestMetaSync(tenantId(), connectionId);
+        return ResponseEntity.accepted().build();
     }
 
     @PutMapping("/{connectionId}/routes")

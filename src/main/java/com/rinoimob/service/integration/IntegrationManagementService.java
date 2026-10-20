@@ -88,12 +88,28 @@ public class IntegrationManagementService {
         connection.setTenantId(tenantId);
         connection.setProvider(IntegrationProvider.META_LEAD_ADS);
         connection.setName("Meta Lead Ads");
-        connection.setStatus(IntegrationConnectionStatus.CONNECTING);
+        return beginMetaOAuth(connection, userId);
+    }
+
+    @Transactional
+    public MetaOAuthStartResponse reconnectMetaOAuth(UUID tenantId, UUID userId, UUID connectionId) {
+        return beginMetaOAuth(requireConnection(tenantId, connectionId, IntegrationProvider.META_LEAD_ADS), userId);
+    }
+
+    private MetaOAuthStartResponse beginMetaOAuth(IntegrationConnection connection, UUID userId) {
         String nonce = UUID.randomUUID().toString();
-        connection.setConfig(new HashMap<>(Map.of(
-                "oauthNonceHash", sha256(nonce),
-                "oauthUserId", userId.toString()
-        )));
+        // Validate local configuration before creating or changing a connection.
+        metaClient.authorizationUrl("configuration-check");
+        try {
+            secretService.validateConfiguration();
+        } catch (IllegalStateException exception) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "A criptografia das integrações não está configurada no servidor. Contate o administrador.");
+        }
+        connection.setStatus(IntegrationConnectionStatus.CONNECTING);
+        connection.setLastError(null);
+        connection.getConfig().put("oauthNonceHash", sha256(nonce));
+        connection.getConfig().put("oauthUserId", userId.toString());
         connection = connectionRepository.save(connection);
         String state = Base64.getUrlEncoder().withoutPadding().encodeToString(
                 (connection.getId() + ":" + nonce).getBytes(StandardCharsets.UTF_8)
@@ -124,10 +140,20 @@ public class IntegrationManagementService {
         if (!MessageDigest.isEqual(expectedHash.getBytes(StandardCharsets.UTF_8), sha256(parts[1]).getBytes(StandardCharsets.UTF_8))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Meta OAuth state");
         }
-        String userToken = metaClient.exchangeCode(code);
-        connection.setEncryptedCredentials(secretService.encrypt(writeJson(Map.of("userAccessToken", userToken))));
         connection.getConfig().remove("oauthNonceHash");
-        connection.setLastError(null);
+        try {
+            if (code == null || code.isBlank()) {
+                throw new IllegalArgumentException("Authorization was not completed");
+            }
+            String userToken = metaClient.exchangeCode(code);
+            connection.setEncryptedCredentials(secretService.encrypt(writeJson(Map.of("userAccessToken", userToken))));
+            connection.setStatus(IntegrationConnectionStatus.CONNECTING);
+            connection.setLastError(null);
+        } catch (RuntimeException exception) {
+            connection.setEncryptedCredentials(null);
+            connection.setStatus(IntegrationConnectionStatus.ERROR);
+            connection.setLastError("Não foi possível concluir a autorização na Meta. Reconecte para tentar novamente.");
+        }
         connectionRepository.save(connection);
         return connectionId;
     }
@@ -135,40 +161,68 @@ public class IntegrationManagementService {
     @Transactional(readOnly = true)
     public List<MetaAssetResponse> listMetaPages(UUID tenantId, UUID connectionId) {
         IntegrationConnection connection = requireConnection(tenantId, connectionId, IntegrationProvider.META_LEAD_ADS);
+        if (!metaAuthorized(connection)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Conclua a autorização na Meta antes de selecionar a página.");
+        }
         String userToken = credential(connection, "userAccessToken");
         return metaClient.listPages(userToken).stream()
                 .map(page -> new MetaAssetResponse(page.get("id"), page.get("name"), "PAGE"))
                 .toList();
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public IntegrationConnectionResponse activateMetaPage(UUID tenantId, UUID connectionId, ActivateMetaConnectionRequest request) {
         IntegrationConnection connection = requireConnection(tenantId, connectionId, IntegrationProvider.META_LEAD_ADS);
-        Map<String, String> page = metaClient.listPages(credential(connection, "userAccessToken")).stream()
-                .filter(item -> request.pageId().equals(item.get("id")))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Meta page is not authorized"));
-        metaClient.subscribePage(request.pageId(), page.get("accessToken"));
-        connection.setExternalAccountId(request.pageId());
-        connection.setExternalAccountName(page.get("name"));
-        connection.setEncryptedCredentials(secretService.encrypt(writeJson(Map.of(
-                "userAccessToken", credential(connection, "userAccessToken"),
-                "pageAccessToken", page.get("accessToken")
-        ))));
-        connection.setStatus(IntegrationConnectionStatus.ACTIVE);
-        connection.setLastError(null);
-        return toConnectionResponse(connectionRepository.save(connection));
+        if (!metaAuthorized(connection)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Conclua a autorização na Meta antes de selecionar a página.");
+        }
+        if (connection.getExternalAccountId() != null && !connection.getExternalAccountId().equals(request.pageId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Reconecte a mesma página ou crie uma nova conexão para outra página.");
+        }
+        try {
+            Map<String, String> page = metaClient.listPages(credential(connection, "userAccessToken")).stream()
+                    .filter(item -> request.pageId().equals(item.get("id")))
+                    .findFirst()
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Meta page is not authorized"));
+            // Verify form access before subscribing or declaring the Page active.
+            metaClient.listForms(request.pageId(), page.get("accessToken"));
+            metaClient.subscribePage(request.pageId(), page.get("accessToken"));
+            connection.setExternalAccountId(request.pageId());
+            connection.setExternalAccountName(page.get("name"));
+            connection.setEncryptedCredentials(secretService.encrypt(writeJson(Map.of(
+                    "userAccessToken", credential(connection, "userAccessToken"),
+                    "pageAccessToken", page.get("accessToken")
+            ))));
+            connection.setStatus(IntegrationConnectionStatus.ACTIVE);
+            connection.setLastError(null);
+            resumeMetaRoutes(connection);
+            return toConnectionResponse(connectionRepository.save(connection));
+        } catch (RuntimeException exception) {
+            connection.setStatus(IntegrationConnectionStatus.ERROR);
+            connection.setLastError(exception instanceof ResponseStatusException responseException
+                    ? responseException.getReason()
+                    : "Não foi possível confirmar a página na Meta. Verifique as permissões e tente reconectar.");
+            connectionRepository.save(connection);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, connection.getLastError());
+        }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public List<MetaAssetResponse> listMetaForms(UUID tenantId, UUID connectionId) {
         IntegrationConnection connection = requireConnection(tenantId, connectionId, IntegrationProvider.META_LEAD_ADS);
         if (connection.getExternalAccountId() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Select a Meta page first");
         }
-        return metaClient.listForms(connection.getExternalAccountId(), credential(connection, "pageAccessToken")).stream()
-                .map(form -> new MetaAssetResponse(form.get("id"), form.get("name"), "FORM"))
-                .toList();
+        try {
+            return metaClient.listForms(connection.getExternalAccountId(), credential(connection, "pageAccessToken")).stream()
+                    .map(form -> new MetaAssetResponse(form.get("id"), form.get("name"), "FORM"))
+                    .toList();
+        } catch (ResponseStatusException exception) {
+            connection.setStatus(IntegrationConnectionStatus.ERROR);
+            connection.setLastError(exception.getReason());
+            connectionRepository.save(connection);
+            throw exception;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -180,7 +234,7 @@ public class IntegrationManagementService {
 
     @Transactional
     public IntegrationRouteResponse saveRoute(UUID tenantId, UUID connectionId, IntegrationRouteRequest request) {
-        requireConnection(tenantId, connectionId, null);
+        IntegrationConnection connection = requireConnection(tenantId, connectionId, null);
         validateRouteTargets(tenantId, request);
         IntegrationRoute route = routeRepository
                 .findByTenantIdAndConnectionIdAndExternalResourceId(tenantId, connectionId, request.externalResourceId().trim())
@@ -195,6 +249,10 @@ public class IntegrationManagementService {
         route.setDefaultPropertyId(request.defaultPropertyId());
         route.setFieldMapping(request.fieldMapping() == null ? new HashMap<>() : new HashMap<>(request.fieldMapping()));
         route.setActive(request.active() == null || request.active());
+        if (connection.getProvider() == IntegrationProvider.META_LEAD_ADS && Boolean.TRUE.equals(route.getActive())) {
+            route.setMetaNextSyncAt(java.time.Instant.EPOCH);
+            eventRepository.requeueAfterConfigurationChange(tenantId, connectionId, route.getExternalResourceId(), java.time.LocalDateTime.now());
+        }
         return toRouteResponse(routeRepository.save(route));
     }
 
@@ -204,8 +262,35 @@ public class IntegrationManagementService {
         if (status != IntegrationConnectionStatus.ACTIVE && status != IntegrationConnectionStatus.PAUSED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only ACTIVE or PAUSED can be selected manually");
         }
+        if (connection.getProvider() == IntegrationProvider.META_LEAD_ADS
+                && (connection.getStatus() != IntegrationConnectionStatus.ACTIVE
+                && connection.getStatus() != IntegrationConnectionStatus.PAUSED
+                || !metaAuthorized(connection) || connection.getExternalAccountId() == null)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Conclua a conexão da página na Meta antes de ativar ou pausar.");
+        }
         connection.setStatus(status);
+        if (status == IntegrationConnectionStatus.ACTIVE) resumeMetaRoutes(connection);
         return toConnectionResponse(connectionRepository.save(connection));
+    }
+
+    @Transactional
+    public void requestMetaSync(UUID tenantId, UUID connectionId) {
+        IntegrationConnection connection = requireConnection(tenantId, connectionId, IntegrationProvider.META_LEAD_ADS);
+        if (connection.getStatus() != IntegrationConnectionStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Reconecte ou ative a página antes de recuperar os leads.");
+        }
+        resumeMetaRoutes(connection);
+    }
+
+    private void resumeMetaRoutes(IntegrationConnection connection) {
+        if (connection.getProvider() != IntegrationProvider.META_LEAD_ADS) return;
+        routeRepository.requestMetaSync(connection.getTenantId(), connection.getId(), java.time.Instant.EPOCH);
+        for (var route : routeRepository.findAllByTenantIdAndConnectionIdOrderByExternalResourceNameAsc(connection.getTenantId(), connection.getId())) {
+            if (Boolean.TRUE.equals(route.getActive())) {
+                eventRepository.requeueAfterConfigurationChange(connection.getTenantId(), connection.getId(),
+                        route.getExternalResourceId(), java.time.LocalDateTime.now());
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -278,13 +363,21 @@ public class IntegrationManagementService {
                         IntegrationEventStatus.FAILED, IntegrationEventStatus.BLOCKED_QUOTA));
         return new IntegrationConnectionResponse(connection.getId(), connection.getProvider(), connection.getName(),
                 connection.getStatus(), connection.getExternalAccountId(), connection.getExternalAccountName(), inboundUrl, feedUrl,
-                connection.getLastReceivedAt(), connection.getLastProcessedAt(), connection.getLastError(), pending);
+                connection.getLastReceivedAt(), connection.getLastProcessedAt(), connection.getLastError(), pending, metaAuthorized(connection));
+    }
+
+    private boolean metaAuthorized(IntegrationConnection connection) {
+        return connection.getProvider() == IntegrationProvider.META_LEAD_ADS
+                && connection.getEncryptedCredentials() != null
+                && !connection.getConfig().containsKey("oauthNonceHash");
     }
 
     private IntegrationRouteResponse toRouteResponse(IntegrationRoute route) {
         return new IntegrationRouteResponse(route.getId(), route.getConnectionId(), route.getExternalResourceId(),
                 route.getExternalResourceName(), route.getPipelineId(), route.getPoolId(), route.getAssignedTo(),
-                route.getDefaultPropertyId(), route.getFieldMapping(), Boolean.TRUE.equals(route.getActive()));
+                route.getDefaultPropertyId(), route.getFieldMapping(), Boolean.TRUE.equals(route.getActive()),
+                route.getMetaLastSyncAt(), route.getMetaSyncedUntil(), route.getMetaNextSyncAt(),
+                route.getMetaSyncError(), route.getMetaRecoveredCount(), route.getMetaSyncFrom() != null);
     }
 
     private IntegrationEventResponse toEventResponse(IntegrationEvent event) {

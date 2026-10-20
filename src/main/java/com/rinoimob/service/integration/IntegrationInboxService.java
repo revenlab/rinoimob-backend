@@ -1,21 +1,22 @@
 package com.rinoimob.service.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.rinoimob.api.client.MetaLeadAdsClient.LeadReference;
 import com.rinoimob.domain.entity.IntegrationConnection;
-import com.rinoimob.domain.entity.IntegrationEvent;
 import com.rinoimob.domain.enums.IntegrationConnectionStatus;
-import com.rinoimob.domain.enums.IntegrationEventStatus;
 import com.rinoimob.domain.enums.IntegrationProvider;
 import com.rinoimob.domain.repository.IntegrationConnectionRepository;
 import com.rinoimob.domain.repository.IntegrationEventRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -55,26 +56,34 @@ public class IntegrationInboxService {
         }
     }
 
-    private void persist(IntegrationConnection connection, String externalId, String eventType,
+    @Transactional
+    public int recoverMetaLead(UUID tenantId, UUID connectionId,
+                              LeadReference lead) {
+        IntegrationConnection connection = connectionRepository.findByIdAndTenantId(connectionId, tenantId)
+                .filter(item -> item.getProvider() == IntegrationProvider.META_LEAD_ADS
+                        && item.getStatus() == IntegrationConnectionStatus.ACTIVE)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Meta connection is not active"));
+        ObjectNode payload = JsonNodeFactory.instance.objectNode();
+        payload.put("leadgen_id", lead.id());
+        payload.put("form_id", lead.formId());
+        payload.put("page_id", connection.getExternalAccountId());
+        payload.put("created_time", lead.createdAt().getEpochSecond());
+        payload.put("recovered", true);
+        return persist(connection, lead.id(), "LEADGEN_RECOVERED", lead.formId(), payload);
+    }
+
+    private int persist(IntegrationConnection connection, String externalId, String eventType,
                          String externalResourceId, JsonNode payload) {
-        if (eventRepository.findByConnectionIdAndExternalEventId(connection.getId(), externalId).isPresent()) return;
-        IntegrationEvent event = new IntegrationEvent();
-        event.setTenantId(connection.getTenantId());
-        event.setConnectionId(connection.getId());
-        event.setProvider(connection.getProvider());
-        event.setExternalEventId(externalId);
-        event.setExternalResourceId(externalResourceId);
-        event.setEventType(eventType);
-        event.setStatus(connection.getStatus() == IntegrationConnectionStatus.ACTIVE
-                ? IntegrationEventStatus.RECEIVED : IntegrationEventStatus.IGNORED);
-        event.setEncryptedPayload(secretService.encrypt(payload.toString()));
-        try {
-            eventRepository.saveAndFlush(event);
-        } catch (DataIntegrityViolationException ignored) {
-            return;
+        LocalDateTime now = LocalDateTime.now();
+        String status = connection.getStatus() == IntegrationConnectionStatus.ACTIVE ? "RECEIVED" : "IGNORED";
+        int inserted = eventRepository.insertIfAbsent(UUID.randomUUID(), connection.getTenantId(),
+                connection.getId(), connection.getProvider().name(), externalId, externalResourceId, eventType,
+                status, secretService.encrypt(payload.toString()), now);
+        if (inserted > 0) {
+            connection.setLastReceivedAt(now);
+            connectionRepository.save(connection);
         }
-        connection.setLastReceivedAt(LocalDateTime.now());
-        connectionRepository.save(connection);
+        return inserted;
     }
 
     private String text(JsonNode payload, String field) {

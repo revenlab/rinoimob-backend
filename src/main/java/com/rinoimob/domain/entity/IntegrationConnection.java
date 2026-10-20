@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
+@org.hibernate.annotations.DynamicUpdate
 @Table(name = "integration_connections")
 @Data
 @NoArgsConstructor

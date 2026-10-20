@@ -25,7 +25,7 @@ public class IntegrationSecretService {
 
     public String encrypt(String plaintext) {
         if (plaintext == null) return null;
-        requireConfiguredKey();
+        validateConfiguration();
         try {
             byte[] iv = new byte[IV_LENGTH];
             secureRandom.nextBytes(iv);
@@ -43,7 +43,7 @@ public class IntegrationSecretService {
 
     public String decrypt(String encoded) {
         if (encoded == null) return null;
-        requireConfiguredKey();
+        validateConfiguration();
         try {
             byte[] combined = Base64.getDecoder().decode(encoded);
             byte[] iv = new byte[IV_LENGTH];
@@ -63,7 +63,7 @@ public class IntegrationSecretService {
                 .digest(configuredKey.getBytes(StandardCharsets.UTF_8)), "AES");
     }
 
-    private void requireConfiguredKey() {
+    public void validateConfiguration() {
         if (configuredKey == null || configuredKey.length() < 32) {
             throw new IllegalStateException("INTEGRATIONS_ENCRYPTION_KEY must contain at least 32 characters");
         }

@@ -2,6 +2,7 @@ package com.rinoimob.domain.dto.integration;
 
 import java.util.Map;
 import java.util.UUID;
+import java.time.Instant;
 
 public record IntegrationRouteResponse(
         UUID id,
@@ -13,5 +14,11 @@ public record IntegrationRouteResponse(
         UUID assignedTo,
         UUID defaultPropertyId,
         Map<String, Object> fieldMapping,
-        boolean active
+        boolean active,
+        Instant lastSyncAt,
+        Instant syncedUntil,
+        Instant nextSyncAt,
+        String syncError,
+        long recoveredLeads,
+        boolean syncInProgress
 ) {}

@@ -7,11 +7,13 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 @Entity
+@org.hibernate.annotations.DynamicUpdate
 @Table(name = "integration_routes")
 @Data
 @NoArgsConstructor
@@ -40,6 +42,24 @@ public class IntegrationRoute {
     private Map<String, Object> fieldMapping = new HashMap<>();
     @Column(nullable = false)
     private Boolean active = true;
+    @Column(name = "meta_sync_from")
+    private Instant metaSyncFrom;
+    @Column(name = "meta_sync_until")
+    private Instant metaSyncUntil;
+    @Column(name = "meta_sync_cursor", columnDefinition = "TEXT")
+    private String metaSyncCursor;
+    @Column(name = "meta_synced_until")
+    private Instant metaSyncedUntil;
+    @Column(name = "meta_last_sync_at")
+    private Instant metaLastSyncAt;
+    @Column(name = "meta_next_sync_at", nullable = false)
+    private Instant metaNextSyncAt = Instant.EPOCH;
+    @Column(name = "meta_sync_failures", nullable = false)
+    private int metaSyncFailures;
+    @Column(name = "meta_sync_error", length = 500)
+    private String metaSyncError;
+    @Column(name = "meta_recovered_count", nullable = false)
+    private long metaRecoveredCount;
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     @Column(name = "updated_at", nullable = false)

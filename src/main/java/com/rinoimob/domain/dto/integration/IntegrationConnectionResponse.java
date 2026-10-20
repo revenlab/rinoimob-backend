@@ -18,5 +18,6 @@ public record IntegrationConnectionResponse(
         LocalDateTime lastReceivedAt,
         LocalDateTime lastProcessedAt,
         String lastError,
-        long pendingEvents
+        long pendingEvents,
+        boolean metaAuthorized
 ) {}
