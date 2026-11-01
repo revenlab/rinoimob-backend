@@ -7,6 +7,7 @@ import com.rinoimob.domain.entity.Property;
 import com.rinoimob.domain.entity.PropertyCategory;
 import com.rinoimob.domain.entity.PropertyPhoto;
 import com.rinoimob.domain.entity.PropertyVideo;
+import com.rinoimob.domain.entity.User;
 import com.rinoimob.domain.enums.PropertyOperation;
 import com.rinoimob.domain.enums.PropertyStatus;
 import com.rinoimob.domain.enums.PropertyType;
@@ -18,6 +19,7 @@ import com.rinoimob.domain.repository.FloorPlanRepository;
 import com.rinoimob.domain.repository.PropertyPhotoRepository;
 import com.rinoimob.domain.repository.PropertyRepository;
 import com.rinoimob.domain.repository.PropertyVideoRepository;
+import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.service.billing.TenantQuotaEnforcementService;
 import com.rinoimob.service.storage.FileStorageService;
 import com.rinoimob.context.TenantContext;
@@ -59,6 +61,7 @@ public class PropertyService {
     private final CategoryService categoryService;
     private final PropertyTypeService propertyTypeService;
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
+    private final UserRepository userRepository;
     private static final long MAX_VIDEO_UPLOAD_BYTES = 25L * 1024L * 1024L;
     private static final Pattern YOUTUBE_VIDEO_ID_PATTERN = Pattern.compile(
             "(?:youtube\\.com/(?:watch\\?v=|embed/|shorts/)|youtu\\.be/)([A-Za-z0-9_-]{11})"
@@ -184,6 +187,12 @@ public class PropertyService {
                         latitude, longitude, radiusKm, featured),
                 pageable)
                 .map(this::toSummary);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PropertySummaryResponse> listPublicByBroker(UUID brokerId, Pageable pageable) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return propertyRepository.findPublicByBroker(tenantId, brokerId, pageable).map(this::toSummary);
     }
 
     // ── PHOTOS ────────────────────────────────────────────────────────────────
@@ -491,6 +500,7 @@ public class PropertyService {
         p.setLng(req.lng());
         if (req.attributes() != null) p.setAttributes(req.attributes());
         if (req.categoryIds() != null) p.setCategories(resolveCategories(req.categoryIds()));
+        applyBrokerOfferings(p, req.availableToAllBrokers(), req.brokerIds());
     }
 
     private void applyUpdate(Property p, UpdatePropertyRequest req) {
@@ -541,6 +551,27 @@ public class PropertyService {
         if (req.lng() != null) p.setLng(req.lng());
         if (req.attributes() != null) p.setAttributes(req.attributes());
         if (req.categoryIds() != null) p.setCategories(resolveCategories(req.categoryIds()));
+        if (req.availableToAllBrokers() != null || req.brokerIds() != null) {
+            applyBrokerOfferings(p, req.availableToAllBrokers(), req.brokerIds());
+        }
+    }
+
+    private void applyBrokerOfferings(Property property, Boolean availableToAllBrokers, List<UUID> brokerIds) {
+        boolean availableToAll = Boolean.TRUE.equals(availableToAllBrokers);
+        if (!availableToAll && (brokerIds == null || brokerIds.isEmpty())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one broker or make the property available to all brokers");
+        }
+        property.setAvailableToAllBrokers(availableToAll);
+        if (availableToAll) {
+            property.setBrokers(new HashSet<>());
+            return;
+        }
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        List<User> brokers = userRepository.findByTenantIdAndIdInAndActive(tenantId, new HashSet<>(brokerIds), true);
+        if (brokers.size() != new HashSet<>(brokerIds).size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more selected brokers are invalid for this tenant");
+        }
+        property.setBrokers(new HashSet<>(brokers));
     }
 
     private Set<PropertyCategory> resolveCategories(List<UUID> ids) {
@@ -603,7 +634,9 @@ public class PropertyService {
                 p.getPublishedAt(), p.getCreatedAt(), p.getUpdatedAt(),
                 p.getPhotos().stream().map(this::toPhotoResponse).toList(),
                 p.getFloorPlans().stream().map(this::toFloorPlanResponse).toList(),
-                p.getVideos().stream().map(this::toVideoResponse).toList()
+                p.getVideos().stream().map(this::toVideoResponse).toList(),
+                p.isAvailableToAllBrokers(),
+                p.getBrokers().stream().map(User::getId).toList()
         );
     }
 

@@ -70,6 +70,9 @@ public class BillingPlan {
     @Column(name = "public_api_enabled", nullable = false)
     private Boolean publicApiEnabled = false;
 
+    @Column(name = "integrations_enabled", nullable = false)
+    private Boolean integrationsEnabled = false;
+
     @Column(name = "vip_support_enabled", nullable = false)
     private Boolean vipSupportEnabled = false;
 

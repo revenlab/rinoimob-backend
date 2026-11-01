@@ -46,8 +46,17 @@ public class Lead {
     @Column(name = "assigned_to")
     private UUID assignedTo;
 
+    @Column(name = "referred_by_user_id")
+    private UUID referredByUserId;
+
     @Column(name = "pool_id")
     private UUID poolId;
+
+    @Column(name = "pipeline_id", nullable = false)
+    private UUID pipelineId;
+
+    @Column(name = "pipeline_stage_id", nullable = false)
+    private UUID pipelineStageId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

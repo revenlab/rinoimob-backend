@@ -8,6 +8,7 @@ import com.rinoimob.domain.repository.LeadPoolRepository;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -36,6 +37,15 @@ class LeadServiceAssignmentTest {
     @Mock private com.rinoimob.service.automation.workflow.AutomationEventDispatcher automationEventDispatcher;
     @Mock private LeadRealtimeService leadRealtimeService;
     @Mock private com.rinoimob.service.billing.TenantQuotaEnforcementService tenantQuotaEnforcementService;
+    @Mock private com.rinoimob.domain.repository.LeadPipelineRepository leadPipelineRepository;
+    @Mock private com.rinoimob.domain.repository.LeadAcquisitionRepository leadAcquisitionRepository;
+
+    @BeforeEach
+    void setUpDefaultPipeline() {
+        UUID pipelineId = UUID.randomUUID();
+        when(leadPipelineRepository.findDefaultPipelineId(any())).thenReturn(Optional.of(pipelineId));
+        when(leadPipelineRepository.findInitialOpenStageId(pipelineId)).thenReturn(Optional.of(UUID.randomUUID()));
+    }
 
     @Test
     void createLeadAutoAssignsPoolAndBroker() {
@@ -61,9 +71,9 @@ class LeadServiceAssignmentTest {
 
         LeadService svc = new LeadService(leadRepository, leadNoteRepository, leadEventRepository, userRepository,
                 leadPropertyRepository, propertyRepository, leadPoolRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
-                evaluator, assigner);
+                evaluator, assigner, leadPipelineRepository, leadAcquisitionRepository);
 
-        CreateLeadRequest req = new CreateLeadRequest("Name", "a@b.com", "123", "hello", null, "WHATSAPP");
+        CreateLeadRequest req = new CreateLeadRequest("Name", "a@b.com", "123", "hello", null, "WHATSAPP", null);
         svc.create(tenant, req);
 
         ArgumentCaptor<Lead> cap = ArgumentCaptor.forClass(Lead.class);
@@ -91,9 +101,10 @@ class LeadServiceAssignmentTest {
 
         LeadService svc = new LeadService(leadRepository, leadNoteRepository, leadEventRepository, userRepository,
                 leadPropertyRepository, propertyRepository, leadPoolRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
-                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository));
+                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository), leadPipelineRepository,
+                leadAcquisitionRepository);
 
-        svc.create(tenant, brokerId, new CreateLeadRequest("Name", null, "123", null, null, "MANUAL"));
+        svc.create(tenant, brokerId, new CreateLeadRequest("Name", null, "123", null, null, "MANUAL", null));
 
         ArgumentCaptor<Lead> cap = ArgumentCaptor.forClass(Lead.class);
         verify(leadRepository).save(cap.capture());
@@ -117,9 +128,10 @@ class LeadServiceAssignmentTest {
 
         LeadService svc = new LeadService(leadRepository, leadNoteRepository, leadEventRepository, userRepository,
                 leadPropertyRepository, propertyRepository, leadPoolRepository, automationEventDispatcher, leadRealtimeService, tenantQuotaEnforcementService,
-                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository));
+                new LeadPoolRuleEvaluator(leadPoolRepository, propertyRepository), new BrokerAssigner(userRepository), leadPipelineRepository,
+                leadAcquisitionRepository);
 
-        assertThatThrownBy(() -> svc.create(tenant, brokerId, new CreateLeadRequest("Name", null, "123", null, null, "MANUAL")))
+        assertThatThrownBy(() -> svc.create(tenant, brokerId, new CreateLeadRequest("Name", null, "123", null, null, "MANUAL", null)))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
                 .hasMessageContaining("Cannot assign lead to another broker");
 

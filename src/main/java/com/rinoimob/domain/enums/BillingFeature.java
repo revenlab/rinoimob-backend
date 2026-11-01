@@ -4,7 +4,8 @@ public enum BillingFeature {
     BLOG("Blog", BillingPlanCode.STARTER),
     CUSTOM_DOMAIN("Domínio customizado", BillingPlanCode.STARTER),
     AUTOMATION_CRM("Automações CRM", BillingPlanCode.PRIME),
-    PUBLIC_API("API pública", BillingPlanCode.PRIME);
+    PUBLIC_API("API pública", BillingPlanCode.PRIME),
+    INTEGRATIONS("Integrações de leads", BillingPlanCode.STARTER);
 
     private final String displayName;
     private final BillingPlanCode requiredPlanCode;

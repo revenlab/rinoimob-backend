@@ -29,7 +29,12 @@ public enum Permission {
     ROLES_READ("roles:read"),
     ROLES_WRITE("roles:write"),
     SETTINGS_MANAGE("settings:manage"),
-    REPORTS_READ("reports:read");
+    REPORTS_READ("reports:read"),
+    RENTALS_READ("rentals:read"),
+    RENTALS_WRITE("rentals:write"),
+    RENTALS_FINANCE("rentals:finance"),
+    RENTALS_PAYOUT_APPROVE("rentals:payout_approve"),
+    RENTALS_INTEGRATION_MANAGE("rentals:integration_manage");
 
     private final String value;
 

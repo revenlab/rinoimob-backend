@@ -10,5 +10,6 @@ public record PublicCreateLeadRequest(
         String phone,
         String message,
         UUID propertyId,
-        String source
+        String source,
+        String brokerSlug
 ) {}

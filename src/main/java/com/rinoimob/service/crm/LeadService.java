@@ -7,6 +7,7 @@ import com.rinoimob.domain.entity.LeadEvent;
 import com.rinoimob.domain.entity.LeadNote;
 import com.rinoimob.domain.entity.LeadPool;
 import com.rinoimob.domain.entity.LeadProperty;
+import com.rinoimob.domain.entity.LeadAcquisition;
 import com.rinoimob.domain.entity.Property;
 import com.rinoimob.domain.entity.PropertyPhoto;
 import com.rinoimob.domain.entity.User;
@@ -18,6 +19,9 @@ import com.rinoimob.domain.repository.LeadNoteRepository;
 import com.rinoimob.domain.repository.LeadPropertyRepository;
 import com.rinoimob.domain.repository.LeadRepository;
 import com.rinoimob.domain.repository.LeadPoolRepository;
+import com.rinoimob.domain.repository.LeadPipelineRepository;
+import com.rinoimob.domain.repository.LeadAcquisitionRepository;
+import com.rinoimob.domain.dto.integration.LeadAcquisitionResponse;
 import com.rinoimob.domain.repository.PropertyRepository;
 import com.rinoimob.domain.repository.UserRepository;
 import com.rinoimob.service.automation.workflow.AutomationEventDispatcher;
@@ -56,6 +60,8 @@ public class LeadService {
     private final TenantQuotaEnforcementService tenantQuotaEnforcementService;
     private final LeadPoolRuleEvaluator leadPoolRuleEvaluator;
     private final BrokerAssigner brokerAssigner;
+    private final LeadPipelineRepository leadPipelineRepository;
+    private final LeadAcquisitionRepository leadAcquisitionRepository;
 
     @Transactional(readOnly = true)
     public LeadStatsResponse getStats(UUID tenantId, UUID scopedUserId) {
@@ -119,6 +125,17 @@ public class LeadService {
 
     @Transactional
     public LeadResponse create(UUID tenantId, UUID scopedUserId, CreateLeadRequest req) {
+        return createInternal(tenantId, scopedUserId, req, null, null, null);
+    }
+
+    @Transactional
+    public LeadResponse createFromIntegration(UUID tenantId, CreateLeadRequest req, UUID pipelineId,
+                                              UUID poolId, UUID assignedTo) {
+        return createInternal(tenantId, null, req, pipelineId, poolId, assignedTo);
+    }
+
+    private LeadResponse createInternal(UUID tenantId, UUID scopedUserId, CreateLeadRequest req,
+                                        UUID configuredPipelineId, UUID configuredPoolId, UUID configuredAssignedTo) {
         tenantQuotaEnforcementService.assertCanCreateLead(tenantId);
         Lead lead = new Lead();
         lead.setTenantId(tenantId);
@@ -129,15 +146,27 @@ public class LeadService {
         lead.setPropertyId(req.propertyId());
         validatePropertyBelongsToTenant(tenantId, req.propertyId());
         lead.setSource(req.source() != null ? req.source() : "MANUAL");
+        validateActiveUserBelongsToTenant(tenantId, req.referredByUserId());
+        lead.setReferredByUserId(req.referredByUserId());
         lead.setStatus(LeadStatus.NEW);
+        if (configuredPipelineId == null) {
+            assignDefaultPipeline(tenantId, lead);
+        } else {
+            assignPipeline(tenantId, configuredPipelineId, lead);
+        }
 
-        UUID poolId = leadPoolRuleEvaluator.evaluate(tenantId, lead);
+        UUID poolId = configuredPoolId != null ? configuredPoolId : leadPoolRuleEvaluator.evaluate(tenantId, lead);
         if (poolId != null) {
             LeadPool pool = leadPoolRepository.findByIdAndTenantId(poolId, tenantId)
                     .orElse(null);
             if (pool != null) {
                 applyLeadPoolRouting(tenantId, lead, pool);
             }
+        }
+
+        if (configuredAssignedTo != null) {
+            lead.setPoolId(null);
+            lead.setAssignedTo(configuredAssignedTo);
         }
 
         if (scopedUserId != null) {
@@ -358,6 +387,7 @@ public class LeadService {
         newLead.setMessage(messageContent);
         newLead.setSource("WHATSAPP");
         newLead.setStatus(LeadStatus.NEW);
+        assignDefaultPipeline(tenantId, newLead);
         UUID newLeadPoolId = leadPoolRuleEvaluator.evaluate(tenantId, newLead);
         if (newLeadPoolId != null) {
             LeadPool pool = leadPoolRepository.findByIdAndTenantId(newLeadPoolId, tenantId).orElse(null);
@@ -405,6 +435,24 @@ public class LeadService {
             return;
         }
         lead.setAssignedTo(brokerAssigner.chooseBroker(tenantId, pool));
+    }
+
+    private void assignDefaultPipeline(UUID tenantId, Lead lead) {
+        UUID pipelineId = leadPipelineRepository.findDefaultPipelineId(tenantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "No default lead pipeline configured for this tenant"));
+        UUID stageId = leadPipelineRepository.findInitialOpenStageId(pipelineId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Default lead pipeline has no open stage"));
+        lead.setPipelineId(pipelineId);
+        lead.setPipelineStageId(stageId);
+    }
+
+    private void assignPipeline(UUID tenantId, UUID pipelineId, Lead lead) {
+        leadPipelineRepository.findActivePipelineId(tenantId, pipelineId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead pipeline not found"));
+        UUID stageId = leadPipelineRepository.findInitialOpenStageId(pipelineId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Lead pipeline has no open stage"));
+        lead.setPipelineId(pipelineId);
+        lead.setPipelineStageId(stageId);
     }
 
     private void validateActiveUserBelongsToTenant(UUID tenantId, UUID userId) {
@@ -457,7 +505,17 @@ public class LeadService {
                 l.getStatus(), l.getSource(), l.getAssignedTo(), assignedToName,
                 l.getCreatedAt(), l.getUpdatedAt(),
                 notes.stream().map(this::toNoteResponse).toList(),
-                properties
+                properties,
+                leadAcquisitionRepository.findByLeadIdAndTenantId(l.getId(), l.getTenantId())
+                        .map(this::toAcquisitionResponse).orElse(null)
+        );
+    }
+
+    private LeadAcquisitionResponse toAcquisitionResponse(LeadAcquisition acquisition) {
+        return new LeadAcquisitionResponse(
+                acquisition.getProvider(), acquisition.getExternalLeadId(), acquisition.getExternalFormId(),
+                acquisition.getExternalListingId(), acquisition.getCampaignName(), acquisition.getAdName(),
+                acquisition.getPropertyMatchStatus(), acquisition.getProviderCreatedAt()
         );
     }
 

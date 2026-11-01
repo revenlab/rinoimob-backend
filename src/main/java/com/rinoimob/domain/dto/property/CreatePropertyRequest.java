@@ -44,5 +44,7 @@ public record CreatePropertyRequest(
         BigDecimal lat,
         BigDecimal lng,
         Map<String, Object> attributes,
-        List<UUID> categoryIds
+        List<UUID> categoryIds,
+        Boolean availableToAllBrokers,
+        List<UUID> brokerIds
 ) {}

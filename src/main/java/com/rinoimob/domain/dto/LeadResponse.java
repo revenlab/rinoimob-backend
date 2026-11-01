@@ -1,6 +1,7 @@
 package com.rinoimob.domain.dto;
 
 import com.rinoimob.domain.enums.LeadStatus;
+import com.rinoimob.domain.dto.integration.LeadAcquisitionResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,5 +23,6 @@ public record LeadResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         List<LeadNoteResponse> notes,
-        List<LeadPropertyResponse> properties
+        List<LeadPropertyResponse> properties,
+        LeadAcquisitionResponse acquisition
 ) {}

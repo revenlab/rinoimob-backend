@@ -137,6 +137,7 @@ public class SupportAdminBillingService {
                 snapshot.customDomainEnabled(),
                 snapshot.automationCrmEnabled(),
                 snapshot.publicApiEnabled(),
+                snapshot.integrationsEnabled(),
                 snapshot.vipSupportEnabled(),
                 snapshot.customImplementationEnabled(),
                 profile != null ? profile.getNotes() : null,
@@ -155,6 +156,7 @@ public class SupportAdminBillingService {
         profile.setCustomDomainEnabled(Boolean.TRUE.equals(plan.getCustomDomainEnabled()));
         profile.setAutomationCrmEnabled(Boolean.TRUE.equals(plan.getAutomationCrmEnabled()));
         profile.setPublicApiEnabled(Boolean.TRUE.equals(plan.getPublicApiEnabled()));
+        profile.setIntegrationsEnabled(Boolean.TRUE.equals(plan.getIntegrationsEnabled()));
         profile.setVipSupportEnabled(Boolean.TRUE.equals(plan.getVipSupportEnabled()));
         profile.setCustomImplementationEnabled(Boolean.TRUE.equals(plan.getCustomImplementationEnabled()));
     }
@@ -183,6 +185,9 @@ public class SupportAdminBillingService {
         }
         if (request.publicApiEnabled() != null) {
             profile.setPublicApiEnabled(request.publicApiEnabled());
+        }
+        if (request.integrationsEnabled() != null) {
+            profile.setIntegrationsEnabled(request.integrationsEnabled());
         }
         if (request.vipSupportEnabled() != null) {
             profile.setVipSupportEnabled(request.vipSupportEnabled());
@@ -213,6 +218,7 @@ public class SupportAdminBillingService {
                 Boolean.TRUE.equals(plan.getCustomDomainEnabled()),
                 Boolean.TRUE.equals(plan.getAutomationCrmEnabled()),
                 Boolean.TRUE.equals(plan.getPublicApiEnabled()),
+                Boolean.TRUE.equals(plan.getIntegrationsEnabled()),
                 Boolean.TRUE.equals(plan.getVipSupportEnabled()),
                 Boolean.TRUE.equals(plan.getCustomImplementationEnabled())
         );

@@ -73,6 +73,7 @@ class TenantPlanAccessServiceTest {
                 automationCrmEnabled,
                 publicApiEnabled,
                 false,
+                false,
                 false
         );
     }

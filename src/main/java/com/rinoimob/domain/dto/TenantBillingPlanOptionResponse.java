@@ -17,6 +17,7 @@ public record TenantBillingPlanOptionResponse(
         boolean customDomainEnabled,
         boolean automationCrmEnabled,
         boolean publicApiEnabled,
+        boolean integrationsEnabled,
         boolean vipSupportEnabled,
         boolean customImplementationEnabled
 ) {

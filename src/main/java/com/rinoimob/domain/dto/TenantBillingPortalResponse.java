@@ -26,6 +26,7 @@ public record TenantBillingPortalResponse(
         boolean customDomainEnabled,
         boolean automationCrmEnabled,
         boolean publicApiEnabled,
+        boolean integrationsEnabled,
         boolean vipSupportEnabled,
         boolean customImplementationEnabled,
         BillingCustomerDetailsResponse billingCustomer,

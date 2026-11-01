@@ -56,6 +56,7 @@ jwt:
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
 
 app:
+  public-api-url: ${PUBLIC_API_URL:http://localhost:39000}
   frontend:
     url: ${FRONTEND_URL:http://localhost:5173}
   cors:
@@ -80,6 +81,33 @@ billing:
     provider-operation-interval-ms: ${ASAAS_PROVIDER_OPERATION_INTERVAL_MS:30000}
     reconciliation-interval-ms: ${ASAAS_RECONCILIATION_INTERVAL_MS:900000}
     card-token-update-enabled: ${ASAAS_CARD_TOKEN_UPDATE_ENABLED:false}
+
+integrations:
+  encryption-key: ${INTEGRATIONS_ENCRYPTION_KEY:}
+  processing-interval-ms: ${INTEGRATIONS_PROCESSING_INTERVAL_MS:2000}
+  quota-recheck-interval-ms: ${INTEGRATIONS_QUOTA_RECHECK_INTERVAL_MS:3600000}
+  retention-cron: ${INTEGRATIONS_RETENTION_CRON:0 30 3 * * *}
+  meta:
+    sync:
+      enabled: ${META_LEAD_SYNC_ENABLED:true}
+      interval-seconds: ${META_LEAD_SYNC_INTERVAL_SECONDS:300}
+      overlap-seconds: ${META_LEAD_SYNC_OVERLAP_SECONDS:3600}
+      settle-seconds: ${META_LEAD_SYNC_SETTLE_SECONDS:60}
+      poll-interval-ms: ${META_LEAD_SYNC_POLL_INTERVAL_MS:30000}
+    api-version: ${META_API_VERSION:v23.0}
+    app-id: ${META_APP_ID:}
+    app-secret: ${META_APP_SECRET:}
+    redirect-uri: ${META_REDIRECT_URI:http://localhost:39000/api/v1/integrations/meta/oauth/callback}
+    verify-token: ${META_WEBHOOK_VERIFY_TOKEN:}
+  grupo-olx:
+    secret-key: ${GRUPO_OLX_SECRET_KEY:}
+
+rental:
+  asaas:
+    base-url: ${RENTAL_ASAAS_BASE_URL:https://api.asaas.com}
+    root-api-key: ${RENTAL_ASAAS_ROOT_API_KEY:}
+    rino-wallet-id: ${RENTAL_ASAAS_RINO_WALLET_ID:}
+    encryption-key: ${RENTAL_ASAAS_ENCRYPTION_KEY:}
 
 audit:
   retention-days: ${AUDIT_RETENTION_DAYS:180}

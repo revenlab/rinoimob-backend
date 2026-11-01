@@ -10,7 +10,8 @@ public record CreateLeadRequest(
         String phone,
         String message,
         UUID propertyId,
-        String source
+        String source,
+        UUID referredByUserId
 ) {
     public CreateLeadRequest {
         if (source == null) source = "MANUAL";
