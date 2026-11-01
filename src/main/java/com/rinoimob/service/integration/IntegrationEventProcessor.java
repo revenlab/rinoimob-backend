@@ -213,8 +213,8 @@ public class IntegrationEventProcessor {
             phone = ddd + Optional.ofNullable(text(payload, "phone")).orElse("");
         }
         String listing = text(payload, "clientListingId");
-        if (listing == null) listing = text(payload, "originListingId");
-        if (listing == null) listing = text(payload, "adId");
+        if (blank(listing)) listing = text(payload, "originListingId");
+        if (blank(listing)) listing = text(payload, "adId");
         Map<String, Object> metadata = objectMapper.convertValue(payload, new TypeReference<>() {});
         return new NormalizedLead(name, text(payload, "email"), blank(phone) ? null : phone,
                 text(payload, "message"), "*", listing, null, null,

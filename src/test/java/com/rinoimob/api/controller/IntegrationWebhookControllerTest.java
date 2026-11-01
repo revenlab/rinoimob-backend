@@ -3,13 +3,16 @@ package com.rinoimob.api.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rinoimob.api.client.MetaLeadAdsClient;
 import com.rinoimob.service.integration.IntegrationInboxService;
+import com.rinoimob.service.integration.OlxOAuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -21,6 +24,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -31,6 +36,7 @@ class IntegrationWebhookControllerTest {
     private static final String OLX_SECRET = "olx-secret";
 
     private IntegrationInboxService inboxService;
+    private OlxOAuthService olx;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -40,9 +46,9 @@ class IntegrationWebhookControllerTest {
         MetaLeadAdsClient metaClient = new MetaLeadAdsClient(
                 new RestTemplate(), objectMapper, "v23.0", "app-id", META_SECRET, "https://app.example.com/callback"
         );
-        IntegrationWebhookController controller = new IntegrationWebhookController(inboxService, metaClient, objectMapper);
+        olx = mock(OlxOAuthService.class);
+        IntegrationWebhookController controller = new IntegrationWebhookController(inboxService, metaClient, objectMapper, olx);
         ReflectionTestUtils.setField(controller, "metaVerifyToken", "verify-token");
-        ReflectionTestUtils.setField(controller, "grupoOlxSecretKey", OLX_SECRET);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -90,6 +96,17 @@ class IntegrationWebhookControllerTest {
                 .andExpect(status().isAccepted());
 
         verify(inboxService).receiveGrupoOlx(eq("inbound-123"), any());
+        verify(olx).validateWebhook("inbound-123", authorization);
+    }
+
+    @Test
+    void shouldRejectOlxBeforePersistingWhenDeliveryCredentialIsInvalid() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED))
+                .when(olx).validateWebhook("inbound-123", null);
+        mockMvc.perform(post("/api/v1/webhooks/integrations/grupo-olx/inbound-123")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"externalId\":\"123\"}"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(inboxService);
     }
 
     private String signature(byte[] body) throws Exception {

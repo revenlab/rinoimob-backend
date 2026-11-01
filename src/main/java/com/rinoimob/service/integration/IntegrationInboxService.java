@@ -16,6 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -33,7 +38,20 @@ public class IntegrationInboxService {
         String externalId = text(payload, "originLeadId");
         if (externalId == null) externalId = text(payload, "externalId");
         if (externalId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "originLeadId is required");
+            // externalId is optional in OLX's schema. Use stable event fields, never just the listing ID.
+            if (text(payload, "createdAt") == null || text(payload, "listId") == null || text(payload, "name") == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lead ID or OLX event identity fields are required");
+            }
+            var identity = JsonNodeFactory.instance.arrayNode();
+            for (String field : List.of("source", "listId", "createdAt", "name", "email", "phone", "message")) {
+                identity.add(text(payload, field));
+            }
+            try {
+                externalId = "olx-" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                        .digest(identity.toString().getBytes(StandardCharsets.UTF_8)));
+            } catch (NoSuchAlgorithmException exception) {
+                throw new IllegalStateException("Could not identify OLX lead", exception);
+            }
         }
         persist(connection, externalId, "LEAD", "*", payload);
     }

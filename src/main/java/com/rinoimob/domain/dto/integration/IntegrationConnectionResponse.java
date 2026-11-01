@@ -19,5 +19,7 @@ public record IntegrationConnectionResponse(
         LocalDateTime lastProcessedAt,
         String lastError,
         long pendingEvents,
-        boolean metaAuthorized
+        boolean metaAuthorized,
+        boolean olxOAuth,
+        boolean olxAuthorized
 ) {}

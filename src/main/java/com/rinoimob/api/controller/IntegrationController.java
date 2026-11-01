@@ -4,6 +4,7 @@ import com.rinoimob.context.TenantContext;
 import com.rinoimob.domain.dto.integration.*;
 import com.rinoimob.service.integration.GrupoOlxPropertyFeedService;
 import com.rinoimob.service.integration.IntegrationManagementService;
+import com.rinoimob.service.integration.OlxOAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -30,6 +31,7 @@ import java.util.UUID;
 public class IntegrationController {
     private final IntegrationManagementService service;
     private final GrupoOlxPropertyFeedService grupoOlxFeedService;
+    private final OlxOAuthService olxOAuthService;
 
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
@@ -90,6 +92,41 @@ public class IntegrationController {
         }
         URI redirect = URI.create(frontendUrl.replaceAll("/$", "") + "/integracoes?" + query);
         return ResponseEntity.status(302).header(HttpHeaders.LOCATION, redirect.toString()).build();
+    }
+
+    @PostMapping("/grupo-olx/oauth/start")
+    @Operation(summary = "Authorize an OLX advertiser and configure lead delivery")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Authorization URL generated"),
+            @ApiResponse(responseCode = "503", description = "OLX OAuth or public webhook is not configured")})
+    public OlxOAuthStartResponse startOlxOAuth(HttpServletRequest request) {
+        return olxOAuthService.start(tenantId(), (UUID) request.getAttribute("userId"), null);
+    }
+
+    @PostMapping("/{connectionId}/grupo-olx/oauth/reconnect")
+    @Operation(summary = "Renew OLX authorization for a tenant connection")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Authorization URL generated"),
+            @ApiResponse(responseCode = "404", description = "Tenant connection not found")})
+    public OlxOAuthStartResponse reconnectOlxOAuth(@PathVariable UUID connectionId, HttpServletRequest request) {
+        return olxOAuthService.start(tenantId(), (UUID) request.getAttribute("userId"), connectionId);
+    }
+
+    @GetMapping("/grupo-olx/oauth/callback")
+    @PreAuthorize("permitAll()")
+    @Operation(summary = "Complete OLX OAuth and register the advertiser lead webhook")
+    @ApiResponses({@ApiResponse(responseCode = "302", description = "Return to integrations without exposing OAuth credentials")})
+    public ResponseEntity<Void> completeGrupoOlxOAuth(@RequestParam(required = false) String code,
+                                                     @RequestParam(required = false) String state,
+                                                     @RequestParam(required = false) String error) {
+        String query;
+        try {
+            UUID connectionId = olxOAuthService.complete(code, state, error);
+            query = "olx=returned&connectionId=" + connectionId;
+        } catch (ResponseStatusException exception) {
+            if (!exception.getStatusCode().is4xxClientError()) throw exception;
+            query = "olx=error";
+        }
+        return ResponseEntity.status(302).header(HttpHeaders.LOCATION,
+                frontendUrl.replaceAll("/$", "") + "/integracoes?" + query).build();
     }
 
     @GetMapping("/{connectionId}/meta/pages")

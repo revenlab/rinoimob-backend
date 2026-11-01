@@ -39,6 +39,15 @@ class IntegrationManagementServiceTest {
     }
 
     @Test
+    void shouldNotManuallyActivateOlxWithoutRegisteredWebhook() {
+        connection.setProvider(IntegrationProvider.GRUPO_OLX);
+        connection.getConfig().put("olxOAuth", true);
+        assertThatThrownBy(() -> service.updateStatus(tenantId, connection.getId(), IntegrationConnectionStatus.ACTIVE))
+                .isInstanceOf(ResponseStatusException.class);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void shouldNotCreateConnectionWhenMetaIsNotConfigured() {
         when(client.authorizationUrl(anyString())).thenThrow(new IllegalStateException("Not configured"));
         assertThatThrownBy(() -> service.startMetaOAuth(tenantId, userId)).isInstanceOf(IllegalStateException.class);

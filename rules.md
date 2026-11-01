@@ -143,6 +143,8 @@ support:health:read
 
 ## Structural Note
 
+- **OAuth OLX e entrega de leads**: `OlxOAuthService` inicia/renova autorização com `autoservice basic_user_info`; callback público `/api/v1/integrations/grupo-olx/oauth/callback` valida nonce de uso único com validade de 10 minutos sob lock tenant-scoped, troca o código e cadastra/atualiza `/autoservice/v1/lead`. Tokens ficam criptografados; autenticação de entrega é individual por conexão. Canal Pro mantém a `GRUPO_OLX_SECRET_KEY` global fornecida pelo Grupo ZAP. Credenciais OAuth: `GRUPO_OLX_CLIENT_ID`, `GRUPO_OLX_CLIENT_SECRET`, `GRUPO_OLX_REDIRECT_URI`; `PUBLIC_API_URL` deve ser HTTPS público. A API OAuth OLX documenta leads de veículos; imóveis continuam no Canal Pro, conforme homologação. Leads OLX sem `externalId` recebem identidade derivada de campos estáveis para deduplicação.
+
 - **Preços do catálogo de billing**: `V60__set_billing_plan_prices.sql` atualiza os planos globais para Free R$ 0,00, Starter R$ 99,90, Prime R$ 399,90 e Ultimate R$ 799,90 sem alterar migrations já aplicadas.
 
 - **Testes de IA alinhados ao contrato atual**: `AiIntegrationTest` usa `/api/v1/ai/status` e `/api/v1/ai/generate`, correspondendo ao `@RequestMapping("/api/v1/ai")` de `AiController`.

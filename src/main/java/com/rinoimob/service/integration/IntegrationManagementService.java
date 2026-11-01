@@ -262,6 +262,11 @@ public class IntegrationManagementService {
         if (status != IntegrationConnectionStatus.ACTIVE && status != IntegrationConnectionStatus.PAUSED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only ACTIVE or PAUSED can be selected manually");
         }
+        if (connection.getProvider() == IntegrationProvider.GRUPO_OLX
+                && Boolean.TRUE.equals(connection.getConfig().get("olxOAuth"))
+                && (!connection.getConfig().containsKey("olxLeadConfigurationId") || connection.getEncryptedCredentials() == null)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Conclua a autorização e o cadastro do webhook na OLX antes de ativar.");
+        }
         if (connection.getProvider() == IntegrationProvider.META_LEAD_ADS
                 && (connection.getStatus() != IntegrationConnectionStatus.ACTIVE
                 && connection.getStatus() != IntegrationConnectionStatus.PAUSED
@@ -363,7 +368,10 @@ public class IntegrationManagementService {
                         IntegrationEventStatus.FAILED, IntegrationEventStatus.BLOCKED_QUOTA));
         return new IntegrationConnectionResponse(connection.getId(), connection.getProvider(), connection.getName(),
                 connection.getStatus(), connection.getExternalAccountId(), connection.getExternalAccountName(), inboundUrl, feedUrl,
-                connection.getLastReceivedAt(), connection.getLastProcessedAt(), connection.getLastError(), pending, metaAuthorized(connection));
+                connection.getLastReceivedAt(), connection.getLastProcessedAt(), connection.getLastError(), pending, metaAuthorized(connection),
+                Boolean.TRUE.equals(connection.getConfig().get("olxOAuth")),
+                connection.getProvider() == IntegrationProvider.GRUPO_OLX && connection.getEncryptedCredentials() != null
+                        && connection.getConfig().containsKey("olxLeadConfigurationId"));
     }
 
     private boolean metaAuthorized(IntegrationConnection connection) {

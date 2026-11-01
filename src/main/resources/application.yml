@@ -100,6 +100,9 @@ integrations:
     redirect-uri: ${META_REDIRECT_URI:http://localhost:39000/api/v1/integrations/meta/oauth/callback}
     verify-token: ${META_WEBHOOK_VERIFY_TOKEN:}
   grupo-olx:
+    client-id: ${GRUPO_OLX_CLIENT_ID:}
+    client-secret: ${GRUPO_OLX_CLIENT_SECRET:}
+    redirect-uri: ${GRUPO_OLX_REDIRECT_URI:http://localhost:39000/api/v1/integrations/grupo-olx/oauth/callback}
     secret-key: ${GRUPO_OLX_SECRET_KEY:}
 
 rental:

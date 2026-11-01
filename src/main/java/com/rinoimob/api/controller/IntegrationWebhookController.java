@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rinoimob.api.client.MetaLeadAdsClient;
 import com.rinoimob.service.integration.IntegrationInboxService;
+import com.rinoimob.service.integration.OlxOAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Base64;
 import java.util.HexFormat;
 
 @RestController
@@ -27,12 +27,10 @@ public class IntegrationWebhookController {
     private final IntegrationInboxService inboxService;
     private final MetaLeadAdsClient metaClient;
     private final ObjectMapper objectMapper;
+    private final OlxOAuthService olxOAuthService;
 
     @Value("${integrations.meta.verify-token:}")
     private String metaVerifyToken;
-
-    @Value("${integrations.grupo-olx.secret-key:}")
-    private String grupoOlxSecretKey;
 
     @GetMapping("/meta")
     @Operation(summary = "Verify the Meta Lead Ads webhook")
@@ -65,7 +63,7 @@ public class IntegrationWebhookController {
     public ResponseEntity<Void> receiveGrupoOlx(@PathVariable String inboundKey,
                                                  @RequestHeader(name = "Authorization", required = false) String authorization,
                                                  @RequestBody JsonNode payload) {
-        validateGrupoOlxAuthorization(authorization);
+        olxOAuthService.validateWebhook(inboundKey, authorization);
         inboxService.receiveGrupoOlx(inboundKey, payload);
         return ResponseEntity.accepted().build();
     }
@@ -85,22 +83,6 @@ public class IntegrationWebhookController {
             throw exception;
         } catch (Exception exception) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not verify Meta signature");
-        }
-    }
-
-    private void validateGrupoOlxAuthorization(String authorization) {
-        if (grupoOlxSecretKey.isBlank() || authorization == null || !authorization.startsWith("Basic ")) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Grupo OLX credentials");
-        }
-        try {
-            String decoded = new String(Base64.getDecoder().decode(authorization.substring(6)), StandardCharsets.UTF_8);
-            int separator = decoded.indexOf(':');
-            String receivedSecret = separator >= 0 ? decoded.substring(separator + 1) : "";
-            if (!constantEquals(grupoOlxSecretKey, receivedSecret)) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Grupo OLX credentials");
-            }
-        } catch (IllegalArgumentException exception) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Grupo OLX credentials");
         }
     }
 

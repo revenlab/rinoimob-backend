@@ -27,6 +27,11 @@ public class ApplicationConfig {
         return builder.setConnectTimeout(Duration.ofSeconds(5)).setReadTimeout(Duration.ofSeconds(15)).build();
     }
 
+    @Bean("olxRestTemplate")
+    public RestTemplate olxRestTemplate(RestTemplateBuilder builder) {
+        return builder.setConnectTimeout(Duration.ofSeconds(5)).setReadTimeout(Duration.ofSeconds(15)).build();
+    }
+
     @Bean
     public TaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
