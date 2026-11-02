@@ -31,6 +31,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -41,6 +42,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -73,10 +75,14 @@ public class PropertyService {
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public PropertyResponse createProperty(CreatePropertyRequest req) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        if (!hasAllPropertyWriteAccess() && !hasOwnPropertyWriteAccess()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissão para cadastrar imóveis");
+        }
         tenantQuotaEnforcementService.assertCanCreateProperty(tenantId);
         propertyTypeService.assertActive(tenantId, req.propertyType());
         Property property = new Property();
         property.setTenantId(tenantId);
+        property.setCreatedByUserId(TenantContext.getUserId());
         applyRequest(property, req);
         property.setReferenceCode(resolveReferenceCode(tenantId, req.referenceCode()));
         property.setStatus(req.status() != null ? req.status() : PropertyStatus.DRAFT);
@@ -88,7 +94,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public PropertyResponse updateProperty(UUID id, UpdatePropertyRequest req) {
-        Property property = findOwnedProperty(id);
+        Property property = findManagedProperty(id);
         if (req.propertyType() != null && req.propertyType() != property.getPropertyType()) {
             propertyTypeService.assertActive(property.getTenantId(), req.propertyType());
         }
@@ -101,7 +107,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void deleteProperty(UUID id) {
-        Property property = findOwnedProperty(id);
+        Property property = findManagedProperty(id);
         property.setDeletedAt(LocalDateTime.now());
         propertyRepository.save(property);
         log.info("Property soft-deleted id={}", id);
@@ -195,12 +201,24 @@ public class PropertyService {
         return propertyRepository.findPublicByBroker(tenantId, brokerId, pageable).map(this::toSummary);
     }
 
+    @Transactional(readOnly = true)
+    public Page<PropertyListItemResponse> listManagedProperties(
+            PropertyStatus status, PropertyOperation operation, PropertyType propertyType,
+            String categorySlug, BigDecimal minPrice, BigDecimal maxPrice,
+            Integer bedrooms, String city, Boolean featured, Pageable pageable) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return propertyRepository.findAll(PropertySpecification.withFilters(
+                        tenantId, status, operation, propertyType, categorySlug, minPrice, maxPrice,
+                        bedrooms, city, null, null, null, null, featured), pageable)
+                .map(property -> new PropertyListItemResponse(toSummary(property), canManageProperty(property)));
+    }
+
     // ── PHOTOS ────────────────────────────────────────────────────────────────
 
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public PropertyPhotoResponse addPhoto(UUID propertyId, MultipartFile file, String altText) {
-        Property property = findOwnedProperty(propertyId);
+        Property property = findManagedProperty(propertyId);
         FileStorageService.UploadResult result = fileStorageService.upload(file);
 
         int nextPosition = photoRepository.countByPropertyId(propertyId);
@@ -228,7 +246,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void setCoverPhoto(UUID propertyId, UUID photoId) {
-        Property property = findOwnedProperty(propertyId);
+        Property property = findManagedProperty(propertyId);
 
         // Clear current cover
         List<PropertyPhoto> photos = photoRepository.findByPropertyIdOrderByPositionAsc(propertyId);
@@ -251,7 +269,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void deletePhoto(UUID propertyId, UUID photoId) {
-        Property property = findOwnedProperty(propertyId);
+        Property property = findManagedProperty(propertyId);
         PropertyPhoto photo = photoRepository.findByIdAndPropertyId(photoId, propertyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found"));
 
@@ -278,7 +296,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public PropertyVideoResponse addUploadedVideo(UUID propertyId, MultipartFile file, String title) {
-        Property property = findOwnedProperty(propertyId);
+        Property property = findManagedProperty(propertyId);
         validateVideoUpload(file);
 
         FileStorageService.UploadResult result = fileStorageService.upload(file);
@@ -299,7 +317,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public PropertyVideoResponse addYoutubeVideo(UUID propertyId, CreateYoutubeVideoRequest request) {
-        Property property = findOwnedProperty(propertyId);
+        Property property = findManagedProperty(propertyId);
         String videoId = extractYoutubeVideoId(request.url());
         String embedUrl = "https://www.youtube.com/embed/" + videoId;
 
@@ -320,7 +338,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void deleteVideo(UUID propertyId, UUID videoId) {
-        findOwnedProperty(propertyId);
+        findManagedProperty(propertyId);
         PropertyVideo video = videoRepository.findByIdAndPropertyId(videoId, propertyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Video not found"));
 
@@ -342,7 +360,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public FloorPlanResponse addFloorPlan(UUID propertyId, CreateFloorPlanRequest req) {
-        Property property = findOwnedProperty(propertyId);
+        Property property = findManagedProperty(propertyId);
         FloorPlan plan = new FloorPlan();
         plan.setProperty(property);
         plan.setName(req.name());
@@ -356,7 +374,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public FloorPlanResponse updateFloorPlan(UUID propertyId, UUID planId, UpdateFloorPlanRequest req) {
-        findOwnedProperty(propertyId);
+        findManagedProperty(propertyId);
         FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan not found"));
         if (req.name() != null && !req.name().isBlank()) plan.setName(req.name().trim());
@@ -368,7 +386,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void deleteFloorPlan(UUID propertyId, UUID planId) {
-        findOwnedProperty(propertyId);
+        findManagedProperty(propertyId);
         FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan not found"));
         // Delete all photos from SeaweedFS before removing the plan
@@ -380,7 +398,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public FloorPlanPhotoResponse addFloorPlanPhoto(UUID propertyId, UUID planId, MultipartFile file) {
-        findOwnedProperty(propertyId);
+        findManagedProperty(propertyId);
         FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan not found"));
 
@@ -399,7 +417,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void setFloorPlanPhotoCover(UUID propertyId, UUID planId, UUID photoId) {
-        findOwnedProperty(propertyId);
+        findManagedProperty(propertyId);
         FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan not found"));
         List<FloorPlanPhoto> photos = floorPlanPhotoRepository.findByFloorPlanIdOrderByPositionAsc(plan.getId());
@@ -418,7 +436,7 @@ public class PropertyService {
     @Transactional
     @CacheEvict(cacheNames = {"publicPropertyListings", "publicPropertyDetails"}, allEntries = true)
     public void deleteFloorPlanPhoto(UUID propertyId, UUID planId, UUID photoId) {
-        findOwnedProperty(propertyId);
+        findManagedProperty(propertyId);
         FloorPlan plan = floorPlanRepository.findByIdAndPropertyId(planId, propertyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Floor plan not found"));
         FloorPlanPhoto photo = floorPlanPhotoRepository.findByIdAndFloorPlanId(photoId, plan.getId())
@@ -438,6 +456,58 @@ public class PropertyService {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         return propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Property not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean canEditProperty(UUID id) {
+        return canManageProperty(findOwnedProperty(id));
+    }
+
+    public boolean canCreateProperty() {
+        return hasAllPropertyWriteAccess() || hasOwnPropertyWriteAccess();
+    }
+
+    public boolean canOfferToAllBrokers() {
+        return hasAllPropertyWriteAccess();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> listOfferingBrokers() {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        return userRepository.findByTenantIdAndActive(tenantId, true).stream()
+                .filter(user -> hasAllPropertyWriteAccess() || user.getId().equals(TenantContext.getUserId()))
+                .map(user -> Map.<String, Object>of("id", user.getId(),
+                        "firstName", Objects.toString(user.getFirstName(), ""),
+                        "lastName", Objects.toString(user.getLastName(), "")))
+                .toList();
+    }
+
+    private Property findManagedProperty(UUID id) {
+        Property property = findOwnedProperty(id);
+        if (!canManageProperty(property)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você só pode alterar imóveis cadastrados por você");
+        }
+        return property;
+    }
+
+    private boolean canManageProperty(Property property) {
+        return hasAllPropertyWriteAccess() || (hasOwnPropertyWriteAccess()
+                && TenantContext.getUserId().equals(property.getCreatedByUserId()));
+    }
+
+    private boolean hasAllPropertyWriteAccess() {
+        return hasPropertyAuthority("properties:write") || hasPropertyAuthority("properties:write_all");
+    }
+
+    private boolean hasOwnPropertyWriteAccess() {
+        return TenantContext.getUserId() != null && hasPropertyAuthority("properties:write_own");
+    }
+
+    private boolean hasPropertyAuthority(String permission) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.isAuthenticated()
+                && authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("PERMISSION_" + permission));
     }
 
     private void applyRequest(Property p, CreatePropertyRequest req) {
@@ -557,7 +627,17 @@ public class PropertyService {
     }
 
     private void applyBrokerOfferings(Property property, Boolean availableToAllBrokers, List<UUID> brokerIds) {
-        boolean availableToAll = Boolean.TRUE.equals(availableToAllBrokers);
+        if (!hasAllPropertyWriteAccess()) {
+            UUID currentUserId = TenantContext.getUserId();
+            if (!hasOwnPropertyWriteAccess() || Boolean.TRUE.equals(availableToAllBrokers)
+                    || (brokerIds != null && !new HashSet<>(brokerIds).equals(Set.of(currentUserId)))) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você só pode disponibilizar imóveis para si");
+            }
+            availableToAllBrokers = false;
+            brokerIds = List.of(currentUserId);
+        }
+        boolean availableToAll = availableToAllBrokers != null ? availableToAllBrokers
+                : brokerIds == null && property.isAvailableToAllBrokers();
         if (!availableToAll && (brokerIds == null || brokerIds.isEmpty())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one broker or make the property available to all brokers");
         }

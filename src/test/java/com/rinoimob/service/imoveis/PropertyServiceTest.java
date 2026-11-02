@@ -1,6 +1,10 @@
 package com.rinoimob.service.imoveis;
 
 import com.rinoimob.context.TenantContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.rinoimob.domain.dto.property.*;
 import com.rinoimob.domain.entity.FloorPlan;
 import com.rinoimob.domain.entity.Property;
@@ -59,6 +63,8 @@ class PropertyServiceTest {
     @BeforeEach
     void setUp() {
         TenantContext.setTenantId(TENANT_ID.toString());
+        TenantContext.setUserId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        authenticate("properties:write");
         propertyService = new PropertyService(
                 propertyRepository, photoRepository, floorPlanRepository,
                 floorPlanPhotoRepository, videoRepository, categoryRepository, fileStorageService, categoryService,
@@ -68,6 +74,177 @@ class PropertyServiceTest {
     @AfterEach
     void tearDown() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
+    }
+
+    private void authenticate(String permission) {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                "broker", null, List.of(new SimpleGrantedAuthority("PERMISSION_" + permission))));
+    }
+
+    @Test
+    void shouldRejectOfferingToAllForOwnOnlyWriter() {
+        authenticate("properties:write_own");
+        CreatePropertyRequest request = new ObjectMapper().convertValue(Map.of(
+                "title", "Casa", "operation", "SALE", "propertyType", "HOUSE",
+                "availableToAllBrokers", true), CreatePropertyRequest.class);
+
+        lenient().when(propertyRepository.save(any())).thenReturn(buildProperty());
+        assertThatThrownBy(() -> propertyService.createProperty(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+        verify(propertyRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectEditingPropertyWithoutOwnershipForOwnOnlyWriter() {
+        authenticate("properties:write_own");
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(PROPERTY_ID, TENANT_ID))
+                .thenReturn(Optional.of(buildProperty()));
+        lenient().when(propertyRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        UpdatePropertyRequest request = new ObjectMapper().convertValue(Map.of("title", "Changed"), UpdatePropertyRequest.class);
+
+        assertThatThrownBy(() -> propertyService.updateProperty(PROPERTY_ID, request))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void shouldRejectDeletingPropertyWithoutOwnershipForOwnOnlyWriter() {
+        authenticate("properties:write_own");
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(PROPERTY_ID, TENANT_ID))
+                .thenReturn(Optional.of(buildProperty()));
+
+        assertThatThrownBy(() -> propertyService.deleteProperty(PROPERTY_ID))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+        verify(propertyRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldCreateOwnPortfolioByDefaultAndRecordCreator() {
+        authenticate("properties:write_own");
+        UUID actorId = TenantContext.getUserId();
+        com.rinoimob.domain.entity.User actor = new com.rinoimob.domain.entity.User();
+        actor.setId(actorId);
+        actor.setTenantId(TENANT_ID);
+        when(userRepository.findByTenantIdAndIdInAndActive(TENANT_ID, Set.of(actorId), true)).thenReturn(List.of(actor));
+        when(propertyRepository.save(any())).thenAnswer(invocation -> {
+            Property property = invocation.getArgument(0);
+            property.setId(PROPERTY_ID);
+            return property;
+        });
+        CreatePropertyRequest request = new ObjectMapper().convertValue(Map.of(
+                "title", "Casa própria", "operation", "SALE", "propertyType", "HOUSE"), CreatePropertyRequest.class);
+
+        PropertyResponse result = propertyService.createProperty(request);
+
+        assertThat(result.availableToAllBrokers()).isFalse();
+        assertThat(result.brokerIds()).containsExactly(actorId);
+        ArgumentCaptor<Property> saved = ArgumentCaptor.forClass(Property.class);
+        verify(propertyRepository).save(saved.capture());
+        assertThat(saved.getValue().getCreatedByUserId()).isEqualTo(actorId);
+        assertThat(saved.getValue().getTenantId()).isEqualTo(TENANT_ID);
+    }
+
+    @Test
+    void shouldKeepLegacyAllBrokerDefaultWhenOfferingFieldsAreAbsent() {
+        when(propertyRepository.save(any())).thenAnswer(invocation -> {
+            Property property = invocation.getArgument(0);
+            property.setId(PROPERTY_ID);
+            return property;
+        });
+        CreatePropertyRequest request = new ObjectMapper().convertValue(Map.of(
+                "title", "Casa", "operation", "SALE", "propertyType", "HOUSE"), CreatePropertyRequest.class);
+
+        assertThat(propertyService.createProperty(request).availableToAllBrokers()).isTrue();
+    }
+
+    @Test
+    void shouldAllowOwnWriterToEditOwnProperty() {
+        authenticate("properties:write_own");
+        Property property = buildProperty();
+        property.setCreatedByUserId(TenantContext.getUserId());
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(PROPERTY_ID, TENANT_ID)).thenReturn(Optional.of(property));
+        when(propertyRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        UpdatePropertyRequest request = new ObjectMapper().convertValue(Map.of("title", "Novo título"), UpdatePropertyRequest.class);
+
+        assertThat(propertyService.updateProperty(PROPERTY_ID, request).title()).isEqualTo("Novo título");
+        assertThat(propertyService.canEditProperty(PROPERTY_ID)).isTrue();
+        TenantContext.setUserId(UUID.randomUUID());
+        assertThat(propertyService.canEditProperty(PROPERTY_ID)).isFalse();
+    }
+
+    @Test
+    void shouldRejectOfferingToAnotherBrokerForOwnOnlyWriter() {
+        authenticate("properties:write_own");
+        CreatePropertyRequest request = new ObjectMapper().convertValue(Map.of(
+                "title", "Casa", "operation", "SALE", "propertyType", "HOUSE",
+                "availableToAllBrokers", false, "brokerIds", List.of(UUID.randomUUID())), CreatePropertyRequest.class);
+
+        assertThatThrownBy(() -> propertyService.createProperty(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+        verify(propertyRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectMediaChangesBeforeUploadingForAnotherOwner() {
+        authenticate("properties:write_own");
+        Property property = buildProperty();
+        property.setCreatedByUserId(UUID.randomUUID());
+        when(propertyRepository.findByIdAndTenantIdAndDeletedAtIsNull(PROPERTY_ID, TENANT_ID)).thenReturn(Optional.of(property));
+
+        assertThatThrownBy(() -> propertyService.addPhoto(PROPERTY_ID,
+                new MockMultipartFile("file", "image.jpg", "image/jpeg", new byte[]{1}), null))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+        verifyNoInteractions(fileStorageService);
+    }
+
+    @Test
+    void shouldRejectInactiveOrForeignBrokersForAllWriter() {
+        CreatePropertyRequest request = new ObjectMapper().convertValue(Map.of(
+                "title", "Casa", "operation", "SALE", "propertyType", "HOUSE",
+                "availableToAllBrokers", false, "brokerIds", List.of(UUID.randomUUID())), CreatePropertyRequest.class);
+
+        assertThatThrownBy(() -> propertyService.createProperty(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+        verify(propertyRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldDenyCreateForReadOnlyUser() {
+        authenticate("properties:read");
+        CreatePropertyRequest request = new ObjectMapper().convertValue(Map.of(
+                "title", "Casa", "operation", "SALE", "propertyType", "HOUSE"), CreatePropertyRequest.class);
+
+        assertThatThrownBy(() -> propertyService.createProperty(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+        verifyNoInteractions(propertyRepository);
+    }
+
+    @Test
+    void shouldExposePerPropertyWriteAccessOnlyOnAuthenticatedListing() {
+        authenticate("properties:write_own");
+        Property own = buildProperty();
+        own.setCreatedByUserId(TenantContext.getUserId());
+        Property other = buildProperty();
+        other.setId(UUID.randomUUID());
+        other.setCreatedByUserId(UUID.randomUUID());
+        when(propertyRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(own, other), PageRequest.of(0, 20), 2));
+        var controller = new com.rinoimob.api.controller.PropertyController(propertyService);
+
+        var page = controller.list(null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20)).getBody();
+        var json = new ObjectMapper().findAndRegisterModules().valueToTree(page);
+
+        assertThat(json.path("content").get(0).path("canEdit").asBoolean()).isTrue();
+        assertThat(json.path("content").get(1).path("canEdit").asBoolean()).isFalse();
+        assertThat(json.path("content").get(0).path("id").asText()).isEqualTo(PROPERTY_ID.toString());
+        assertThat(json.path("content").get(0).has("createdByUserId")).isFalse();
     }
 
     // ── createProperty ────────────────────────────────────────────────────────

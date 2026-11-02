@@ -12,6 +12,8 @@ public enum Permission {
     LEADS_WRITE_ALL("leads:write_all"),
     PROPERTIES_READ("properties:read"),
     PROPERTIES_WRITE("properties:write"),
+    PROPERTIES_WRITE_OWN("properties:write_own"),
+    PROPERTIES_WRITE_ALL("properties:write_all"),
     TASKS_READ("tasks:read"),
     TASKS_WRITE("tasks:write"),
     TASKS_READ_OWN("tasks:read_own"),
