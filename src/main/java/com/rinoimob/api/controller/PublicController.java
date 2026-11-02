@@ -29,6 +29,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -39,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/public")
@@ -113,11 +118,14 @@ public class PublicController {
     }
 
     @GetMapping("/brokers/{slug}")
+    @Operation(summary = "Consultar perfil comercial público do corretor neste tenant")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Perfil comercial"),
+            @ApiResponse(responseCode = "404", description = "Corretor não encontrado")})
     public ResponseEntity<PublicBrokerProfileResponse> getBrokerProfile(
             @RequestHeader("X-Tenant-Slug") String tenantSlug,
             @PathVariable String slug) {
         UUID tenantId = resolveTenant(tenantSlug);
-        return userRepository.findByTenantIdAndPublicSlugAndActive(tenantId, slug.trim().toLowerCase(), true)
+        return userRepository.findByTenantIdAndPublicSlugAndActive(tenantId, slug.trim().toLowerCase(Locale.ROOT), true)
                 .map(user -> ResponseEntity.ok(new PublicBrokerProfileResponse(
                         user.getPublicSlug(),
                         String.join(" ", Optional.ofNullable(user.getFirstName()).orElse(""), Optional.ofNullable(user.getLastName()).orElse("")).trim(),
@@ -126,15 +134,23 @@ public class PublicController {
     }
 
     @GetMapping("/brokers/{slug}/properties")
+    @Operation(summary = "Listar imóveis ativos que o corretor pode ofertar neste tenant")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Catálogo paginado"),
+            @ApiResponse(responseCode = "400", description = "Paginação inválida"),
+            @ApiResponse(responseCode = "404", description = "Corretor não encontrado")})
     public ResponseEntity<Page<PropertySummaryResponse>> listBrokerProperties(
             @RequestHeader("X-Tenant-Slug") String tenantSlug, @PathVariable String slug,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Paginação inválida");
+        }
         UUID tenantId = resolveTenant(tenantSlug);
         TenantContext.setTenantId(tenantId.toString());
         try {
-            UUID brokerId = userRepository.findByTenantIdAndPublicSlugAndActive(tenantId, slug.trim().toLowerCase(), true)
+            UUID brokerId = userRepository.findByTenantIdAndPublicSlugAndActive(tenantId, slug.trim().toLowerCase(Locale.ROOT), true)
                     .map(user -> user.getId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Broker not found"));
-            return ResponseEntity.ok(propertyService.listPublicByBroker(brokerId, PageRequest.of(page, size)));
+            return ResponseEntity.ok(propertyService.listPublicByBroker(brokerId,
+                    PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id")))));
         } finally {
             TenantContext.clear();
         }
@@ -191,7 +207,7 @@ public class PublicController {
         try {
             UUID referredByUserId = request.brokerSlug() == null || request.brokerSlug().isBlank()
                     ? null
-                    : userRepository.findByTenantIdAndPublicSlugAndActive(tenantId, request.brokerSlug().trim().toLowerCase(), true)
+                    : userRepository.findByTenantIdAndPublicSlugAndActive(tenantId, request.brokerSlug().trim().toLowerCase(Locale.ROOT), true)
                     .map(User::getId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Broker not found"));
             CreateLeadRequest leadReq = new CreateLeadRequest(

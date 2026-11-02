@@ -23,6 +23,7 @@ public record UpdateTenantWebsiteConfigRequest(
         String categoriesSectionSubtitle,
         String servicesSectionTitle,
         String servicesSectionSubtitle,
+        String servicesItems,
         String servicesFormTitle,
         String servicesFormSubtitle,
         String statsSectionTitle,

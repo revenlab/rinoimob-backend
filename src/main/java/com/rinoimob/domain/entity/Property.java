@@ -36,6 +36,9 @@ public class Property {
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
 
+    @Column(name = "created_by_user_id", updatable = false)
+    private UUID createdByUserId;
+
     @Column(nullable = false, length = 200)
     private String title;
 
