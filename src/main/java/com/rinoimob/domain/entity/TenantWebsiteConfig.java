@@ -102,6 +102,9 @@ public class TenantWebsiteConfig {
     @Column(name = "services_section_subtitle")
     private String servicesSectionSubtitle;
 
+    @Column(name = "services_items", columnDefinition = "TEXT")
+    private String servicesItems;
+
     @Column(name = "services_form_title")
     private String servicesFormTitle;
 
